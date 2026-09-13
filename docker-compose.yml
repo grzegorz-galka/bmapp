@@ -1,0 +1,60 @@
+# Local development stack. Every published port is bound to 127.0.0.1:
+# nothing here is authenticated, so no service may be reachable from another
+# machine until an access-control capability exists.
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bmapp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bmapp}
+      POSTGRES_DB: ${POSTGRES_DB:-bmapp}
+    ports:
+      # Host port is configurable so the stack can coexist with another
+      # Postgres already using 5432 on the developer's machine.
+      - "127.0.0.1:${BMAPP_DB_PORT:-5432}:5432"
+    volumes:
+      # PostgreSQL 18 images expect the mount at /var/lib/postgresql and place
+      # the cluster in a version-specific subdirectory, so that pg_upgrade
+      # --link can work across a single mount point. Mounting the old
+      # /var/lib/postgresql/data leaves the server refusing to start.
+      - bmapp-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bmapp} -d ${POSTGRES_DB:-bmapp}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      # Inside the container the server must listen on all interfaces for the
+      # published port to reach it; the host side is pinned to 127.0.0.1 above.
+      BMAPP_HOST: 0.0.0.0
+      BMAPP_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-bmapp}:${POSTGRES_PASSWORD:-bmapp}@db:5432/${POSTGRES_DB:-bmapp}
+      BMAPP_FRONTEND_ORIGIN: http://localhost:5173
+    ports:
+      - "127.0.0.1:${BMAPP_API_PORT:-8000}:8000"
+    volumes:
+      - ./backend:/app
+      - /app/.venv
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    environment:
+      # The browser calls the dev server's /api prefix, which proxies to the
+      # backend: one origin, so no CORS preflight in development.
+      VITE_API_PROXY_TARGET: http://backend:8000
+      VITE_USE_POLLING: "1"
+    ports:
+      - "127.0.0.1:${BMAPP_WEB_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  bmapp-db-data:

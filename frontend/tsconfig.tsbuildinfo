@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/api/teams.ts","./src/features/teams/TeamsPage.test.tsx","./src/features/teams/TeamsPage.tsx","./src/features/teams/useTeams.ts","./e2e/register-a-team.spec.ts","./vite.config.ts","./vitest.setup.ts"],"version":"6.0.3"}
