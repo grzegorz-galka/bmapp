@@ -1,20 +1,11 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TeamsPage } from './TeamsPage';
+import { renderWithLanguage } from '../../test/render';
+import { en } from '../../i18n/en';
+import { pl } from '../../i18n/pl';
 import type { Team } from '../../api/teams';
-
-function renderPage() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <TeamsPage />
-    </QueryClientProvider>,
-  );
-}
 
 function team(name: string): Team {
   return { id: `id-${name}`, name, board: { id: `board-${name}`, name } };
@@ -23,6 +14,13 @@ function team(name: string): Team {
 function jsonResponse(body: unknown, status = 200) {
   return { ok: status < 400, status, json: async () => body } as Response;
 }
+
+/** The error body shape the API uses: a code to translate, English for a dev. */
+function fieldError(code: string, message: string, status = 409) {
+  return jsonResponse({ errors: [{ field: 'name', code, message }] }, status);
+}
+
+const DUPLICATE_MESSAGE = "A team named 'Platform' already exists.";
 
 const fetchMock = vi.fn();
 
@@ -33,13 +31,14 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  window.localStorage.clear();
 });
 
-describe('TeamsPage', () => {
+describe('TeamsPage in English', () => {
   it('renders the teams in the order the API returned them', async () => {
     fetchMock.mockResolvedValue(jsonResponse([team('alpha'), team('Platform'), team('Quality')]));
 
-    renderPage();
+    await renderWithLanguage(<TeamsPage />, 'en');
 
     const items = await screen.findAllByRole('listitem');
     expect(items.map((item) => item.textContent)).toEqual([
@@ -52,62 +51,115 @@ describe('TeamsPage', () => {
   it('reports when no teams are registered yet', async () => {
     fetchMock.mockResolvedValue(jsonResponse([]));
 
-    renderPage();
+    await renderWithLanguage(<TeamsPage />, 'en');
 
-    expect(await screen.findByText('No teams registered yet.')).toBeInTheDocument();
+    expect(await screen.findByText(en.teams.empty)).toBeInTheDocument();
+  });
+
+  it('reports when the list could not be loaded', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ errors: [] }, 500));
+
+    await renderWithLanguage(<TeamsPage />, 'en');
+
+    expect(await screen.findByText(en.teams.loadFailed)).toBeInTheDocument();
   });
 
   it('shows a newly registered team without a manual reload', async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse(team('Platform'), 201))
-      .mockResolvedValueOnce(jsonResponse([team('Platform')]));
+      .mockResolvedValue(jsonResponse([team('Platform')]));
 
-    renderPage();
-    await screen.findByText('No teams registered yet.');
+    await renderWithLanguage(<TeamsPage />, 'en');
+    await screen.findByText(en.teams.empty);
 
-    await userEvent.type(screen.getByLabelText('Team name'), 'Platform');
-    await userEvent.click(screen.getByRole('button', { name: 'Register team' }));
+    await userEvent.type(screen.getByLabelText(en.teams.nameLabel), 'Platform');
+    await userEvent.click(screen.getByRole('button', { name: en.teams.register }));
 
-    expect(await screen.findByText('Platform — board: Platform')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByLabelText('Team name')).toHaveValue(''));
+    expect(await screen.findByRole('listitem')).toHaveTextContent('Platform — board: Platform');
+  });
+});
+
+describe('TeamsPage in Polish', () => {
+  it('renders every string in Polish', async () => {
+    fetchMock.mockResolvedValue(jsonResponse([team('Platform')]));
+
+    await renderWithLanguage(<TeamsPage />, 'pl');
+
+    // A team name is data, not text to translate, but the label around it is.
+    expect(await screen.findByRole('listitem')).toHaveTextContent('Platform — tablica: Platform');
+    expect(screen.getByRole('heading', { name: pl.teams.heading })).toBeInTheDocument();
+    expect(screen.getByLabelText(pl.teams.nameLabel)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: pl.teams.register })).toBeInTheDocument();
+    expect(screen.queryByText(en.teams.heading)).not.toBeInTheDocument();
   });
 
-  it('surfaces a rejected blank name against the name field', async () => {
+  it('reports an empty list in Polish', async () => {
+    fetchMock.mockResolvedValue(jsonResponse([]));
+
+    await renderWithLanguage(<TeamsPage />, 'pl');
+
+    expect(await screen.findByText(pl.teams.empty)).toBeInTheDocument();
+  });
+
+  it('reports a failed load in Polish', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ errors: [] }, 500));
+
+    await renderWithLanguage(<TeamsPage />, 'pl');
+
+    expect(await screen.findByText(pl.teams.loadFailed)).toBeInTheDocument();
+  });
+});
+
+describe('an error the API reports against a field', () => {
+  it('is shown in English, using our wording and not the API text', async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse([]))
-      .mockResolvedValueOnce(
-        jsonResponse({ errors: [{ field: 'name', message: 'Team name must not be blank.' }] }, 422),
-      );
+      .mockResolvedValue(fieldError('team_name.duplicate', DUPLICATE_MESSAGE));
 
-    renderPage();
-    await screen.findByText('No teams registered yet.');
+    await renderWithLanguage(<TeamsPage />, 'en');
+    await screen.findByText(en.teams.empty);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Register team' }));
+    await userEvent.type(screen.getByLabelText(en.teams.nameLabel), 'Platform');
+    await userEvent.click(screen.getByRole('button', { name: en.teams.register }));
 
-    const error = await screen.findByRole('alert');
-    expect(error).toHaveTextContent('Team name must not be blank.');
-    expect(screen.getByLabelText('Team name')).toHaveAttribute('aria-invalid', 'true');
+    expect(await screen.findByRole('alert')).toHaveTextContent(en.errors['team_name.duplicate']);
+    expect(screen.queryByText(DUPLICATE_MESSAGE)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(en.teams.nameLabel)).toHaveAttribute('aria-invalid', 'true');
   });
 
-  it('surfaces a rejected duplicate name against the name field', async () => {
+  it('is shown in Polish, and the API English text appears nowhere', async () => {
     fetchMock
-      .mockResolvedValueOnce(jsonResponse([team('Platform')]))
-      .mockResolvedValueOnce(
-        jsonResponse(
-          { errors: [{ field: 'name', message: "A team named 'Platform' already exists." }] },
-          409,
-        ),
-      );
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValue(fieldError('team_name.duplicate', DUPLICATE_MESSAGE));
 
-    renderPage();
-    await screen.findByText('Platform — board: Platform');
+    await renderWithLanguage(<TeamsPage />, 'pl');
+    await screen.findByText(pl.teams.empty);
 
-    await userEvent.type(screen.getByLabelText('Team name'), 'platform');
-    await userEvent.click(screen.getByRole('button', { name: 'Register team' }));
+    await userEvent.type(screen.getByLabelText(pl.teams.nameLabel), 'Platform');
+    await userEvent.click(screen.getByRole('button', { name: pl.teams.register }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      "A team named 'Platform' already exists.",
-    );
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(pl.errors['team_name.duplicate']);
+    expect(document.body.textContent).not.toContain(DUPLICATE_MESSAGE);
+    expect(document.body.textContent).not.toContain(en.errors['team_name.duplicate']);
+  });
+
+  it('falls back to a generic message in the active language for an unknown code', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValue(fieldError('team_name.cursed', 'A reason this build never heard of.'));
+
+    await renderWithLanguage(<TeamsPage />, 'pl');
+    await screen.findByText(pl.teams.empty);
+
+    await userEvent.type(screen.getByLabelText(pl.teams.nameLabel), 'Platform');
+    await userEvent.click(screen.getByRole('button', { name: pl.teams.register }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(pl.errors.generic);
+    expect(document.body.textContent).not.toContain('A reason this build never heard of.');
+    // The error is still attributed to the field the API named.
+    expect(screen.getByLabelText(pl.teams.nameLabel)).toHaveAttribute('aria-invalid', 'true');
   });
 });

@@ -15,8 +15,10 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",
+    "i18next": "^26.4.2",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "react-i18next": "^17.0.14"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",
