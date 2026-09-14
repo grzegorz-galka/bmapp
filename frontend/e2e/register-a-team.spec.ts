@@ -3,6 +3,11 @@ import { en, type Translations } from '../src/i18n/en';
 import { pl } from '../src/i18n/pl';
 import { LANGUAGE_STORAGE_KEY } from '../src/i18n/languages';
 
+/*
+ * The team page moved to /teams when the hub took the root address; these
+ * flows are otherwise unchanged.
+ */
+
 /** A name no other run will collide with, since the stack keeps its data. */
 function uniqueTeamName() {
   return `E2E Team ${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -43,7 +48,7 @@ test('a registered team appears in the list and survives a reload', async ({ pag
   const name = uniqueTeamName();
   await useLanguage(page, 'en');
 
-  await page.goto('/');
+  await page.goto('/teams');
   await expect(page.getByRole('heading', { name: en.teams.heading })).toBeVisible();
 
   await page.getByLabel(en.teams.nameLabel).fill(name);
@@ -60,7 +65,7 @@ test('a duplicate name is reported against the name field', async ({ page }) => 
   const name = uniqueTeamName();
   await useLanguage(page, 'en');
 
-  await page.goto('/');
+  await page.goto('/teams');
   await page.getByLabel(en.teams.nameLabel).fill(name);
   await page.getByRole('button', { name: en.teams.register }).click();
   await expect(page.getByRole('listitem').filter({ hasText: name })).toBeVisible();
@@ -76,7 +81,7 @@ test('the whole flow reads in Polish, error included', async ({ page }) => {
   const name = uniqueTeamName();
   await useLanguage(page, 'pl');
 
-  await page.goto('/');
+  await page.goto('/teams');
   await expect(page.getByRole('heading', { name: pl.teams.heading })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'pl');
 
@@ -100,7 +105,7 @@ test('the whole flow reads in Polish, error included', async ({ page }) => {
 test('the language can be switched in the running app', async ({ page }) => {
   await useLanguage(page, 'en');
 
-  await page.goto('/');
+  await page.goto('/teams');
   await expect(page.getByRole('heading', { name: en.teams.heading })).toBeVisible();
 
   await page.getByLabel(en.language.label).selectOption('pl');

@@ -1,0 +1,147 @@
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.who {
+  font: 500 var(--fs-2xs) var(--font-mono);
+  color: var(--ink-2);
+}
+
+.empty {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 120px auto;
+  gap: 14px;
+  align-items: center;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--raise);
+}
+
+.kind {
+  font: 500 var(--fs-2xs) var(--font-mono);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.identity {
+  min-width: 0;
+}
+
+.summary {
+  font-size: var(--fs-base);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team {
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+  margin-top: 2px;
+}
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.percent {
+  font: 500 var(--fs-2xs) var(--font-mono);
+  color: var(--ink-2);
+}
+
+.track {
+  height: 4px;
+  border-radius: 3px;
+  background: var(--line-2);
+  display: block;
+  overflow: hidden;
+}
+
+.bar,
+.barDone {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.bar {
+  background: var(--accent);
+}
+
+.barDone {
+  background: var(--good);
+}
+
+.due,
+.overdue {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) 9px;
+  border-radius: 6px;
+  font: 500 var(--fs-2xs) var(--font-mono);
+  white-space: nowrap;
+}
+
+.due {
+  background: var(--panel-2);
+  color: var(--ink-2);
+}
+
+.overdue {
+  background: color-mix(in oklch, var(--stage-open) 22%, var(--panel));
+  color: var(--ink);
+}
+
+/* Colour is never the only signal that an item is late. */
+.overdueWord {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--bad);
+}
+
+@media (max-width: 760px) {
+  .item {
+    grid-template-columns: 62px minmax(0, 1fr);
+  }
+
+  .progress,
+  .due,
+  .overdue {
+    grid-column: 2;
+    justify-self: start;
+  }
+}

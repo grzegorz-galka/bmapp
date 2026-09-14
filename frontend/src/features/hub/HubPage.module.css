@@ -1,0 +1,132 @@
+.page {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding-block: 0 56px;
+  padding-inline: var(--sp-7);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+  padding: var(--sp-7) 0 var(--sp-6);
+}
+
+.heroText {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 var(--sp-4);
+  font: 500 var(--fs-2xs) / 1 var(--font-mono);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--good);
+  animation: bmpulse 2.2s ease-in-out infinite;
+}
+
+@keyframes bmpulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.title {
+  margin: 0;
+  font-size: var(--fs-3xl);
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+  text-wrap: pretty;
+  max-width: 15em;
+}
+
+.lede {
+  margin: var(--sp-4) 0 0;
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  color: var(--ink-2);
+  max-width: 52ch;
+  text-wrap: pretty;
+}
+
+.status {
+  margin: 0 0 14px;
+  padding: var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.panel {
+  margin-top: 14px;
+  padding: 22px var(--sp-6);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.rule {
+  height: 1px;
+  border: 0;
+  background: var(--line);
+  margin: 22px 0 18px;
+}
+
+.provisional {
+  margin: var(--sp-3) 0 0;
+  font: 500 var(--fs-2xs) var(--font-mono);
+  color: var(--ink-3);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  justify-content: space-between;
+  margin-top: var(--sp-6);
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  font: 400 var(--fs-xs) var(--font-mono);
+  color: var(--ink-2);
+}
+
+@media (max-width: 1000px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .page {
+    padding-inline: var(--sp-4);
+  }
+
+  .title {
+    font-size: 2rem;
+  }
+
+  .panel {
+    padding: var(--sp-4);
+  }
+}

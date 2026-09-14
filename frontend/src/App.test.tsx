@@ -2,6 +2,9 @@
  * The app-level scenarios: the language control is on the page whatever it
  * shows, and changing language does not throw away work in progress.
  * See "A user can change the language" in specs/localization/spec.md.
+ *
+ * Rendered at /teams, which is where the form these scenarios need lives now
+ * that the hub is what the application opens at.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { screen } from '@testing-library/react';
@@ -32,7 +35,7 @@ describe('App', () => {
   it('shows the language control above the page', async () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => [] } as Response);
 
-    await renderWithLanguage(<App />, 'en');
+    await renderWithLanguage(<App />, 'en', { route: '/teams' });
 
     expect(screen.getByLabelText(en.language.label)).toBeInTheDocument();
     expect(await screen.findByText(en.teams.empty)).toBeInTheDocument();
@@ -45,7 +48,7 @@ describe('App', () => {
       json: async () => [team('Platform')],
     } as Response);
 
-    await renderWithLanguage(<App />, 'en');
+    await renderWithLanguage(<App />, 'en', { route: '/teams' });
     await screen.findByRole('listitem');
 
     await userEvent.selectOptions(screen.getByLabelText(en.language.label), 'pl');
@@ -67,7 +70,7 @@ describe('App', () => {
       json: async () => [team('Platform')],
     } as Response);
 
-    await renderWithLanguage(<App />, 'en');
+    await renderWithLanguage(<App />, 'en', { route: '/teams' });
     await screen.findByRole('listitem');
 
     await userEvent.type(screen.getByLabelText(en.teams.nameLabel), 'Half typed');

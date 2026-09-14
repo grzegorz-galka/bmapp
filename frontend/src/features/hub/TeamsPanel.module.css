@@ -1,0 +1,128 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  padding: 18px var(--sp-5) 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-3);
+}
+
+.heading {
+  margin: 0;
+  font: 500 var(--fs-2xs) var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.count {
+  font: 500 var(--fs-2xs) var(--font-mono);
+  color: var(--ink-2);
+}
+
+.nearest {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.nearestName {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.nearestWhen {
+  font: 500 var(--fs-xs) var(--font-mono);
+  color: var(--ink-2);
+  margin-top: 3px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.team {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: var(--sp-3);
+  align-items: center;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+}
+
+.initials {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-sm);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  font: 600 var(--fs-2xs) var(--font-mono);
+  color: var(--ink-2);
+}
+
+.identity {
+  min-width: 0;
+}
+
+.name {
+  font-size: var(--fs-base);
+  font-weight: 500;
+}
+
+.meta {
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+}
+
+.when {
+  text-align: right;
+}
+
+.whenValue {
+  font: 500 var(--fs-sm) var(--font-mono);
+  color: var(--ink);
+}
+
+.ready,
+.notReady {
+  margin-top: 3px;
+  font: 500 var(--fs-2xs) var(--font-mono);
+  white-space: nowrap;
+}
+
+.ready {
+  color: var(--good);
+}
+
+.notReady {
+  color: var(--warn);
+}
+
+@media (max-width: 620px) {
+  .team {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .when {
+    grid-column: 2;
+    text-align: left;
+  }
+}

@@ -1,0 +1,101 @@
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+  flex-wrap: wrap;
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.scope {
+  font: 500 var(--fs-2xs) var(--font-mono);
+  color: var(--ink-2);
+}
+
+.stages {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: var(--sp-4) 18px var(--sp-4) var(--sp-6);
+  /* The chevron from the mockup. Decorative: the order is in the markup. */
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%, 16px 50%);
+}
+
+.stage:last-child {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 16px 50%);
+}
+
+.open {
+  background: color-mix(in oklch, var(--stage-open) var(--tint-2), var(--panel-2));
+}
+
+.inProgress {
+  background: color-mix(in oklch, var(--stage-progress) var(--tint-2), var(--panel-2));
+}
+
+.archived {
+  background: color-mix(in oklch, var(--stage-archived) var(--tint-2), var(--panel-2));
+}
+
+.stageName {
+  font: 500 var(--fs-2xs) var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.total {
+  font: 500 1.875rem/1 var(--font-mono);
+  letter-spacing: -0.03em;
+}
+
+.split {
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+}
+
+.foot {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+  font: 500 var(--fs-2xs) var(--font-mono);
+  color: var(--ink-2);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 760px) {
+  .stages {
+    flex-direction: column;
+  }
+
+  .stage,
+  .stage:last-child {
+    clip-path: none;
+    border-radius: var(--r-md);
+    padding: var(--sp-4);
+  }
+
+  .foot {
+    flex-direction: column;
+    gap: var(--sp-1);
+  }
+}

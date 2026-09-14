@@ -1,0 +1,220 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+}
+
+.ordinal {
+  position: absolute;
+  top: var(--sp-5);
+  right: var(--sp-5);
+  font: 500 var(--fs-2xs) var(--font-mono);
+  color: var(--ink-2);
+  letter-spacing: 0.1em;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  padding-right: var(--sp-6);
+}
+
+.bigTitle {
+  margin: 0;
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.body {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+/* Every destination is unbuilt; this is the note that says so. */
+.unavailable {
+  margin: auto 0 0;
+  font: 500 var(--fs-2xs) var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.conduct {
+  grid-column: span 2;
+  grid-row: span 2;
+  min-height: 290px;
+  background: color-mix(in oklch, var(--tile-conduct) var(--tint), var(--panel));
+}
+
+.conductBody {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-5);
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+.conductText {
+  flex: 1;
+  min-width: 200px;
+}
+
+.inSession {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  align-self: flex-start;
+  padding: 5px 10px;
+  border-radius: var(--r-pill);
+  background: color-mix(in oklch, var(--tile-conduct) 22%, var(--panel-2));
+  font: 500 var(--fs-2xs) var(--font-mono);
+}
+
+.pulse {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--tile-conduct);
+  animation: bmpulse 2.2s ease-in-out infinite;
+}
+
+@keyframes bmpulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.steps,
+.counts {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  padding: 7px var(--sp-3);
+  border-radius: var(--r-sm);
+  background: var(--raise);
+  border: 1px solid var(--line);
+  font: 500 var(--fs-sm) var(--font-mono);
+}
+
+.prepare {
+  grid-column: span 2;
+  min-height: 138px;
+  background: color-mix(in oklch, var(--tile-prepare) var(--tint), var(--panel));
+}
+
+.counts {
+  gap: 18px;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono);
+}
+
+.count {
+  display: flex;
+  flex-direction: column;
+}
+
+.countValue {
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.countLabel {
+  font-size: var(--fs-2xs);
+  color: var(--ink-2);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.browse {
+  grid-column: span 2;
+  min-height: 138px;
+  background: color-mix(in oklch, var(--tile-browse) var(--tint), var(--panel));
+}
+
+.adminHead {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: var(--sp-6) 0 var(--sp-3);
+}
+
+.adminLabel,
+.adminNote {
+  margin: 0;
+  font: 500 var(--fs-2xs) var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.rule {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.adminGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin {
+  background: var(--panel);
+}
+
+@media (max-width: 1000px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .conduct,
+  .prepare,
+  .browse {
+    grid-column: span 2;
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 620px) {
+  .grid,
+  .adminGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .conduct,
+  .prepare,
+  .browse {
+    grid-column: span 1;
+  }
+}

@@ -7,7 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import health_router, teams_router
+from app.api import health_router, hub_router, teams_router
 from app.core.config import get_settings
 from app.core.exceptions import GENERIC_ERROR_CODE, DomainError
 
@@ -22,6 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(health_router)
+app.include_router(hub_router)
 app.include_router(teams_router)
 
 

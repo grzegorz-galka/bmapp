@@ -5,10 +5,20 @@ that software teams here run along Kaizen / Lean lines: performance indicators
 with their trends, the problems the team is working through, and the tasks it
 has agreed.
 
-This repository currently contains the **walking skeleton**: one vertical slice
-— register a team and see the registered teams — proven end to end through the
-UI, the API, a service layer and PostgreSQL. See `openspec/` for what is
-specified and `CLAUDE.md` for the conventions.
+This repository currently contains the **walking skeleton**. One vertical slice
+is real end to end through the UI, the API, a service layer and PostgreSQL:
+register a team and see the registered teams, at `/teams`. On top of it sits
+the **hub** at `/`, the landing page built from the mockup in `mockups/` — the
+company declarations, your teams and the countdown to the next board meeting,
+what happens at a board meeting, and the problem and task funnel. See
+`openspec/` for what is specified and `CLAUDE.md` for the conventions.
+
+> **The hub's figures are placeholder data.** They come from one read-only
+> endpoint, `GET /hub`, built from constants: no tables, no migration, nothing
+> recorded. The response says so in a `provisional` field and the page says so
+> at the foot. It exists so the shell is real while the capabilities behind it
+> — meetings, metrics, problems, tasks — are built; each will replace a slice
+> of it.
 
 > **Not deployable.** No endpoint is authenticated. Every service binds to
 > `127.0.0.1` and the stack must not be exposed to a network or hold real board
@@ -28,7 +38,10 @@ docker compose up -d          # PostgreSQL + backend + frontend
 docker compose exec backend alembic upgrade head
 ```
 
-Then open <http://localhost:5173>.
+Then open <http://localhost:5173>. You land on the hub; the team registration
+page is at `/teams`, reachable from the header. The header also carries the
+English/Polish switcher and the dark/light theme toggle — dark by default, and
+your choice is remembered.
 
 | Service  | URL                                            |
 |----------|------------------------------------------------|
@@ -42,6 +55,15 @@ without a rebuild. Rebuild only when a dependency changes:
 
 ```bash
 docker compose build && docker compose up -d
+```
+
+The frontend needs one flag more. Its dependencies live in an anonymous
+`/app/node_modules` volume that survives both a rebuild and `up -d`, so after
+adding or upgrading an npm package the dev server keeps resolving against the
+old tree and fails on the new import:
+
+```bash
+docker compose up -d --build --renew-anon-volumes frontend
 ```
 
 **Port already in use?** Every published port is configurable, so the stack can
