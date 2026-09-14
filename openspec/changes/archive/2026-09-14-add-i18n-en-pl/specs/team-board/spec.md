@@ -1,8 +1,4 @@
-## Purpose
-
-Registers the teams that hold board meetings and the board that belongs to each one. This capability owns the team record and its board definition — the root entities every later capability attaches to, since indicators and their metrics hang off a board, and problems and tasks are tracked against the team that owns it.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Register a team with its board
 
@@ -36,17 +32,3 @@ Every rejection SHALL identify the offending field and SHALL carry a stable code
 
 - **WHEN** a team is submitted with a name that has leading or trailing whitespace around otherwise valid text
 - **THEN** the team is registered under the trimmed name, and the trimmed name is what is returned and what later submissions are compared against
-
-### Requirement: Retrieve the registered teams
-
-The system SHALL return the registered teams ordered by name, ascending. Each returned team SHALL carry its identifier, its name, and the identifier and name of its board definition.
-
-#### Scenario: Registered teams are returned in order
-
-- **WHEN** the team list is requested and one or more teams have been registered
-- **THEN** every registered team is returned, in ascending order of name, each carrying its board definition
-
-#### Scenario: No teams have been registered
-
-- **WHEN** the team list is requested and no teams have been registered
-- **THEN** an empty list is returned rather than an error

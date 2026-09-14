@@ -69,6 +69,42 @@ npm install
 npm run dev
 ```
 
+## Language
+
+The interface reads in **English** or **Polish**. Which one you get is decided
+once at startup: a language you chose explicitly before, else the first
+supported language the browser asks for (`pl-PL` counts as Polish), else
+English.
+
+To read it in Polish, pick Polish in the switcher in the page header. The
+choice is remembered in `localStorage` under `bmapp.language` and applies on
+your next visit, so to get back to browser detection, clear that key. You can
+also set it directly — this is how the Playwright specs pin a language:
+
+```js
+localStorage.setItem('bmapp.language', 'pl');   // in the browser console, then reload
+```
+
+### Adding a language
+
+Catalogues are TypeScript, not JSON, so that the compiler owns completeness: a
+key present in one language and missing from another is a `tsc` error rather
+than a silent English fallback in a translated page. To add German, say:
+
+1. Add `'de'` to `SUPPORTED_LANGUAGES` in `frontend/src/i18n/languages.ts`.
+2. Add a `language.de` entry to `en.ts`, naming the language *in* that language
+   (`Deutsch`). The switcher lists whatever `SUPPORTED_LANGUAGES` holds.
+3. Create `frontend/src/i18n/de.ts` exporting `const de: Translations = {…}`.
+   Annotating it as `Translations` is what makes the next step tell you exactly
+   which keys you still owe.
+4. Register it in `frontend/src/i18n/index.ts` under `resources`.
+5. Run `npm run typecheck`. A missing key and a stray key are both compile
+   errors; `npm run test` additionally compares the key sets, which catches a
+   loosened annotation.
+
+Domain vocabulary follows the glossary in the `add-i18n-en-pl` change's
+`design.md` — translate against it rather than inventing synonyms.
+
 ## Tests
 
 The backend suite runs against a **real PostgreSQL**, not an in-memory

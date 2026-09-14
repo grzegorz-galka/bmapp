@@ -3,6 +3,7 @@
 import uuid
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic_core import PydanticCustomError
 
 from app.models import TEAM_NAME_MAX_LENGTH
 
@@ -23,10 +24,14 @@ class TeamCreate(BaseModel):
         """
         trimmed = value.strip()
         if not trimmed:
-            raise ValueError("Team name must not be blank.")
+            # PydanticCustomError carries the published code as its type, which
+            # is where the exception handler reads it from.
+            raise PydanticCustomError("team_name.blank", "Team name must not be blank.")
         if len(trimmed) > TEAM_NAME_MAX_LENGTH:
-            raise ValueError(
-                f"Team name must be at most {TEAM_NAME_MAX_LENGTH} characters after trimming."
+            raise PydanticCustomError(
+                "team_name.too_long",
+                "Team name must be at most {max_length} characters after trimming.",
+                {"max_length": TEAM_NAME_MAX_LENGTH},
             )
         return trimmed
 

@@ -18,9 +18,15 @@ export interface Team {
   board: Board;
 }
 
-/** One field-level failure, in the shape every error response uses. */
+/**
+ * One field-level failure, in the shape every error response uses.
+ *
+ * `code` names the reason and is what the interface translates. `message` is
+ * the API's own English text: developer-facing, never displayed.
+ */
 export interface ApiFieldError {
   field: string | null;
+  code?: string;
   message: string;
 }
 
@@ -36,9 +42,9 @@ export class ApiError extends Error {
     this.errors = errors;
   }
 
-  /** The message reported against a given form field, if any. */
-  messageFor(field: string): string | undefined {
-    return this.errors.find((error) => error.field === field)?.message;
+  /** The failure reported against a given form field, if any. */
+  errorFor(field: string): ApiFieldError | undefined {
+    return this.errors.find((error) => error.field === field);
   }
 }
 

@@ -27,15 +27,27 @@ def test_team_is_registered_successfully(client: TestClient, session: Session) -
     assert stored[0].board is not None
 
 
-@pytest.mark.parametrize("payload", [{}, {"name": ""}, {"name": "   "}])
+@pytest.mark.parametrize(
+    ("payload", "expected_code"),
+    [
+        # A name that was submitted but says nothing is a blank name; one that
+        # was never submitted, or is not text at all, never reached the rule.
+        ({"name": ""}, "team_name.blank"),
+        ({"name": "   "}, "team_name.blank"),
+        ({}, "request.invalid_field"),
+        ({"name": 123}, "request.invalid_field"),
+    ],
+)
 def test_name_is_missing_or_blank(
-    client: TestClient, session: Session, payload: dict[str, str]
+    client: TestClient, session: Session, payload: dict[str, object], expected_code: str
 ) -> None:
     """Scenario: Name is missing or blank."""
     response = client.post("/teams", json=payload)
 
     assert response.status_code == 422
-    assert response.json()["errors"][0]["field"] == "name"
+    error = response.json()["errors"][0]
+    assert error["field"] == "name"
+    assert error["code"] == expected_code
     assert session.query(Team).count() == 0
 
 
@@ -44,7 +56,9 @@ def test_name_exceeds_the_maximum_length(client: TestClient, session: Session) -
     response = client.post("/teams", json={"name": "x" * (TEAM_NAME_MAX_LENGTH + 1)})
 
     assert response.status_code == 422
-    assert response.json()["errors"][0]["field"] == "name"
+    error = response.json()["errors"][0]
+    assert error["field"] == "name"
+    assert error["code"] == "team_name.too_long"
     assert session.query(Team).count() == 0
 
 
@@ -59,7 +73,9 @@ def test_name_duplicates_an_existing_team(client: TestClient, session: Session) 
     response = client.post("/teams", json={"name": "  pLaTfOrM  "})
 
     assert response.status_code == 409
-    assert response.json()["errors"][0]["field"] == "name"
+    error = response.json()["errors"][0]
+    assert error["field"] == "name"
+    assert error["code"] == "team_name.duplicate"
     assert session.query(Team).count() == 1
 
 

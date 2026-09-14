@@ -1,15 +1,20 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ApiError } from '../../api/teams';
+import { translateErrorCode } from '../../i18n/apiErrors';
 import { useRegisterTeam, useTeams } from './useTeams';
 
 export function TeamsPage() {
   // Local UI state only. The team list is server state and lives in the query.
   const [name, setName] = useState('');
+  const { t } = useTranslation();
   const teams = useTeams();
   const registerTeam = useRegisterTeam();
 
-  const nameError =
-    registerTeam.error instanceof ApiError ? registerTeam.error.messageFor('name') : undefined;
+  const nameFailure =
+    registerTeam.error instanceof ApiError ? registerTeam.error.errorFor('name') : undefined;
+  // The API says why; the wording is ours, in the language being read.
+  const nameError = nameFailure ? translateErrorCode(t, nameFailure) : undefined;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -18,10 +23,10 @@ export function TeamsPage() {
 
   return (
     <main>
-      <h1>Teams</h1>
+      <h1>{t('teams.heading')}</h1>
 
       <form onSubmit={handleSubmit} noValidate>
-        <label htmlFor="team-name">Team name</label>
+        <label htmlFor="team-name">{t('teams.nameLabel')}</label>
         <input
           id="team-name"
           name="name"
@@ -36,20 +41,20 @@ export function TeamsPage() {
           </p>
         )}
         <button type="submit" disabled={registerTeam.isPending}>
-          {registerTeam.isPending ? 'Registering…' : 'Register team'}
+          {registerTeam.isPending ? t('teams.registering') : t('teams.register')}
         </button>
       </form>
 
-      {teams.isPending && <p>Loading teams…</p>}
-      {teams.isError && <p role="alert">Could not load teams.</p>}
+      {teams.isPending && <p>{t('teams.loading')}</p>}
+      {teams.isError && <p role="alert">{t('teams.loadFailed')}</p>}
       {teams.data &&
         (teams.data.length === 0 ? (
-          <p>No teams registered yet.</p>
+          <p>{t('teams.empty')}</p>
         ) : (
           <ul>
             {teams.data.map((team) => (
               <li key={team.id}>
-                {team.name} — board: {team.board.name}
+                {team.name} — {t('teams.boardSuffix', { name: team.board.name })}
               </li>
             ))}
           </ul>

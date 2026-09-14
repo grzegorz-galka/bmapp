@@ -1,0 +1,84 @@
+/**
+ * The app-level scenarios: the language control is on the page whatever it
+ * shows, and changing language does not throw away work in progress.
+ * See "A user can change the language" in specs/localization/spec.md.
+ */
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { App } from './App';
+import { renderWithLanguage } from './test/render';
+import { en } from './i18n/en';
+import { pl } from './i18n/pl';
+import type { Team } from './api/teams';
+
+function team(name: string): Team {
+  return { id: `id-${name}`, name, board: { id: `board-${name}`, name } };
+}
+
+const fetchMock = vi.fn();
+
+beforeEach(() => {
+  vi.stubGlobal('fetch', fetchMock);
+  fetchMock.mockReset();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  window.localStorage.clear();
+});
+
+describe('App', () => {
+  it('shows the language control above the page', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => [] } as Response);
+
+    await renderWithLanguage(<App />, 'en');
+
+    expect(screen.getByLabelText(en.language.label)).toBeInTheDocument();
+    expect(await screen.findByText(en.teams.empty)).toBeInTheDocument();
+  });
+
+  it('retranslates the whole page when the language changes, with no reload', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => [team('Platform')],
+    } as Response);
+
+    await renderWithLanguage(<App />, 'en');
+    await screen.findByRole('listitem');
+
+    await userEvent.selectOptions(screen.getByLabelText(en.language.label), 'pl');
+
+    expect(await screen.findByRole('heading', { name: pl.teams.heading })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: pl.teams.register })).toBeInTheDocument();
+    expect(screen.queryByText(en.teams.heading)).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText(pl.language.label), 'en');
+
+    expect(await screen.findByRole('heading', { name: en.teams.heading })).toBeInTheDocument();
+    expect(screen.queryByText(pl.teams.heading)).not.toBeInTheDocument();
+  });
+
+  it('keeps typed text and the loaded list across a language change', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => [team('Platform')],
+    } as Response);
+
+    await renderWithLanguage(<App />, 'en');
+    await screen.findByRole('listitem');
+
+    await userEvent.type(screen.getByLabelText(en.teams.nameLabel), 'Half typed');
+    const requestsBefore = fetchMock.mock.calls.length;
+
+    await userEvent.selectOptions(screen.getByLabelText(en.language.label), 'pl');
+
+    // The field keeps what was typed, under its now-Polish label...
+    expect(await screen.findByLabelText(pl.teams.nameLabel)).toHaveValue('Half typed');
+    // ...and the list is still there, not refetched.
+    expect(screen.getByRole('listitem')).toHaveTextContent('Platform');
+    expect(fetchMock.mock.calls.length).toBe(requestsBefore);
+  });
+});

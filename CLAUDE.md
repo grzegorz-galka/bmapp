@@ -67,14 +67,14 @@ reintroduce it without a change that says why.
 
 Three-tier web application hosted on-premise.
 
-| Layer     | Choice                                                                | Notes                                  |
-|-----------|-----------------------------------------------------------------------|----------------------------------------|
-| Database  | PostgreSQL 18                                                         | Migrations via Alembic                 |
-| Backend   | Python 3.14, FastAPI, SQLAlchemy 2.x, Pydantic v2                     | REST API, OpenAPI generated            |
-| Frontend  | React 19 + TypeScript 6, Vite 8, TanStack Query, Recharts             | Vue was an option; React was chosen    |
-| Tests     | pytest, pytest-cov, httpx (API), Vitest + Testing Library, Playwright | pytest-bdd for BDD where it pays off   |
-| Tooling   | uv (Python deps), Ruff (lint+format), mypy, ESLint + Prettier         |                                        |
-| Runtime   | Docker Compose for local dev; single Compose stack on-prem            | Node 24 and Python 3.14 base images    |
+| Layer    | Choice                                                                             | Notes                                |
+|----------|------------------------------------------------------------------------------------|--------------------------------------|
+| Database | PostgreSQL 18                                                                      | Migrations via Alembic               |
+| Backend  | Python 3.14, FastAPI, SQLAlchemy 2.x, Pydantic v2                                  | REST API, OpenAPI generated          |
+| Frontend | React 19 + TypeScript 6, Vite 8, TanStack Query, Recharts, i18next + react-i18next | Vue was an option; React was chosen  |
+| Tests    | pytest, pytest-cov, httpx (API), Vitest + Testing Library, Playwright              | pytest-bdd for BDD where it pays off |
+| Tooling  | uv (Python deps), Ruff (lint+format), mypy, ESLint + Prettier                      |                                      |
+| Runtime  | Docker Compose for local dev; single Compose stack on-prem                         | Node 24 and Python 3.14 base images  |
 
 Recharts is the agreed charting library but is not installed yet: nothing
 renders a chart until metrics arrive. Everything else in the table is in the
@@ -86,6 +86,26 @@ compiler port and works for `tsc`, the build and the tests, but
 against it (`typescript-eslint does not support TS 7.0`), which takes
 `npm run lint` to exit 2. 6.0.3 sits inside its supported range and keeps every
 gate green. Revisit when a `typescript-eslint` release supports TS 7.
+
+**The interface is bilingual: English and Polish.** Every user-facing string
+lives in `frontend/src/i18n/en.ts` and `frontend/src/i18n/pl.ts`, never as a
+literal in a component - headings, labels, button captions, empty and loading
+states, and `aria-*` text alike. `pl.ts` is annotated as `Translations`, the
+type derived from the English catalogue, so a key added to one catalogue and
+not the other is a `tsc` error rather than a silent English fallback in a
+Polish page. `t()` keys are type-checked the same way. Translations of the
+domain glossary (Tablica, Spotkanie, Zespół, Wskaźnik, Zadanie) are fixed in the
+`add-i18n-en-pl` change's `design.md`; follow them rather than inventing
+synonyms. Language is resolved from a remembered choice, then the
+browser, then English, and a switcher sits in the app header.
+
+**API field errors carry a stable `code`.** Every entry in an error response is
+`{field, code, message}`. `code` names the reason (`team_name.duplicate`) and is
+what the frontend translates; `message` is English text for a developer and is
+never displayed. A code is part of the published API - once released it is not
+renamed, and adding one is a spec change. Services set it on their `DomainError`
+subclass; Pydantic validators carry it by raising `PydanticCustomError` with the
+code as its type.
 
 **PostgreSQL 18 images changed where the data volume mounts.** The cluster now
 lives in a version-specific subdirectory under `/var/lib/postgresql`, so
@@ -142,11 +162,15 @@ Rules that matter:
 `initial-skeleton` is implemented: `docker compose up -d` brings up PostgreSQL,
 the API and the web app, and the one slice that exists end to end is the
 `team-board` capability — register a team (which creates the one board it owns)
-and list the registered teams.
+and list the registered teams. `localization` is implemented on top of it: the
+interface reads in English or Polish, and API rejections arrive as codes the
+frontend translates.
 
 Everything else in the domain model above — employees and membership, meetings,
 metrics and their values, targets, problems, tasks, archiving, and
-authentication — is agreed but not built. Each is a capability of its own;
+authentication — is agreed but not built. Locale-aware date and number
+formatting is deliberately not built either: nothing displays a date yet, so it
+belongs to the meetings capability. Each is a capability of its own;
 propose it through `/opsx:propose` rather than adding it inline.
 
 ## Repository layout
