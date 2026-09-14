@@ -51,6 +51,9 @@ board. BMAPP provides that board online and lets a team:
 
 Glossary (use these exact terms in code, UI and tests):
 
+- **Hub** — the landing page at `/`: the company declarations, the user's teams
+  and the countdown to their next meeting, what can be done at a board meeting,
+  and the problem/task funnel. Not a board; the way in to them.
 - **Board** — a team's page: metrics + problems + tasks.
 - **Meeting** — one occurrence of a team's board meeting. Metric values are recorded at a meeting and belong to it.
 - **Metric** — a named thing the team measures (e.g. "Open bugs"), with a unit and an acceptable min/max. Teams track metrics directly.
@@ -71,14 +74,15 @@ Three-tier web application hosted on-premise.
 |----------|------------------------------------------------------------------------------------|--------------------------------------|
 | Database | PostgreSQL 18                                                                      | Migrations via Alembic               |
 | Backend  | Python 3.14, FastAPI, SQLAlchemy 2.x, Pydantic v2                                  | REST API, OpenAPI generated          |
-| Frontend | React 19 + TypeScript 6, Vite 8, TanStack Query, Recharts, i18next + react-i18next | Vue was an option; React was chosen  |
+| Frontend | React 19 + TypeScript 6, Vite 8, react-router, TanStack Query, Recharts, i18next + react-i18next, IBM Plex via @fontsource | Vue was an option; React was chosen  |
 | Tests    | pytest, pytest-cov, httpx (API), Vitest + Testing Library, Playwright              | pytest-bdd for BDD where it pays off |
 | Tooling  | uv (Python deps), Ruff (lint+format), mypy, ESLint + Prettier                      |                                      |
 | Runtime  | Docker Compose for local dev; single Compose stack on-prem                         | Node 24 and Python 3.14 base images  |
 
 Recharts is the agreed charting library but is not installed yet: nothing
-renders a chart until metrics arrive. Everything else in the table is in the
-tree and exercised by the test suite.
+renders a chart until metrics arrive — the hub's bar glyph is three coloured
+`div`s. Everything else in the table is in the tree and exercised by the test
+suite.
 
 **TypeScript stays on 6, not 7, deliberately.** TypeScript 7.0 is the native
 compiler port and works for `tsc`, the build and the tests, but
@@ -106,6 +110,28 @@ never displayed. A code is part of the published API - once released it is not
 renamed, and adding one is a spec change. Services set it on their `DomainError`
 subclass; Pydantic validators carry it by raising `PydanticCustomError` with the
 code as its type.
+
+**IBM Plex is self-hosted, not fetched from a CDN.** The fonts come from
+`@fontsource-variable/ibm-plex-sans` and `@fontsource/ibm-plex-mono` and are
+bundled. The deployment is on-premise and cannot assume the public internet is
+reachable, so a Google Fonts link would silently fall back to a system stack on
+exactly the machines that run the application.
+
+**Theme tokens live in `frontend/src/styles/theme.css`; components use CSS
+Modules.** Two palettes selected by `html[data-theme="dark"|"light"]`, dark by
+default, the choice remembered under `bmapp.theme`. A small inline script in
+`index.html` applies a remembered theme before the bundle loads so the wrong
+theme never flashes; it repeats the key and the default as literals, and
+`src/theme/noFlash.test.ts` asserts those match the module's constants. Every
+ink/surface pairing is held to 4.5:1 and control boundaries to 3:1 by
+`src/styles/contrast.test.ts`, which parses the stylesheet rather than
+restating it. Use `--line-control`, not `--line`, on anything operable.
+
+**Changing a frontend dependency needs more than `docker compose up -d`.** The
+frontend container installs into an anonymous `/app/node_modules` volume that
+survives both a rebuild and `up -d`. After adding or upgrading a package, run
+`docker compose up -d --build --renew-anon-volumes frontend`, or the dev server
+keeps resolving against the old tree and fails on the new import.
 
 **PostgreSQL 18 images changed where the data volume mounts.** The cluster now
 lives in a version-specific subdirectory under `/var/lib/postgresql`, so
@@ -164,13 +190,21 @@ the API and the web app, and the one slice that exists end to end is the
 `team-board` capability — register a team (which creates the one board it owns)
 and list the registered teams. `localization` is implemented on top of it: the
 interface reads in English or Polish, and API rejections arrive as codes the
-frontend translates.
+frontend translates, and dates, times and numbers are formatted for the active
+language. `hub` and `appearance` are implemented too: the application opens on
+the hub at `/` with the team page at `/teams`, and the interface has a dark and
+a light theme with dark the default.
+
+**The hub is served from placeholder data.** `GET /hub` returns one read-only
+payload built from constants in `app/services/hub.py` — no tables, no
+migration, no database session. It exists so the shell is real while the
+capabilities behind it are built, and it marks itself `provisional` so nothing
+mistakes its figures for recorded data. Each future capability replaces a slice
+of it; the shape it returns is the shape they should return.
 
 Everything else in the domain model above — employees and membership, meetings,
 metrics and their values, targets, problems, tasks, archiving, and
-authentication — is agreed but not built. Locale-aware date and number
-formatting is deliberately not built either: nothing displays a date yet, so it
-belongs to the meetings capability. Each is a capability of its own;
+authentication — is agreed but not built. Each is a capability of its own;
 propose it through `/opsx:propose` rather than adding it inline.
 
 ## Repository layout
@@ -192,20 +226,28 @@ propose it through `/opsx:propose` rather than adding it inline.
 │       └── features/     # BDD .feature files + step defs
 ├── frontend/
 │   ├── src/
-│   │   ├── api/          # typed fetch wrappers
-│   │   ├── components/
-│   │   ├── features/     # board, problems, tasks, admin
-│   │   └── pages/
+│   │   ├── api/          # typed fetch wrappers; client.ts is the shared one
+│   │   ├── components/   # the app shell: header, nav, language, theme
+│   │   ├── features/     # hub, teams - board, problems, tasks, admin to come
+│   │   ├── i18n/         # catalogues, detection, Intl formatting
+│   │   ├── styles/       # theme.css: the palettes and the design tokens
+│   │   ├── theme/        # theme resolution, persistence and provider
+│   │   └── routes.tsx    # the route table
 │   └── e2e/              # Playwright
+├── mockups/              # agreed visual designs (Claude Design artboards)
 ├── openspec/             # specs and changes - see above
 ├── docker-compose.yml
 ├── README.md
 └── CLAUDE.md
 ```
 
-`backend/tests/features/` exists but is empty: this slice's rules are
-validation and ordering, which the Testing section calls CRUD plumbing. The
-first BDD feature arrives with red/green highlighting or archiving.
+`backend/tests/features/` exists but is empty: what has been built so far is
+validation, ordering, layout and a date calculation, which the Testing section
+calls CRUD plumbing. The first BDD feature arrives with red/green highlighting
+or archiving.
+
+`src/pages/` never appeared; a feature folder holds its own page component, and
+routing is one file. Reinstate it only when a page belongs to no feature.
 
 ## Common commands
 
