@@ -1,0 +1,179 @@
+/*
+ * The design tokens, in both themes.
+ *
+ * The palettes come from mockups/Board Meeting Hub.dc.html. Two deliberate
+ * departures from it, both recorded in the change's design.md:
+ *
+ *   - the smallest type is 11px, not 10px: several of those labels are the
+ *     only thing naming a figure, and 10px at a secondary ink colour is not
+ *     comfortable to read;
+ *   - `--line-control` exists alongside `--line`. The mockup draws every
+ *     border with one hairline. That is fine for a card edge, which is
+ *     decorative, but a control has to be identifiable at 3:1, so buttons,
+ *     inputs and anything else you can operate use the stronger token.
+ *
+ * Every colour is defined in both blocks. A token defined in only one theme
+ * is a token that disappears in the other.
+ */
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #0a0e13;
+  --panel: #121a22;
+  --panel-2: #18222c;
+  --raise: rgba(255, 255, 255, 0.045);
+
+  --line: rgba(255, 255, 255, 0.09);
+  --line-2: rgba(255, 255, 255, 0.16);
+  --line-control: rgba(255, 255, 255, 0.42);
+
+  --ink: #e9eef4;
+  --ink-2: #aab6c3;
+  --ink-3: #9aa6b3;
+
+  --accent: oklch(0.72 0.11 250);
+  --accent-solid: oklch(0.5 0.14 255);
+  --on-accent-solid: #ffffff;
+  --good: oklch(0.75 0.14 150);
+  --warn: oklch(0.79 0.14 70);
+  --bad: oklch(0.72 0.15 25);
+
+  --tile-configure: oklch(0.62 0.14 255);
+  --tile-prepare: oklch(0.65 0.14 170);
+  --tile-conduct: oklch(0.65 0.15 40);
+  --tile-browse: oklch(0.62 0.14 305);
+  --stage-open: oklch(0.62 0.17 25);
+  --stage-progress: oklch(0.72 0.15 80);
+  --stage-archived: oklch(0.68 0.14 150);
+
+  --tint: 10%;
+  --tint-2: 18%;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+html[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f6f5f1;
+  --panel: #ffffff;
+  --panel-2: #f1efe9;
+  --raise: rgba(20, 24, 28, 0.03);
+
+  --line: rgba(20, 24, 28, 0.11);
+  --line-2: rgba(20, 24, 28, 0.2);
+  --line-control: rgba(20, 24, 28, 0.52);
+
+  --ink: #14181c;
+  --ink-2: #4b555e;
+  --ink-3: #59636b;
+
+  --accent: oklch(0.48 0.16 258);
+  --accent-solid: oklch(0.48 0.16 258);
+  --on-accent-solid: #ffffff;
+  --good: oklch(0.46 0.13 150);
+  --warn: oklch(0.45 0.12 60);
+  --bad: oklch(0.5 0.18 25);
+
+  --tile-configure: oklch(0.62 0.14 255);
+  --tile-prepare: oklch(0.65 0.14 170);
+  --tile-conduct: oklch(0.65 0.15 40);
+  --tile-browse: oklch(0.62 0.14 305);
+  --stage-open: oklch(0.62 0.17 25);
+  --stage-progress: oklch(0.72 0.15 80);
+  --stage-archived: oklch(0.68 0.14 150);
+
+  --tint: 12%;
+  --tint-2: 26%;
+  --shadow: 0 1px 2px rgba(20, 24, 28, 0.06);
+}
+
+:root {
+  --font-sans: 'IBM Plex Sans Variable', 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* The mockup's 10px floor is raised to 11px. Nothing sits below it. */
+  --fs-2xs: 0.6875rem;
+  --fs-xs: 0.71875rem;
+  --fs-sm: 0.78125rem;
+  --fs-base: 0.84375rem;
+  --fs-md: 0.9375rem;
+  --fs-lg: 1.0625rem;
+  --fs-xl: 1.1875rem;
+  --fs-2xl: 1.8125rem;
+  --fs-3xl: 2.875rem;
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 26px;
+  --sp-7: 32px;
+
+  --r-sm: 7px;
+  --r-md: 11px;
+  --r-lg: 16px;
+  --r-pill: 24px;
+
+  --page-max: 1420px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--ink);
+}
+
+/* Anything you cannot operate yet is still legible, and says why elsewhere. */
+[aria-disabled='true'] {
+  cursor: default;
+}
+
+:where(a, button, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

@@ -1,9 +1,32 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BMAPP</title>
+    <script>
+      /*
+       * Apply a remembered theme before the bundle loads, so a user who chose
+       * the light theme does not see the dark one flash first.
+       *
+       * The key and the default are repeated from src/theme/themes.ts, which
+       * cannot be imported this early. src/theme/noFlash.test.ts asserts the
+       * two agree, so they cannot drift apart unnoticed.
+       */
+      (function () {
+        var fallback = 'dark';
+        var theme = fallback;
+        try {
+          var stored = window.localStorage.getItem('bmapp.theme');
+          if (stored === 'dark' || stored === 'light') {
+            theme = stored;
+          }
+        } catch (error) {
+          /* Site data blocked: the default is still correct. */
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
