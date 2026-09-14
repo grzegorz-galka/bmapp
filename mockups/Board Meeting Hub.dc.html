@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;padding:0}
+  body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+  [data-theme="dark"]{
+    --bg:#0a0e13;--panel:#121a22;--panel-2:#18222c;--raise:rgba(255,255,255,.045);
+    --line:rgba(255,255,255,.09);--line-2:rgba(255,255,255,.16);
+    --ink:#e9eef4;--ink-2:#aab6c3;--ink-3:#8e9aa7;
+    --accent:oklch(0.66 0.12 250);--accent-solid:oklch(0.50 0.14 255);--good:oklch(0.68 0.14 150);--warn:oklch(0.72 0.15 70);--tint:10%;--tint-2:18%;--shadow:0 1px 0 rgba(255,255,255,.03);
+  }
+  [data-theme="light"]{
+    --bg:#f6f5f1;--panel:#ffffff;--panel-2:#f1efe9;--raise:rgba(20,24,28,.03);
+    --line:rgba(20,24,28,.11);--line-2:rgba(20,24,28,.2);
+    --ink:#14181c;--ink-2:#4b555e;--ink-3:#5e686f;
+    --accent:oklch(0.48 0.16 258);--accent-solid:oklch(0.48 0.16 258);--good:oklch(0.48 0.13 150);--warn:oklch(0.50 0.13 60);--tint:12%;--tint-2:26%;--shadow:0 1px 2px rgba(20,24,28,.06);
+  }
+  a{color:var(--accent);text-decoration:none}
+  a:hover{color:var(--ink)}
+  @keyframes bmpulse{0%,100%{opacity:1}50%{opacity:.35}}
+</style>
+</helmet>
+<div data-theme="{{ theme }}" style="min-height:100vh;background:var(--bg);color:var(--ink);padding:0 0 56px">
+
+  <header style="position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:20px;padding:14px 32px;background:color-mix(in oklab, var(--bg) 86%, transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)">
+    <div style="display:flex;align-items:center;gap:11px">
+      <div style="width:30px;height:30px;border-radius:7px;background:var(--accent-solid);display:grid;place-items:center;font:600 12px 'IBM Plex Mono',monospace;color:#fff;letter-spacing:.02em">BM</div>
+      <div style="display:flex;flex-direction:column;line-height:1.15">
+        <span style="font-weight:600;font-size:14px;letter-spacing:-.01em">BMAPP</span>
+        <span style="font-size:11px;color:var(--ink-2);font-family:'IBM Plex Mono',monospace">{{ t.brandSub }}</span>
+      </div>
+    </div>
+
+    <nav style="display:flex;gap:4px;margin-left:12px">
+      <span style="padding:6px 11px;border-radius:7px;background:var(--raise);font-size:13px;font-weight:500">{{ t.navHub }}</span>
+      <span style="padding:6px 11px;border-radius:7px;font-size:13px;color:var(--ink-2)">{{ t.navTeams }}</span>
+      <span style="padding:6px 11px;border-radius:7px;font-size:13px;color:var(--ink-2)">{{ t.navArchive }}</span>
+    </nav>
+
+    <div style="flex:1"></div>
+
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;padding:3px;gap:2px;border:1px solid var(--line);border-radius:9px;background:var(--panel)">
+        <button onClick="{{ setEn }}" style="{{ langEnStyle }}">EN</button>
+        <button onClick="{{ setPl }}" style="{{ langPlStyle }}">PL</button>
+      </div>
+      <button onClick="{{ toggleTheme }}" style="display:flex;align-items:center;gap:8px;padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--ink);font:500 12px 'IBM Plex Sans',sans-serif;cursor:pointer">
+        <span style="width:12px;height:12px;border-radius:50%;border:1px solid var(--line-2);background:linear-gradient(90deg,var(--ink) 50%,transparent 50%)"></span>
+        <span>{{ t.themeLabel }}</span>
+      </button>
+      <div style="display:flex;align-items:center;gap:9px;padding:5px 12px 5px 6px;border:1px solid var(--line);border-radius:24px;background:var(--panel)">
+        <div style="width:24px;height:24px;border-radius:50%;background:color-mix(in oklch, var(--accent) 24%, var(--panel-2));display:grid;place-items:center;font:600 10px 'IBM Plex Mono',monospace;color:var(--ink)">GG</div>
+        <span style="font-size:12px;color:var(--ink-2)">g.galka@pse.pl</span>
+      </div>
+    </div>
+  </header>
+
+  <div style="max-width:1420px;margin:0 auto;padding:0 32px">
+
+    <section style="margin-top:24px;padding:22px 26px;border:1px solid var(--line);border-radius:16px;background:color-mix(in oklch, var(--accent) var(--tint), var(--panel));box-shadow:var(--shadow)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px">
+        <span style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2)">{{ t.companyBand }}</span>
+        <span style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.06em;color:var(--ink-2)">{{ t.companyBandNote }}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:26px">
+        <div>
+          <div style="font:500 11px 'IBM Plex Mono',monospace;color:var(--accent);letter-spacing:.05em;text-transform:uppercase;margin-bottom:7px">{{ t.mission }}</div>
+          <p style="margin:0;font-size:13.5px;line-height:1.55;color:var(--ink);text-wrap:pretty">{{ t.missionText }}</p>
+        </div>
+        <div>
+          <div style="font:500 11px 'IBM Plex Mono',monospace;color:var(--accent);letter-spacing:.05em;text-transform:uppercase;margin-bottom:7px">{{ t.vision }}</div>
+          <p style="margin:0;font-size:13.5px;line-height:1.55;color:var(--ink);text-wrap:pretty">{{ t.visionText }}</p>
+        </div>
+        <div>
+          <div style="font:500 11px 'IBM Plex Mono',monospace;color:var(--accent);letter-spacing:.05em;text-transform:uppercase;margin-bottom:7px">{{ t.goals }}</div>
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <sc-for list="{{ goalList }}" as="g" hint-placeholder-count="3">
+              <div style="display:flex;gap:9px;align-items:flex-start">
+                <span style="margin-top:6px;flex:none;width:6px;height:6px;border-radius:2px;background:var(--accent);transform:rotate(45deg)"></span>
+                <span style="font-size:13px;line-height:1.45;color:var(--ink);text-wrap:pretty">{{ g }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div>
+          <div style="font:500 11px 'IBM Plex Mono',monospace;color:var(--accent);letter-spacing:.05em;text-transform:uppercase;margin-bottom:7px">{{ t.values }}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            <sc-for list="{{ valueList }}" as="v" hint-placeholder-count="4">
+              <span style="padding:5px 10px;border-radius:7px;border:1px solid var(--line);background:var(--panel);font-size:12px;font-weight:500">{{ v }}</span>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;align-items:stretch;padding:32px 0 24px">
+      <div style="display:flex;flex-direction:column;justify-content:center">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--good);animation:bmpulse 2.2s ease-in-out infinite"></span>
+          <span style="font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2)">{{ t.eyebrow }}</span>
+        </div>
+        <h1 style="margin:0;font-size:46px;line-height:1.04;letter-spacing:-.025em;font-weight:600;text-wrap:pretty;max-width:15em">{{ t.heroTitle }}</h1>
+        <p style="margin:16px 0 0;font-size:15px;line-height:1.6;color:var(--ink-2);max-width:52ch;text-wrap:pretty">{{ t.heroBody }}</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;padding:18px 20px 14px;border:1px solid var(--line);border-radius:16px;background:var(--panel);box-shadow:var(--shadow)">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <span style="font:500 11px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)">{{ t.myTeamsMeetings }}</span>
+          <span style="font:500 11px 'IBM Plex Mono',monospace;color:var(--ink-2)">{{ teamCount }}</span>
+        </div>
+
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-top:14px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:13.5px;font-weight:600;letter-spacing:-.01em">{{ nearest.name }}</div>
+            <div style="font:500 11.5px 'IBM Plex Mono',monospace;color:var(--ink-2);margin-top:3px">{{ nearest.when }}</div>
+          </div>
+          <div style="display:flex;align-items:flex-end;gap:12px;font-family:'IBM Plex Mono',monospace">
+            <div style="display:flex;flex-direction:column"><span style="font-size:32px;font-weight:500;line-height:1;letter-spacing:-.03em">{{ cd.d }}</span><span style="font-size:10px;color:var(--ink-2);letter-spacing:.08em;text-transform:uppercase">{{ t.days }}</span></div>
+            <span style="font-size:22px;color:var(--line-2);line-height:1.15">:</span>
+            <div style="display:flex;flex-direction:column"><span style="font-size:32px;font-weight:500;line-height:1;letter-spacing:-.03em">{{ cd.h }}</span><span style="font-size:10px;color:var(--ink-2);letter-spacing:.08em;text-transform:uppercase">{{ t.hours }}</span></div>
+            <span style="font-size:22px;color:var(--line-2);line-height:1.15">:</span>
+            <div style="display:flex;flex-direction:column"><span style="font-size:32px;font-weight:500;line-height:1;letter-spacing:-.03em">{{ cd.m }}</span><span style="font-size:10px;color:var(--ink-2);letter-spacing:.08em;text-transform:uppercase">{{ t.minutes }}</span></div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;margin-top:14px">
+          <sc-for list="{{ teams }}" as="tm" hint-placeholder-count="3">
+            <div style="display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 0;border-top:1px solid var(--line)">
+              <span style="width:28px;height:28px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);display:grid;place-items:center;font:600 10px 'IBM Plex Mono',monospace;color:var(--ink-2)">{{ tm.initials }}</span>
+              <div style="min-width:0">
+                <div style="font-size:13.5px;font-weight:500">{{ tm.name }}</div>
+                <div style="font-size:11.5px;color:var(--ink-2)">{{ tm.role }} · {{ tm.cadence }}</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font:500 12px 'IBM Plex Mono',monospace;color:var(--ink)">{{ tm.when }}</div>
+                <div style="{{ tm.statusStyle }}">{{ tm.status }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <section style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px">
+
+      <a href="#conduct" style="grid-column:span 2;grid-row:span 2;display:flex;flex-direction:column;justify-content:space-between;gap:26px;min-height:290px;padding:24px;border:1px solid var(--line);border-radius:16px;background:color-mix(in oklch, oklch(0.65 0.15 40) var(--tint), var(--panel));box-shadow:var(--shadow);color:var(--ink)" style-hover="border-color:var(--line-2);background:color-mix(in oklch, oklch(0.65 0.15 40) var(--tint-2), var(--panel))">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <span style="font:500 11px 'IBM Plex Mono',monospace;color:var(--ink-2);letter-spacing:.1em">03</span>
+          <span style="display:flex;align-items:center;gap:7px;padding:5px 10px;border-radius:20px;background:color-mix(in oklch, oklch(0.65 0.15 40) 22%, var(--panel-2));font:500 11px 'IBM Plex Mono',monospace;color:var(--ink)"><span style="width:5px;height:5px;border-radius:50%;background:oklch(0.65 0.17 40)"></span>{{ t.live }}</span>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap">
+          <div style="flex:1;min-width:200px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+              <span style="width:26px;height:26px;border-radius:50%;border:2px solid oklch(0.65 0.17 40);display:grid;place-items:center"><span style="width:9px;height:9px;border-radius:50%;background:oklch(0.65 0.17 40)"></span></span>
+              <h2 style="margin:0;font-size:29px;letter-spacing:-.02em;font-weight:600">{{ t.tiles.conduct.title }}</h2>
+            </div>
+            <p style="margin:0;font-size:14px;line-height:1.6;color:var(--ink-2);max-width:40ch;text-wrap:pretty">{{ t.tiles.conduct.body }}</p>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <span style="padding:7px 12px;border-radius:8px;background:var(--raise);border:1px solid var(--line);font:500 12px 'IBM Plex Mono',monospace">{{ t.tiles.conduct.step1 }}</span>
+            <span style="padding:7px 12px;border-radius:8px;background:var(--raise);border:1px solid var(--line);font:500 12px 'IBM Plex Mono',monospace">{{ t.tiles.conduct.step2 }}</span>
+            <span style="padding:7px 12px;border-radius:8px;background:var(--raise);border:1px solid var(--line);font:500 12px 'IBM Plex Mono',monospace">{{ t.tiles.conduct.step3 }}</span>
+          </div>
+        </div>
+      </a>
+
+      <a href="#prepare" style="grid-column:span 2;display:flex;flex-direction:column;gap:14px;min-height:138px;padding:20px;border:1px solid var(--line);border-radius:16px;background:color-mix(in oklch, oklch(0.65 0.14 170) var(--tint), var(--panel));box-shadow:var(--shadow);color:var(--ink)" style-hover="border-color:var(--line-2);background:color-mix(in oklch, oklch(0.65 0.14 170) var(--tint-2), var(--panel))">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+          <div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="width:12px;height:12px;background:oklch(0.65 0.14 170);transform:rotate(45deg)"></span>
+              <h3 style="margin:0;font-size:19px;font-weight:600;letter-spacing:-.015em">{{ t.tiles.prepare.title }}</h3>
+            </div>
+            <p style="margin:8px 0 0;font-size:13px;line-height:1.55;color:var(--ink-2);max-width:34ch">{{ t.tiles.prepare.body }}</p>
+          </div>
+          <span style="font:500 11px 'IBM Plex Mono',monospace;color:var(--ink-2);letter-spacing:.1em">02</span>
+        </div>
+        <div style="display:flex;gap:18px;margin-top:auto;padding-top:12px;border-top:1px solid var(--line);font-family:'IBM Plex Mono',monospace">
+          <div style="display:flex;flex-direction:column"><span style="font-size:20px;font-weight:500">7</span><span style="font-size:10px;color:var(--ink-2);letter-spacing:.06em;text-transform:uppercase">{{ t.metricsDue }}</span></div>
+          <div style="display:flex;flex-direction:column"><span style="font-size:20px;font-weight:500">4</span><span style="font-size:10px;color:var(--ink-2);letter-spacing:.06em;text-transform:uppercase">{{ t.problemsReview }}</span></div>
+          <div style="display:flex;flex-direction:column"><span style="font-size:20px;font-weight:500">11</span><span style="font-size:10px;color:var(--ink-2);letter-spacing:.06em;text-transform:uppercase">{{ t.openTasks }}</span></div>
+        </div>
+      </a>
+
+      <a href="#browse" style="grid-column:span 2;display:flex;flex-direction:column;gap:12px;min-height:138px;padding:20px;border:1px solid var(--line);border-radius:16px;background:color-mix(in oklch, oklch(0.62 0.14 305) var(--tint), var(--panel));box-shadow:var(--shadow);color:var(--ink)" style-hover="border-color:var(--line-2);background:color-mix(in oklch, oklch(0.62 0.14 305) var(--tint-2), var(--panel))">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="display:flex;align-items:flex-end;gap:3px;height:22px">
+            <span style="width:5px;height:9px;border-radius:1px;background:color-mix(in oklch, oklch(0.62 0.14 305) 45%, transparent)"></span>
+            <span style="width:5px;height:16px;border-radius:1px;background:color-mix(in oklch, oklch(0.62 0.14 305) 70%, transparent)"></span>
+            <span style="width:5px;height:22px;border-radius:1px;background:oklch(0.62 0.14 305)"></span>
+          </div>
+          <span style="font:500 11px 'IBM Plex Mono',monospace;color:var(--ink-2);letter-spacing:.1em">04</span>
+        </div>
+        <h3 style="margin:auto 0 0;font-size:17px;font-weight:600;letter-spacing:-.015em">{{ t.tiles.browse.title }}</h3>
+        <p style="margin:0;font-size:12.5px;line-height:1.5;color:var(--ink-2)">{{ t.tiles.browse.body }}</p>
+      </a>
+    </section>
+
+    <section style="margin-top:14px;padding:22px 24px;border:1px solid var(--line);border-radius:16px;background:var(--panel);box-shadow:var(--shadow)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px">
+        <h3 style="margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em">{{ t.funnelTitle }}</h3>
+        <span style="font:500 11px 'IBM Plex Mono',monospace;color:var(--ink-2)">{{ t.funnelScope }}</span>
+      </div>
+
+      <div style="display:flex;align-items:stretch;gap:6px">
+        <div style="flex:1;display:flex;flex-direction:column;gap:9px;padding:16px 18px 16px 26px;background:color-mix(in oklch, oklch(0.62 0.17 25) var(--tint-2), var(--panel-2));clip-path:polygon(0 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,0 100%,16px 50%)">
+          <span style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)">{{ t.stageOpen }}</span>
+          <span style="font:500 30px/1 'IBM Plex Mono',monospace;letter-spacing:-.03em">18</span>
+          <span style="font-size:11.5px;color:var(--ink-2)">{{ t.probTask1 }}</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:9px;padding:16px 18px 16px 26px;background:color-mix(in oklch, oklch(0.72 0.15 80) var(--tint-2), var(--panel-2));clip-path:polygon(0 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,0 100%,16px 50%)">
+          <span style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)">{{ t.stageProgress }}</span>
+          <span style="font:500 30px/1 'IBM Plex Mono',monospace;letter-spacing:-.03em">11</span>
+          <span style="font-size:11.5px;color:var(--ink-2)">{{ t.probTask2 }}</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:9px;padding:16px 18px 16px 26px;background:color-mix(in oklch, oklch(0.68 0.14 150) var(--tint-2), var(--panel-2));clip-path:polygon(0 0,100% 0,100% 100%,0 100%,16px 50%)">
+          <span style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)">{{ t.stageArchived }}</span>
+          <span style="font:500 30px/1 'IBM Plex Mono',monospace;letter-spacing:-.03em">64</span>
+          <span style="font-size:11.5px;color:var(--ink-2)">{{ t.probTask3 }}</span>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font:500 10px 'IBM Plex Mono',monospace;color:var(--ink-2);letter-spacing:.06em">
+        <span>{{ t.funnelFootL }}</span><span>{{ t.funnelFootR }}</span>
+      </div>
+
+      <div style="height:1px;background:var(--line);margin:22px 0 18px"></div>
+
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
+        <h3 style="margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em">{{ t.myItems }}</h3>
+        <span style="font:500 11px 'IBM Plex Mono',monospace;color:var(--ink-2)">{{ t.assignedTo }}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ items }}" as="it" hint-placeholder-count="4">
+          <div style="display:grid;grid-template-columns:56px minmax(0,1fr) 96px 78px;gap:14px;align-items:center;padding:11px 14px;border:1px solid var(--line);border-radius:11px;background:var(--raise)">
+            <span style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2)">{{ it.kind }}</span>
+            <div style="min-width:0">
+              <div style="font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.summary }}</div>
+              <div style="font-size:11.5px;color:var(--ink-2);margin-top:2px">{{ it.team }}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <span style="font:500 10px 'IBM Plex Mono',monospace;color:var(--ink-2)">{{ it.progress }}%</span>
+              <span style="height:4px;border-radius:3px;background:var(--line);display:block;overflow:hidden"><span style="{{ it.barStyle }}"></span></span>
+            </div>
+            <span style="{{ it.dueStyle }}">{{ it.due }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="margin-top:26px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <span style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2)">{{ t.adminSection }}</span>
+        <span style="flex:1;height:1px;background:var(--line)"></span>
+        <span style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:.06em;color:var(--ink-2)">{{ t.adminNote }}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px">
+
+        <a href="#configure" style="display:flex;align-items:center;gap:18px;padding:16px 22px;border:1px solid var(--line);border-radius:16px;background:var(--panel);box-shadow:var(--shadow);color:var(--ink)" style-hover="border-color:var(--line-2);background:var(--panel-2)">
+          <span style="display:flex;flex-direction:column;gap:4px;flex:none">
+            <span style="width:22px;height:3px;border-radius:2px;background:oklch(0.62 0.14 255)"></span>
+            <span style="width:14px;height:3px;border-radius:2px;background:color-mix(in oklch, oklch(0.62 0.14 255) 55%, transparent)"></span>
+            <span style="width:18px;height:3px;border-radius:2px;background:color-mix(in oklch, oklch(0.62 0.14 255) 35%, transparent)"></span>
+          </span>
+          <div style="min-width:0">
+            <h3 style="margin:0;font-size:17px;font-weight:600;letter-spacing:-.015em">{{ t.tiles.configure.title }}</h3>
+            <p style="margin:4px 0 0;font-size:12.5px;line-height:1.5;color:var(--ink-2);text-wrap:pretty">{{ t.tiles.configure.body }}</p>
+          </div>
+          <div style="flex:1"></div>
+          <span style="font:500 11px 'IBM Plex Mono',monospace;color:var(--ink-2);letter-spacing:.1em">01</span>
+        </a>
+
+        <a href="#access" style="display:flex;align-items:center;gap:18px;padding:16px 22px;border:1px solid var(--line);border-radius:16px;background:var(--panel);box-shadow:var(--shadow);color:var(--ink)" style-hover="border-color:var(--line-2);background:var(--panel-2)">
+          <span style="display:flex;align-items:center;gap:6px;flex:none">
+            <span style="width:13px;height:13px;border-radius:50%;border:2px solid var(--good)"></span>
+            <span style="width:13px;height:13px;border-radius:3px;background:var(--good)"></span>
+          </span>
+          <div style="min-width:0">
+            <h3 style="margin:0;font-size:17px;font-weight:600;letter-spacing:-.015em">{{ t.tiles.access.title }}</h3>
+            <p style="margin:4px 0 0;font-size:12.5px;line-height:1.5;color:var(--ink-2);text-wrap:pretty">{{ t.tiles.access.body }}</p>
+          </div>
+          <div style="flex:1"></div>
+          <span style="font:500 11px 'IBM Plex Mono',monospace;color:var(--ink-2);letter-spacing:.1em">05</span>
+        </a>
+      </div>
+    </section>
+
+    <footer style="display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;margin-top:26px;padding-top:18px;border-top:1px solid var(--line);font:400 11.5px 'IBM Plex Mono',monospace;color:var(--ink-2)">
+      <span>BMAPP · {{ t.footerNote }}</span>
+      <span>{{ t.footerEnv }}</span>
+    </footer>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark' | 'light'&quot;,&quot;section&quot;:&quot;Presentation&quot;},&quot;language&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;en&quot;,&quot;pl&quot;],&quot;default&quot;:&quot;en&quot;,&quot;tsType&quot;:&quot;'en' | 'pl'&quot;,&quot;section&quot;:&quot;Presentation&quot;}}">
+const DICT = {
+  en: {
+    brandSub: 'Board meetings', navHub: 'Hub', navTeams: 'Teams', navArchive: 'Archive',
+    themeLabel: 'Light', eyebrow: 'Weekly team briefing · Kaizen board',
+    heroTitle: 'The team board, online.',
+    heroBody: 'Record this meeting\u2019s metric values, work the problems, agree the tasks. Every value belongs to the meeting it was recorded at, so the trend follows the sequence of meetings \u2014 not the calendar.',
+    myTeamsMeetings: 'My teams · next board meetings',
+    days: 'days', hours: 'hrs', minutes: 'min',
+    live: 'In session', metricsDue: 'metrics due', problemsReview: 'to review', openTasks: 'open tasks',
+    tiles: {
+      configure: { title: 'Configure BM', body: 'Metrics, acceptable min / max, custom targets.' },
+      prepare: { title: 'Prepare BM', body: 'Draft the agenda, enter metric values, flag what needs the team\u2019s attention.' },
+      conduct: { title: 'Conduct BM', body: 'Run the meeting at the board: read the trends, work the problems, agree the tasks \u2014 all recorded against this meeting.', step1: 'Metrics', step2: 'Problems', step3: 'Tasks' },
+      browse: { title: 'Browse BM', body: 'Past meetings, trends and the archive.' },
+      access: { title: 'Manage access', body: 'Team membership, leaders and who may configure a board \u2014 identities keyed on employee email.' }
+    },
+    funnelTitle: 'Problem & task funnel', funnelScope: 'all my teams · last 12 meetings',
+    stageOpen: 'Open', stageProgress: 'In progress', stageArchived: 'Archived',
+    probTask1: '11 problems · 7 tasks', probTask2: '4 problems · 7 tasks', probTask3: '23 problems · 41 tasks',
+    funnelFootL: 'RAISED AT THE BOARD', funnelFootR: 'CLOSED \u2192 ARCHIVED, NEVER DELETED',
+    myItems: 'Assigned to me', assignedTo: 'g.galka@pse.pl',
+    companyBand: 'Company declarations', companyBandNote: 'VISIBLE ON EVERY BOARD',
+    adminSection: 'Administration', adminNote: 'SET UP ONCE PER TEAM',
+    mission: 'Mission', vision: 'Vision', values: 'Values', goals: 'Strategic goals',
+    missionText: 'Keep the systems the company runs on dependable, and make the work of running them visible to the people who do it.',
+    visionText: 'Every team improving its own numbers, every week, from its own board.',
+    footerNote: 'on-premise · board meetings application', footerEnv: 'v0.1.0 \u00b7 walking skeleton'
+  },
+  pl: {
+    brandSub: 'Spotkania przy tablicy', navHub: 'Pulpit', navTeams: 'Zespo\u0142y', navArchive: 'Archiwum',
+    themeLabel: 'Jasny', eyebrow: 'Cotygodniowa odprawa zespo\u0142u \u00b7 tablica Kaizen',
+    heroTitle: 'Tablica zespo\u0142u, online.',
+    heroBody: 'Zapisz wartości mierników z tego spotkania, przepracuj problemy, ustal zadania. Każda wartość należy do spotkania, na którym ją zapisano \u2014 trend biegnie po kolejnych spotkaniach, nie po kalendarzu.',
+    myTeamsMeetings: 'Moje zespo\u0142y \u00b7 najbli\u017csze spotkania',
+    days: 'dni', hours: 'godz', minutes: 'min',
+    live: 'W trakcie', metricsDue: 'mierniki do wpisania', problemsReview: 'do przegl\u0105du', openTasks: 'otwarte zadania',
+    tiles: {
+      configure: { title: 'Konfiguruj BM', body: 'Mierniki, dopuszczalne min / maks, cele w\u0142asne.' },
+      prepare: { title: 'Przygotuj BM', body: 'Przygotuj agend\u0119, wpisz wartości mierników, zaznacz co wymaga uwagi zespo\u0142u.' },
+      conduct: { title: 'Prowad\u017a BM', body: 'Prowad\u017a spotkanie przy tablicy: czytaj trendy, przepracuj problemy, ustal zadania \u2014 wszystko zapisane przy tym spotkaniu.', step1: 'Mierniki', step2: 'Problemy', step3: 'Zadania' },
+      browse: { title: 'Przegl\u0105daj BM', body: 'Poprzednie spotkania, trendy i archiwum.' },
+      access: { title: 'Zarz\u0105dzaj dost\u0119pem', body: 'Cz\u0142onkostwo w zespo\u0142ach, liderzy i kto mo\u017ce konfigurowa\u0107 tablic\u0119 \u2014 to\u017csamo\u015b\u0107 po adresie e-mail.' }
+    },
+    funnelTitle: 'Lej problemów i zada\u0144', funnelScope: 'wszystkie moje zespo\u0142y \u00b7 12 ostatnich spotka\u0144',
+    stageOpen: 'Otwarte', stageProgress: 'W toku', stageArchived: 'Zarchiwizowane',
+    probTask1: '11 problemów \u00b7 7 zada\u0144', probTask2: '4 problemy \u00b7 7 zada\u0144', probTask3: '23 problemy \u00b7 41 zada\u0144',
+    funnelFootL: 'ZG\u0141OSZONE PRZY TABLICY', funnelFootR: 'ZAMKNI\u0118TE \u2192 ARCHIWUM, NIGDY USUNI\u0118TE',
+    myItems: 'Przypisane do mnie', assignedTo: 'g.galka@pse.pl',
+    companyBand: 'Deklaracje firmy', companyBandNote: 'WIDOCZNE NA KA\u017bDEJ TABLICY',
+    adminSection: 'Administracja', adminNote: 'USTAWIANE RAZ DLA ZESPO\u0141U',
+    mission: 'Misja', vision: 'Wizja', values: 'Wartości', goals: 'Cele strategiczne',
+    missionText: 'Utrzymywa\u0107 systemy, na których pracuje firma, w niezawodnym stanie \u2014 i czyni\u0107 t\u0119 prac\u0119 widoczn\u0105 dla tych, którzy j\u0105 wykonuj\u0105.',
+    visionText: 'Ka\u017cdy zespó\u0142 poprawia swoje liczby, co tydzie\u0144, przy swojej tablicy.',
+    footerNote: 'instalacja lokalna \u00b7 aplikacja spotka\u0144 przy tablicy', footerEnv: 'v0.1.0 \u00b7 szkielet'
+  }
+};
+
+const VALUES = {
+  en: ['Go and see', 'Small steps', 'No blame', 'Make it visible'],
+  pl: ['Id\u017a i zobacz', 'Ma\u0142e kroki', 'Bez obwiniania', 'Poka\u017c to']
+};
+
+const GOALS = {
+  en: [
+    'No unplanned downtime on the systems the company runs on.',
+    'Every change reaches production the week it is agreed.',
+    'Each team closes more problems than it raises.'
+  ],
+  pl: [
+    '\u017badnych nieplanowanych przestojów w systemach, na których pracuje firma.',
+    'Ka\u017cda zmiana trafia na produkcj\u0119 w tygodniu, w którym zosta\u0142a ustalona.',
+    'Ka\u017cdy zespó\u0142 zamyka wi\u0119cej problemów ni\u017c zg\u0142asza.'
+  ]
+};
+
+const ITEMS = [
+  { kind: { en: 'Problem', pl: 'Problem' }, summary: { en: 'Deploy pipeline flaky on release branch', pl: 'Niestabilny pipeline wdro\u017ceniowy na ga\u0142\u0119zi release' }, team: 'Platform Core', progress: 60, due: '18 Sep', late: false },
+  { kind: { en: 'Task', pl: 'Zadanie' }, summary: { en: 'Add min/max to \u201cOpen bugs\u201d metric', pl: 'Doda\u0107 min/maks do miernika \u201eOtwarte b\u0142\u0119dy\u201d' }, team: 'Platform Core', progress: 25, due: '16 Sep', late: false },
+  { kind: { en: 'Problem', pl: 'Problem' }, summary: { en: 'Lead time for payment fixes above 5 days', pl: 'Czas realizacji poprawek p\u0142atno\u015bci powy\u017cej 5 dni' }, team: 'Payments', progress: 10, due: '11 Sep', late: true },
+  { kind: { en: 'Task', pl: 'Zadanie' }, summary: { en: 'Write up root cause for incident 214', pl: 'Opisa\u0107 przyczyn\u0119 \u017aród\u0142ow\u0105 incydentu 214' }, team: 'Data Plane', progress: 80, due: '22 Sep', late: false }
+];
+
+/** Each team meets weekly on its own day; day = 0..6 (Sun..Sat). */
+const TEAMS = [
+  { name: 'Platform Core', initials: 'PC', day: 4, hour: 9, minute: 30, role: { en: 'Team leader', pl: 'Lider zespo\u0142u' }, status: { en: 'Board ready', pl: 'Tablica gotowa' }, ok: true },
+  { name: 'Payments', initials: 'PY', day: 2, hour: 11, minute: 0, role: { en: 'Member', pl: 'Cz\u0142onek' }, status: { en: '3 metrics missing', pl: 'Brak 3 mierników' }, ok: false },
+  { name: 'Data Plane', initials: 'DP', day: 3, hour: 14, minute: 0, role: { en: 'Member', pl: 'Cz\u0142onek' }, status: { en: 'Board ready', pl: 'Tablica gotowa' }, ok: true }
+];
+
+function nextOccurrence(day, hour, minute, now) {
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
+  let delta = (day - d.getDay() + 7) % 7;
+  if (delta === 0 && now.getTime() > d.getTime()) delta = 7;
+  d.setDate(d.getDate() + delta);
+  return d;
+}
+
+class Component extends DCLogic {
+  state = { theme: null, lang: null, now: Date.now() };
+
+  componentDidMount() {
+    this.timer = setInterval(() => this.setState({ now: Date.now() }), 30000);
+  }
+  componentWillUnmount() { clearInterval(this.timer); }
+
+  renderVals() {
+    const theme = this.state.theme ?? this.props.theme ?? 'dark';
+    const lang = this.state.lang ?? this.props.language ?? 'en';
+    const t = DICT[lang];
+    const now = new Date(this.state.now);
+    const locale = lang === 'pl' ? 'pl-PL' : 'en-GB';
+    const pad = (n) => String(n).padStart(2, '0');
+    const fmt = (d) => d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' }) +
+      ', ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    const langBtn = (on) => 'padding:5px 10px;border:0;border-radius:6px;cursor:pointer;font:500 11px "IBM Plex Mono",monospace;letter-spacing:.04em;' +
+      (on ? 'background:var(--accent-solid);color:#fff' : 'background:transparent;color:var(--ink-2)');
+
+    const teams = TEAMS.map((tm, i) => {
+      const at = nextOccurrence(tm.day, tm.hour, tm.minute, now);
+      return {
+        key: i, name: tm.name, initials: tm.initials, role: tm.role[lang],
+        cadence: at.toLocaleDateString(locale, { weekday: 'long' }) + ' ' + pad(tm.hour) + ':' + pad(tm.minute),
+        at, when: fmt(at), status: tm.status[lang],
+        statusStyle: 'margin-top:3px;font:500 11px "IBM Plex Mono",monospace;white-space:nowrap;color:' + (tm.ok ? 'var(--good)' : 'var(--warn)')
+      };
+    }).sort((a, b) => a.at - b.at);
+
+    const nearest = teams[0];
+    const mins = Math.floor(Math.max(0, nearest.at.getTime() - now.getTime()) / 60000);
+
+    return {
+      theme, t, teams, nearest,
+      teamCount: teams.length,
+      valueList: VALUES[lang],
+      goalList: GOALS[lang],
+      setEn: () => this.setState({ lang: 'en' }),
+      setPl: () => this.setState({ lang: 'pl' }),
+      langEnStyle: langBtn(lang === 'en'),
+      langPlStyle: langBtn(lang === 'pl'),
+      toggleTheme: () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' }),
+      cd: { d: pad(Math.floor(mins / 1440)), h: pad(Math.floor(mins / 60) % 24), m: pad(mins % 60) },
+      items: ITEMS.map((it, i) => ({
+        key: i,
+        kind: it.kind[lang],
+        summary: it.summary[lang],
+        team: it.team,
+        progress: it.progress,
+        barStyle: 'display:block;height:100%;border-radius:3px;width:' + it.progress + '%;background:' + (it.progress >= 70 ? 'var(--good)' : 'var(--accent)'),
+        due: it.due,
+        dueStyle: 'justify-self:end;padding:4px 9px;border-radius:6px;font:500 11px "IBM Plex Mono",monospace;white-space:nowrap;' +
+          (it.late
+            ? 'background:color-mix(in oklch, oklch(0.62 0.17 25) 22%, var(--panel));color:var(--ink)'
+            : 'background:var(--panel-2);color:var(--ink-2)')
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>
