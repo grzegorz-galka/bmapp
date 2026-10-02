@@ -43,6 +43,15 @@ page is at `/teams`, reachable from the header. The header also carries the
 English/Polish switcher and the dark/light theme toggle — dark by default, and
 your choice is remembered.
 
+A database created before team membership arrived (migration `0002`) holds teams
+with no leader, and the migration refuses to run over it rather than invent one.
+Nothing is deployed, so reset the local volume and migrate again:
+
+```bash
+docker compose down -v && docker compose up -d
+docker compose exec backend alembic upgrade head
+```
+
 | Service  | URL                                            |
 |----------|------------------------------------------------|
 | Frontend | <http://localhost:5173>                        |

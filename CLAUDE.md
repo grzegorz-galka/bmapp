@@ -38,16 +38,16 @@ board. BMAPP provides that board online and lets a team:
 
 ## Domain model
 
-| Entity            | Main properties                                                              |
-|-------------------|------------------------------------------------------------------------------|
-| Employee          | email, teams (many)                                                          |
-| Team              | name, members (many), one board definition                                   |
-| Board definition  | name, metrics (many), custom targets (optional)                              |
-| Meeting           | team, date and time, the metric values recorded at it                        |
-| Metric            | name, unit, acceptable min / max, values over time (each bound to a meeting) |
-| Metric value      | metric, meeting, the number recorded                                         |
-| Problem           | summary, reason, solution proposal, responsible employee, due date, progress |
-| Task              | summary, details, responsible employee, due date, progress                   |
+| Entity            | Main properties                                                                    |
+|-------------------|------------------------------------------------------------------------------      |
+| Employee          | email, teams (many)                                                                |
+| Team              | name, team leader, members (many), board definition                                |
+| Board definition  | name, metrics (many), custom targets (optional), schedule (weekday and time)       |
+| Meeting           | team, date and time, the metric values recorded at it                              |
+| Metric            | name, unit, acceptable min / max, values over time (each bound to a meeting)       |
+| Metric value      | metric, meeting, the number recorded                                               |
+| Problem           | team, summary, reason, solution proposal, responsible employee, due date, progress |
+| Task              | team, summary, details, responsible employee, due date, progress                   |
 
 Glossary (use these exact terms in code, UI and tests):
 
@@ -193,7 +193,12 @@ interface reads in English or Polish, and API rejections arrive as codes the
 frontend translates, and dates, times and numbers are formatted for the active
 language. `hub` and `appearance` are implemented too: the application opens on
 the hub at `/` with the team page at `/teams`, and the interface has a dark and
-a light theme with dark the default.
+a light theme with dark the default. `team-membership` is implemented as well:
+employees are identified by a lower-cased email and recorded the first time
+they are assigned to a team; a team has members and exactly one leader, who is
+always one of them, set when the team is registered and handed over between
+members on the members page at `/teams/:teamId/members`. One employee may lead
+any number of teams.
 
 **The hub is served from placeholder data.** `GET /hub` returns one read-only
 payload built from constants in `app/services/hub.py` — no tables, no
@@ -202,7 +207,7 @@ capabilities behind it are built, and it marks itself `provisional` so nothing
 mistakes its figures for recorded data. Each future capability replaces a slice
 of it; the shape it returns is the shape they should return.
 
-Everything else in the domain model above — employees and membership, meetings,
+Everything else in the domain model above — meetings,
 metrics and their values, targets, problems, tasks, archiving, and
 authentication — is agreed but not built. Each is a capability of its own;
 propose it through `/opsx:propose` rather than adding it inline.
@@ -397,7 +402,6 @@ record that adoption itself as a decision. Remove an item below once decided.
   systems (Jira, CI, etc.). Partly settled: either way a value belongs to a
   meeting, so an import has to attach to one. What is still open is whether
   import exists at all.
-- Whether one employee can be team leader of more than one team.
 - Retention period for archived items and recorded meetings.
 - Whether a meeting records attendance, and whether a problem or task is tied to
   the meeting that raised or closed it.
