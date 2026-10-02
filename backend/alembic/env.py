@@ -11,7 +11,10 @@ from app.core.db import Base
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Keep loggers that already exist: when the test suite migrates its
+    # database, the application's loggers are already created, and the
+    # default would silence them for the rest of the run.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Only fall back to the application settings. A caller that set the URL
 # itself - the test suite pointing at its own database - must win, or the

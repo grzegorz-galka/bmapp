@@ -127,6 +127,31 @@ export const en = {
     loadFailed: 'Could not load teams.',
     empty: 'No teams registered yet.',
     boardSuffix: 'board: {{name}}',
+    leaderEmailLabel: 'Team leader’s email',
+    leaderSuffix: 'leader: {{email}}',
+    // Colon form for the same reason as myTeams.metricsMissing.
+    memberCount: 'Members: {{count}}',
+    membersLink: 'Members',
+    membersLinkLabel: 'Members of {{name}}',
+  },
+  members: {
+    heading: 'Members of {{name}}',
+    back: 'Back to the teams',
+    loading: 'Loading the team…',
+    loadFailed: 'Could not load the team.',
+    notFound: 'Team not found.',
+    listLabel: 'Team members',
+    leader: 'Team leader',
+    emailLabel: 'Employee email',
+    add: 'Add member',
+    adding: 'Adding…',
+    remove: 'Remove from team',
+    // The visible captions repeat on every row; these name the member too,
+    // so a screen reader listing the buttons can tell them apart. They start
+    // with the caption, so a voice user can still say what they see.
+    removeLabel: 'Remove from team: {{email}}',
+    makeLeader: 'Make leader',
+    makeLeaderLabel: 'Make leader: {{email}}',
   },
   errors: {
     // Keyed by the code the API reports. `generic` covers a code this
@@ -136,6 +161,15 @@ export const en = {
     'team_name.too_long': 'A team name can be at most 200 characters.',
     'team_name.duplicate': 'A team with this name already exists.',
     'request.invalid_field': 'That value is not valid.',
+    'employee_email.blank': 'Enter an email address.',
+    'employee_email.too_long': 'An email address can be at most 254 characters.',
+    'employee_email.invalid': 'Enter a valid email address, such as name@example.com.',
+    'team.not_found': 'This team does not exist.',
+    'team_member.duplicate': 'This employee is already a member of the team.',
+    'team_member.not_found': 'This employee is not a member of the team.',
+    'team_member.is_leader':
+      'The team leader cannot be removed. Make another member the leader first.',
+    'team_leader.not_member': 'Only a member of the team can become its leader.',
   },
 } as const;
 

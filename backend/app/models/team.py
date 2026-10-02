@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
+from app.models.employee import Employee, TeamMember
 
 TEAM_NAME_MAX_LENGTH = 200
 
@@ -33,6 +34,18 @@ class Team(Base):
     board: Mapped[BoardDefinition] = relationship(
         back_populates="team", cascade="all, delete-orphan", lazy="joined"
     )
+    members: Mapped[list[TeamMember]] = relationship(
+        cascade="all, delete-orphan", passive_deletes=True
+    )
+
+    @property
+    def leader(self) -> Employee:
+        """The one member flagged as leader, which every team has."""
+        return next(member.employee for member in self.members if member.is_leader)
+
+    @property
+    def member_count(self) -> int:
+        return len(self.members)
 
 
 class BoardDefinition(Base):

@@ -39,3 +39,55 @@ class DuplicateTeamNameError(DomainError):
 
     def __init__(self, name: str) -> None:
         super().__init__(f"A team named {name!r} already exists.")
+
+
+class TeamNotFoundError(DomainError):
+    """Raised when a team identifier matches no team."""
+
+    status_code = 404
+    code = "team.not_found"
+
+    def __init__(self, team_id: object) -> None:
+        super().__init__(f"No team has the identifier {team_id}.")
+
+
+class DuplicateMemberError(DomainError):
+    """Raised when an employee added to a team already belongs to it."""
+
+    status_code = 409
+    field = "email"
+    code = "team_member.duplicate"
+
+    def __init__(self, email: str) -> None:
+        super().__init__(f"{email} is already a member of this team.")
+
+
+class MemberNotFoundError(DomainError):
+    """Raised when an employee removed from a team does not belong to it."""
+
+    status_code = 404
+    code = "team_member.not_found"
+
+    def __init__(self, employee_id: object) -> None:
+        super().__init__(f"Employee {employee_id} is not a member of this team.")
+
+
+class LeaderRemovalError(DomainError):
+    """Raised when the team's leader is removed before handing over."""
+
+    status_code = 409
+    code = "team_member.is_leader"
+
+    def __init__(self) -> None:
+        super().__init__("The team's leader cannot be removed; hand the leadership over first.")
+
+
+class LeaderNotMemberError(DomainError):
+    """Raised when someone outside a team is made its leader."""
+
+    status_code = 409
+    field = "employee_id"
+    code = "team_leader.not_member"
+
+    def __init__(self, employee_id: object) -> None:
+        super().__init__(f"Employee {employee_id} is not a member of this team.")

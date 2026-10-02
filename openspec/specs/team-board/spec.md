@@ -1,6 +1,6 @@
 ## Purpose
 
-Registers the teams that hold board meetings and the board that belongs to each one. This capability owns the team record and its board definition — the root entities every later capability attaches to, since indicators and their metrics hang off a board, and problems and tasks are tracked against the team that owns it.
+Registers the teams that hold board meetings and the board that belongs to each one. This capability owns the team record and its board definition — the root entities every later capability attaches to, since metrics hang off a board, and the team's members and leader, its problems and its tasks are tracked against the team that owns it.
 
 ## Requirements
 

@@ -16,7 +16,13 @@ import { pl } from './i18n/pl';
 import type { Team } from './api/teams';
 
 function team(name: string): Team {
-  return { id: `id-${name}`, name, board: { id: `board-${name}`, name } };
+  return {
+    id: `id-${name}`,
+    name,
+    board: { id: `board-${name}`, name },
+    leader: { id: `leader-${name}`, email: 'lead@example.com' },
+    member_count: 1,
+  };
 }
 
 const fetchMock = vi.fn();
