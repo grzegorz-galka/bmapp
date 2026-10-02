@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TeamsPage } from './TeamsPage';
 import { renderWithLanguage } from '../../test/render';
@@ -7,8 +7,14 @@ import { en } from '../../i18n/en';
 import { pl } from '../../i18n/pl';
 import type { Team } from '../../api/teams';
 
-function team(name: string): Team {
-  return { id: `id-${name}`, name, board: { id: `board-${name}`, name } };
+function team(name: string, leaderEmail = 'lead@example.com', memberCount = 1): Team {
+  return {
+    id: `id-${name}`,
+    name,
+    board: { id: `board-${name}`, name },
+    leader: { id: `leader-${name}`, email: leaderEmail },
+    member_count: memberCount,
+  };
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -16,8 +22,15 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 /** The error body shape the API uses: a code to translate, English for a dev. */
-function fieldError(code: string, message: string, status = 409) {
-  return jsonResponse({ errors: [{ field: 'name', code, message }] }, status);
+function fieldError(code: string, message: string, status = 409, field = 'name') {
+  return jsonResponse({ errors: [{ field, code, message }] }, status);
+}
+
+/** Fill in both registration fields and submit, in whichever language is active. */
+async function register(catalogue: typeof en | typeof pl, name: string, leaderEmail: string) {
+  await userEvent.type(screen.getByLabelText(catalogue.teams.nameLabel), name);
+  await userEvent.type(screen.getByLabelText(catalogue.teams.leaderEmailLabel), leaderEmail);
+  await userEvent.click(screen.getByRole('button', { name: catalogue.teams.register }));
 }
 
 const DUPLICATE_MESSAGE = "A team named 'Platform' already exists.";
@@ -41,11 +54,25 @@ describe('TeamsPage in English', () => {
     await renderWithLanguage(<TeamsPage />, 'en');
 
     const items = await screen.findAllByRole('listitem');
-    expect(items.map((item) => item.textContent)).toEqual([
+    expect(items.map((item) => within(item).getByText(/ — board: /).textContent)).toEqual([
       'alpha — board: alpha',
       'Platform — board: Platform',
       'Quality — board: Quality',
     ]);
+  });
+
+  it("shows each team's leader, member count and a link to its members page", async () => {
+    fetchMock.mockResolvedValue(jsonResponse([team('Platform', 'anna@example.com', 3)]));
+
+    await renderWithLanguage(<TeamsPage />, 'en');
+
+    const item = await screen.findByRole('listitem');
+    expect(item).toHaveTextContent('leader: anna@example.com');
+    expect(item).toHaveTextContent('Members: 3');
+    expect(within(item).getByRole('link', { name: 'Members of Platform' })).toHaveAttribute(
+      'href',
+      '/teams/id-Platform/members',
+    );
   });
 
   it('reports when no teams are registered yet', async () => {
@@ -73,10 +100,58 @@ describe('TeamsPage in English', () => {
     await renderWithLanguage(<TeamsPage />, 'en');
     await screen.findByText(en.teams.empty);
 
-    await userEvent.type(screen.getByLabelText(en.teams.nameLabel), 'Platform');
-    await userEvent.click(screen.getByRole('button', { name: en.teams.register }));
+    await register(en, 'Platform', 'lead@example.com');
 
     expect(await screen.findByRole('listitem')).toHaveTextContent('Platform — board: Platform');
+  });
+});
+
+describe('Members are managed from the team page', () => {
+  it('A team is registered with its leader from the page', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(team('Platform', 'anna@example.com'), 201))
+      .mockResolvedValue(jsonResponse([team('Platform', 'anna@example.com', 1)]));
+
+    await renderWithLanguage(<TeamsPage />, 'en');
+    await screen.findByText(en.teams.empty);
+
+    await register(en, 'Platform', 'anna@example.com');
+
+    const item = await screen.findByRole('listitem');
+    expect(item).toHaveTextContent('leader: anna@example.com');
+    expect(item).toHaveTextContent('Members: 1');
+    expect(screen.getByLabelText(en.teams.nameLabel)).toHaveValue('');
+    expect(screen.getByLabelText(en.teams.leaderEmailLabel)).toHaveValue('');
+
+    const [, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      name: 'Platform',
+      leader_email: 'anna@example.com',
+    });
+  });
+
+  it('A rejected leader email is shown on its field', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValue(
+        fieldError('employee_email.invalid', 'Not an email address.', 422, 'leader_email'),
+      );
+
+    await renderWithLanguage(<TeamsPage />, 'en');
+    await screen.findByText(en.teams.empty);
+
+    await register(en, 'Platform', 'not-an-email');
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(en.errors['employee_email.invalid']);
+    const leaderEmail = screen.getByLabelText(en.teams.leaderEmailLabel);
+    expect(leaderEmail).toHaveAttribute('aria-invalid', 'true');
+    expect(leaderEmail).toHaveAttribute('aria-describedby', alert.id);
+    // The name was fine: it is kept, and not marked as the problem.
+    const name = screen.getByLabelText(en.teams.nameLabel);
+    expect(name).toHaveValue('Platform');
+    expect(name).toHaveAttribute('aria-invalid', 'false');
   });
 });
 
@@ -87,9 +162,14 @@ describe('TeamsPage in Polish', () => {
     await renderWithLanguage(<TeamsPage />, 'pl');
 
     // A team name is data, not text to translate, but the label around it is.
-    expect(await screen.findByRole('listitem')).toHaveTextContent('Platform — tablica: Platform');
+    const item = await screen.findByRole('listitem');
+    expect(item).toHaveTextContent('Platform — tablica: Platform');
+    expect(item).toHaveTextContent('lider zespołu: lead@example.com');
+    expect(item).toHaveTextContent('Liczba członków: 1');
+    expect(within(item).getByRole('link', { name: 'Członkowie zespołu Platform' })).toBeVisible();
     expect(screen.getByRole('heading', { name: pl.teams.heading })).toBeInTheDocument();
     expect(screen.getByLabelText(pl.teams.nameLabel)).toBeInTheDocument();
+    expect(screen.getByLabelText(pl.teams.leaderEmailLabel)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: pl.teams.register })).toBeInTheDocument();
     expect(screen.queryByText(en.teams.heading)).not.toBeInTheDocument();
   });
@@ -120,8 +200,7 @@ describe('an error the API reports against a field', () => {
     await renderWithLanguage(<TeamsPage />, 'en');
     await screen.findByText(en.teams.empty);
 
-    await userEvent.type(screen.getByLabelText(en.teams.nameLabel), 'Platform');
-    await userEvent.click(screen.getByRole('button', { name: en.teams.register }));
+    await register(en, 'Platform', 'lead@example.com');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(en.errors['team_name.duplicate']);
     expect(screen.queryByText(DUPLICATE_MESSAGE)).not.toBeInTheDocument();
@@ -136,8 +215,7 @@ describe('an error the API reports against a field', () => {
     await renderWithLanguage(<TeamsPage />, 'pl');
     await screen.findByText(pl.teams.empty);
 
-    await userEvent.type(screen.getByLabelText(pl.teams.nameLabel), 'Platform');
-    await userEvent.click(screen.getByRole('button', { name: pl.teams.register }));
+    await register(pl, 'Platform', 'lead@example.com');
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(pl.errors['team_name.duplicate']);
@@ -154,8 +232,7 @@ describe('an error the API reports against a field', () => {
     await renderWithLanguage(<TeamsPage />, 'pl');
     await screen.findByText(pl.teams.empty);
 
-    await userEvent.type(screen.getByLabelText(pl.teams.nameLabel), 'Platform');
-    await userEvent.click(screen.getByRole('button', { name: pl.teams.register }));
+    await register(pl, 'Platform', 'lead@example.com');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(pl.errors.generic);
     expect(document.body.textContent).not.toContain('A reason this build never heard of.');

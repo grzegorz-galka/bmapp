@@ -1,0 +1,166 @@
+/*
+ * Shared by the team page and the members page: both are a form above a list,
+ * and keeping one sheet keeps their fields and buttons identical.
+ *
+ * Nothing here has a fixed width. Fields wrap under one another and actions
+ * under their member, because the Polish captions run noticeably longer.
+ */
+
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--sp-6) var(--sp-4) 56px;
+}
+
+.heading {
+  margin: 0 0 var(--sp-5);
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.back {
+  display: inline-block;
+  margin-bottom: var(--sp-3);
+  font-size: var(--fs-sm);
+}
+
+.form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-6);
+}
+
+.field {
+  display: flex;
+  flex: 1 1 16rem;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.label {
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.input {
+  width: 100%;
+  padding: 8px var(--sp-3);
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--bad);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--bad);
+}
+
+/* Lines the button up with the inputs rather than with their labels. */
+.submit {
+  align-self: flex-end;
+}
+
+.button,
+.primary {
+  padding: 8px var(--sp-4);
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-sm);
+  font: 500 var(--fs-sm) var(--font-sans);
+  cursor: pointer;
+}
+
+.button {
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.button:hover {
+  background: var(--panel-2);
+}
+
+.primary {
+  background: var(--accent-solid);
+  color: var(--on-accent-solid);
+}
+
+.button:disabled,
+.primary:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
+}
+
+.itemMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.itemName {
+  font-weight: 600;
+}
+
+.itemMeta {
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.leaderMark {
+  display: inline-block;
+  margin-left: var(--sp-2);
+  padding: 1px var(--sp-2);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-pill);
+  color: var(--accent);
+  font: 500 var(--fs-2xs) var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.itemError {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--bad);
+}

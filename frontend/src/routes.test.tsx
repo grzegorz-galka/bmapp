@@ -46,6 +46,33 @@ describe('the route table', () => {
     expect(screen.queryByRole('heading', { name: en.hub.heroTitle })).not.toBeInTheDocument();
   });
 
+  it("shows a team's members page at its own address", async () => {
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () =>
+          String(url).includes('/hub')
+            ? hubSummary()
+            : {
+                id: 'team-1',
+                name: 'Platform',
+                board: { id: 'board-1', name: 'Platform' },
+                members: [{ employee_id: 'emp-1', email: 'anna@example.com', is_leader: true }],
+              },
+      } as Response),
+    );
+
+    await renderWithLanguage(<App />, 'en', { route: '/teams/team-1/members' });
+
+    expect(await screen.findByRole('heading', { name: 'Members of Platform' })).toBeInTheDocument();
+    // Still under the team section, so the header says where the user is.
+    expect(within(nav()).getByRole('link', { name: en.nav.teams })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
   it('falls back to the hub for an address it does not recognise', async () => {
     await renderWithLanguage(<App />, 'en', { route: '/nothing-here' });
 

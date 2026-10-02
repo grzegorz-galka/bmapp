@@ -13,6 +13,11 @@ function uniqueTeamName() {
   return `E2E Team ${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }
 
+/** A leader email no other run will collide with. */
+function uniqueLeaderEmail() {
+  return `e2e.leader.${Date.now()}-${Math.floor(Math.random() * 1000)}@example.com`;
+}
+
 /**
  * A list entry as the page composes it: the team's name, then the board
  * suffix from the catalogue. Built from the catalogue rather than spelled out,
@@ -20,6 +25,18 @@ function uniqueTeamName() {
  */
 function entryText(catalogue: Translations, name: string) {
   return `${name} \u2014 ${catalogue.teams.boardSuffix.replace('{{name}}', name)}`;
+}
+
+/** The entry's second line: who leads the team, from the same catalogue. */
+function leaderText(catalogue: Translations, email: string) {
+  return catalogue.teams.leaderSuffix.replace('{{email}}', email);
+}
+
+/** Fill in the registration form and submit it. */
+async function register(page: Page, catalogue: Translations, name: string, leaderEmail: string) {
+  await page.getByLabel(catalogue.teams.nameLabel).fill(name);
+  await page.getByLabel(catalogue.teams.leaderEmailLabel).fill(leaderEmail);
+  await page.getByRole('button', { name: catalogue.teams.register }).click();
 }
 
 /**
@@ -46,16 +63,17 @@ async function useLanguage(page: Page, language: 'en' | 'pl') {
 
 test('a registered team appears in the list and survives a reload', async ({ page }) => {
   const name = uniqueTeamName();
+  const leaderEmail = uniqueLeaderEmail();
   await useLanguage(page, 'en');
 
   await page.goto('/teams');
   await expect(page.getByRole('heading', { name: en.teams.heading })).toBeVisible();
 
-  await page.getByLabel(en.teams.nameLabel).fill(name);
-  await page.getByRole('button', { name: en.teams.register }).click();
+  await register(page, en, name, leaderEmail);
 
   const entry = page.getByRole('listitem').filter({ hasText: name });
-  await expect(entry).toHaveText(entryText(en, name));
+  await expect(entry).toContainText(entryText(en, name));
+  await expect(entry).toContainText(leaderText(en, leaderEmail));
 
   await page.reload();
   await expect(page.getByRole('listitem').filter({ hasText: name })).toBeVisible();
@@ -66,12 +84,10 @@ test('a duplicate name is reported against the name field', async ({ page }) => 
   await useLanguage(page, 'en');
 
   await page.goto('/teams');
-  await page.getByLabel(en.teams.nameLabel).fill(name);
-  await page.getByRole('button', { name: en.teams.register }).click();
+  await register(page, en, name, uniqueLeaderEmail());
   await expect(page.getByRole('listitem').filter({ hasText: name })).toBeVisible();
 
-  await page.getByLabel(en.teams.nameLabel).fill(name.toUpperCase());
-  await page.getByRole('button', { name: en.teams.register }).click();
+  await register(page, en, name.toUpperCase(), uniqueLeaderEmail());
 
   await expect(page.getByRole('alert')).toHaveText(en.errors['team_name.duplicate']);
   await expect(page.getByLabel(en.teams.nameLabel)).toHaveAttribute('aria-invalid', 'true');
@@ -85,16 +101,15 @@ test('the whole flow reads in Polish, error included', async ({ page }) => {
   await expect(page.getByRole('heading', { name: pl.teams.heading })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'pl');
 
-  await page.getByLabel(pl.teams.nameLabel).fill(name);
-  await page.getByRole('button', { name: pl.teams.register }).click();
-  await expect(page.getByRole('listitem').filter({ hasText: name })).toHaveText(
-    entryText(pl, name),
-  );
+  const leaderEmail = uniqueLeaderEmail();
+  await register(page, pl, name, leaderEmail);
+  const entry = page.getByRole('listitem').filter({ hasText: name });
+  await expect(entry).toContainText(entryText(pl, name));
+  await expect(entry).toContainText(leaderText(pl, leaderEmail));
 
   // The duplicate rejection comes from Postgres, through the API's code, and
   // arrives as a Polish sentence. That is the whole point of the change.
-  await page.getByLabel(pl.teams.nameLabel).fill(name.toUpperCase());
-  await page.getByRole('button', { name: pl.teams.register }).click();
+  await register(page, pl, name.toUpperCase(), uniqueLeaderEmail());
 
   await expect(page.getByRole('alert')).toHaveText(pl.errors['team_name.duplicate']);
   // The one English literal here on purpose: a fragment of the API's

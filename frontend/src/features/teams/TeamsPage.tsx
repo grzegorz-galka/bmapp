@@ -1,46 +1,91 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import { ApiError } from '../../api/teams';
 import { translateErrorCode } from '../../i18n/apiErrors';
 import { useRegisterTeam, useTeams } from './useTeams';
+import styles from './teams.module.css';
 
 export function TeamsPage() {
   // Local UI state only. The team list is server state and lives in the query.
   const [name, setName] = useState('');
+  const [leaderEmail, setLeaderEmail] = useState('');
   const { t } = useTranslation();
   const teams = useTeams();
   const registerTeam = useRegisterTeam();
 
-  const nameFailure =
-    registerTeam.error instanceof ApiError ? registerTeam.error.errorFor('name') : undefined;
   // The API says why; the wording is ours, in the language being read.
-  const nameError = nameFailure ? translateErrorCode(t, nameFailure) : undefined;
+  function errorOn(field: string): string | undefined {
+    const failure =
+      registerTeam.error instanceof ApiError ? registerTeam.error.errorFor(field) : undefined;
+    return failure ? translateErrorCode(t, failure) : undefined;
+  }
+  const nameError = errorOn('name');
+  const leaderEmailError = errorOn('leader_email');
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    registerTeam.mutate(name, { onSuccess: () => setName('') });
+    registerTeam.mutate(
+      { name, leaderEmail },
+      {
+        onSuccess: () => {
+          setName('');
+          setLeaderEmail('');
+        },
+      },
+    );
   }
 
   return (
-    <main>
-      <h1>{t('teams.heading')}</h1>
+    <main className={styles.page}>
+      <h1 className={styles.heading}>{t('teams.heading')}</h1>
 
-      <form onSubmit={handleSubmit} noValidate>
-        <label htmlFor="team-name">{t('teams.nameLabel')}</label>
-        <input
-          id="team-name"
-          name="name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          aria-invalid={nameError !== undefined}
-          aria-describedby={nameError ? 'team-name-error' : undefined}
-        />
-        {nameError && (
-          <p id="team-name-error" role="alert">
-            {nameError}
-          </p>
-        )}
-        <button type="submit" disabled={registerTeam.isPending}>
+      <form className={styles.form} onSubmit={handleSubmit} noValidate>
+        <div className={styles.field}>
+          <label className={styles.label} htmlFor="team-name">
+            {t('teams.nameLabel')}
+          </label>
+          <input
+            id="team-name"
+            name="name"
+            className={styles.input}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            aria-invalid={nameError !== undefined}
+            aria-describedby={nameError ? 'team-name-error' : undefined}
+          />
+          {nameError && (
+            <p id="team-name-error" role="alert" className={styles.error}>
+              {nameError}
+            </p>
+          )}
+        </div>
+        <div className={styles.field}>
+          <label className={styles.label} htmlFor="team-leader-email">
+            {t('teams.leaderEmailLabel')}
+          </label>
+          <input
+            id="team-leader-email"
+            name="leader_email"
+            type="email"
+            autoComplete="off"
+            className={styles.input}
+            value={leaderEmail}
+            onChange={(event) => setLeaderEmail(event.target.value)}
+            aria-invalid={leaderEmailError !== undefined}
+            aria-describedby={leaderEmailError ? 'team-leader-email-error' : undefined}
+          />
+          {leaderEmailError && (
+            <p id="team-leader-email-error" role="alert" className={styles.error}>
+              {leaderEmailError}
+            </p>
+          )}
+        </div>
+        <button
+          type="submit"
+          className={`${styles.primary} ${styles.submit}`}
+          disabled={registerTeam.isPending}
+        >
           {registerTeam.isPending ? t('teams.registering') : t('teams.register')}
         </button>
       </form>
@@ -51,10 +96,24 @@ export function TeamsPage() {
         (teams.data.length === 0 ? (
           <p>{t('teams.empty')}</p>
         ) : (
-          <ul>
+          <ul className={styles.list}>
             {teams.data.map((team) => (
-              <li key={team.id}>
-                {team.name} — {t('teams.boardSuffix', { name: team.board.name })}
+              <li key={team.id} className={styles.item}>
+                <span className={styles.itemMain}>
+                  <span className={styles.itemName}>
+                    {team.name} — {t('teams.boardSuffix', { name: team.board.name })}
+                  </span>
+                  <span className={styles.itemMeta}>
+                    {t('teams.leaderSuffix', { email: team.leader.email })} ·{' '}
+                    {t('teams.memberCount', { count: team.member_count })}
+                  </span>
+                </span>
+                <Link
+                  to={`/teams/${encodeURIComponent(team.id)}/members`}
+                  aria-label={t('teams.membersLinkLabel', { name: team.name })}
+                >
+                  {t('teams.membersLink')}
+                </Link>
               </li>
             ))}
           </ul>
