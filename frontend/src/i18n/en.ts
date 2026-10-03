@@ -158,6 +158,19 @@ export const en = {
     makeLeader: 'Make leader',
     makeLeaderLabel: 'Make leader: {{email}}',
   },
+  auth: {
+    signIn: 'Sign in',
+    signOut: 'Sign out',
+    account: 'Account',
+    accountLabel: 'Account: {{email}}',
+    signedOut: 'You are not signed in.',
+    signedIn: 'Signed in.',
+    completing: 'Completing sign-in...',
+    restoring: 'Restoring your session...',
+    signInFailedTitle: 'Sign-in could not be completed',
+    signInFailed: 'The response from the identity provider did not match this sign-in. Try again.',
+    sessionEnded: 'Your session has ended. Sign in again to continue.',
+  },
   errors: {
     // Keyed by the code the API reports. `generic` covers a code this
     // catalogue does not know, so no untranslated text ever reaches a user.
@@ -175,6 +188,12 @@ export const en = {
     'team_member.is_leader':
       'The team leader cannot be removed. Make another member the leader first.',
     'team_leader.not_member': 'Only a member of the team can become its leader.',
+    'auth.token_missing': 'You are not signed in. Sign in to continue.',
+    'auth.token_expired': 'Your session has expired. Sign in again to continue.',
+    'auth.token_invalid': 'Your session is no longer valid. Sign in again to continue.',
+    'auth.forbidden': 'You are not allowed to do this.',
+    'auth.not_an_employee':
+      'You do not belong to any team yet, so you can read but not change anything.',
   },
 } as const;
 

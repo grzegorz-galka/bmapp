@@ -30,6 +30,68 @@ class DomainError(Exception):
             self.field = field
 
 
+class UnauthenticatedError(DomainError):
+    """Raised when a request carries no token, or none that can be verified.
+
+    Always 401, never 403: the caller has not established who they are, so the
+    answer is "authenticate", not "you may not". The code names which of the
+    three it was, and the message never says which key, issuer or audience was
+    expected - that would tell an attacker what to forge.
+    """
+
+    status_code = 401
+    code = "auth.token_invalid"
+
+    def __init__(self, message: str = "The access token could not be verified.") -> None:
+        super().__init__(message)
+
+
+class MissingTokenError(UnauthenticatedError):
+    """Raised when a request that needs an identity presents no token at all."""
+
+    code = "auth.token_missing"
+
+    def __init__(self) -> None:
+        super().__init__("No access token was presented.")
+
+
+class ExpiredTokenError(UnauthenticatedError):
+    """Raised when a token verified but its lifetime has passed."""
+
+    code = "auth.token_expired"
+
+    def __init__(self) -> None:
+        super().__init__("The access token has expired.")
+
+
+class ForbiddenError(DomainError):
+    """Raised when an authenticated person may not do what they are asking.
+
+    403 rather than 404: every authenticated person may read everything here,
+    so there is nothing to conceal by pretending the team does not exist.
+    """
+
+    status_code = 403
+    code = "auth.forbidden"
+
+    def __init__(self, message: str = "You are not permitted to perform this action.") -> None:
+        super().__init__(message)
+
+
+class NotAnEmployeeError(ForbiddenError):
+    """Raised when a write needs an employee record and the caller has none.
+
+    Authenticating does not record an employee: people are recorded the first
+    time they are assigned to a team. Someone on no team can read everything
+    and write nothing.
+    """
+
+    code = "auth.not_an_employee"
+
+    def __init__(self, email: str) -> None:
+        super().__init__(f"{email} is not a member of any team, so may not write.")
+
+
 class DuplicateTeamNameError(DomainError):
     """Raised when a team name is already in use, ignoring case."""
 

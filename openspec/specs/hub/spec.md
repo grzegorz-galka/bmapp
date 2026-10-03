@@ -211,13 +211,15 @@ language rather than showing an empty area.
 - **WHEN** the hub is displayed and the current user has no items assigned
 - **THEN** a message in the active language says so, and no empty list is shown
 
-### Requirement: The hub is supplied by a single read-only summary
+### Requirement: The hub is supplied by a single authenticated summary
 
 The system SHALL supply everything the hub displays as data through one read-only
-request. That request SHALL NOT modify anything and SHALL succeed without the caller
-being authenticated. Its response SHALL carry: the current user's identity, the company
-declarations, the current user's teams, the preparation counts, whether a meeting is in
-session, the funnel figures and their scope, and the items assigned to the current user.
+request. That request SHALL NOT modify anything and SHALL require the caller to be
+authenticated, being refused as the `authentication` capability requires when it is
+not. Its response SHALL carry: the current user's identity, the company
+declarations, the current user's teams, the preparation counts, whether a meeting is
+in session, the funnel figures and their scope, and the items assigned to the
+current user.
 
 The response SHALL follow these rules, so that the interface can present it in either
 language and can be changed to the real data later without changing its own code:
@@ -233,21 +235,30 @@ language and can be changed to the real data later without changing its own code
   time SHALL be returned as an ISO 8601 calendar date. No text formatted for display
   SHALL be returned in place of either.
 
-While the hub summary is placeholder data, its identity, declarations, counts and items
+The identity the summary carries SHALL be the authenticated caller's, so that two
+people signed in as different employees receive different identities from the same
+request. While the hub summary is placeholder data, its declarations, counts and items
 are fixed rather than recorded anywhere, and the response SHALL declare itself
 provisional so that no caller mistakes it for recorded data.
 
 #### Scenario: The summary is returned
 
-- **WHEN** the hub summary is requested
+- **WHEN** the hub summary is requested by an authenticated caller
 - **THEN** it is returned successfully, carrying the current user's identity, the
   declarations, the teams, the preparation counts, the in-session indicator, the funnel
   figures and their scope, and the assigned items
 
-#### Scenario: The summary needs no authentication
+#### Scenario: The summary requires authentication
 
 - **WHEN** the hub summary is requested with no credentials
-- **THEN** it is returned successfully
+- **THEN** it is refused with HTTP 401 and the code `auth.token_missing`, and no
+  summary is returned
+
+#### Scenario: The identity is the authenticated caller's
+
+- **WHEN** the hub summary is requested by two callers authenticated as different
+  people
+- **THEN** each response carries the identity of the caller that requested it
 
 #### Scenario: Prose carries both languages
 
@@ -272,7 +283,6 @@ provisional so that no caller mistakes it for recorded data.
 
 - **WHEN** the hub summary is returned
 - **THEN** it states that its data is placeholder data rather than recorded data
-
 ### Requirement: The hub summary stays current
 
 The system SHALL return a hub summary whose dates are meaningful at the moment it is
@@ -300,27 +310,32 @@ passed and at least one whose has not.
 - **THEN** at least one assigned item has a due date before that day and at least one
   has a due date on or after it
 
-### Requirement: The hub identifies the current user
+### Requirement: The hub identifies the signed-in person
 
-The system SHALL display the current user's email address in the application header and
-SHALL use it to head the list of items assigned to them. The identity SHALL come from
-the hub summary rather than being written into the interface.
+The system SHALL display the signed-in person's email address in the application
+header and SHALL use it to head the list of items assigned to them. The identity
+SHALL come from the hub summary rather than being written into the interface.
 
-Until authentication is built the identity is a fixed placeholder, and the system SHALL
-NOT present it as a signed-in session: no sign-in, no sign-out and no account control
-SHALL be offered.
+The identity SHALL be that of the authenticated person, and the system SHALL present
+it as a signed-in session: the header SHALL offer an account control from which that
+person can sign out, as the `authentication` capability requires. A person who is not
+signed in SHALL be offered the sign-in instead, and SHALL NOT be shown an identity.
 
 #### Scenario: The identity is displayed
 
 - **WHEN** the hub is displayed and the summary has loaded
-- **THEN** the current user's email address from the summary is shown in the header and
-  heads the list of assigned items
+- **THEN** the signed-in person's email address from the summary is shown in the header
+  and heads the list of assigned items
 
-#### Scenario: No session is implied
+#### Scenario: A session is offered
 
-- **WHEN** any page of the application is displayed
-- **THEN** no sign-in, sign-out or account control is offered
+- **WHEN** any page of the application is displayed to a signed-in person
+- **THEN** an account control is offered from which they can sign out
 
+#### Scenario: No identity is shown when signed out
+
+- **WHEN** any page of the application is displayed to a person who is not signed in
+- **THEN** no identity is shown and the sign-in is offered
 ### Requirement: The hub reports loading and failure
 
 The system SHALL tell the user, in the active language, that the hub is loading while

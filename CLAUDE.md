@@ -73,8 +73,8 @@ Three-tier web application hosted on-premise.
 | Layer    | Choice                                                                             | Notes                                |
 |----------|------------------------------------------------------------------------------------|--------------------------------------|
 | Database | PostgreSQL 18                                                                      | Migrations via Alembic               |
-| Backend  | Python 3.14, FastAPI, SQLAlchemy 2.x, Pydantic v2                                  | REST API, OpenAPI generated          |
-| Frontend | React 19 + TypeScript 6, Vite 8, react-router, TanStack Query, Recharts, i18next + react-i18next, IBM Plex via @fontsource | Vue was an option; React was chosen  |
+| Backend  | Python 3.14, FastAPI, SQLAlchemy 2.x, Pydantic v2, PyJWT                           | REST API, OpenAPI generated          |
+| Frontend | React 19 + TypeScript 6, Vite 8, react-router, TanStack Query, Recharts, i18next + react-i18next, oidc-client-ts, IBM Plex via @fontsource | Vue was an option; React was chosen  |
 | Tests    | pytest, pytest-cov, httpx (API), Vitest + Testing Library, Playwright              | pytest-bdd for BDD where it pays off |
 | Tooling  | uv (Python deps), Ruff (lint+format), mypy, ESLint + Prettier                      |                                      |
 | Runtime  | Docker Compose for local dev; single Compose stack on-prem                         | Node 24 and Python 3.14 base images  |
@@ -205,14 +205,21 @@ any number of teams.
 
 **The hub is served from placeholder data.** `GET /hub` returns one read-only
 payload built from constants in `app/services/hub.py` — no tables, no
-migration, no database session. It exists so the shell is real while the
+migration, no database session. The one real thing in it is the identity, which
+comes from the caller's token; everything else is still invented. It exists so the shell is real while the
 capabilities behind it are built, and it marks itself `provisional` so nothing
 mistakes its figures for recorded data. Each future capability replaces a slice
 of it; the shape it returns is the shape they should return.
 
+`authentication` and `authorization` are implemented too: every endpoint needs a
+verified token, the hub reports the caller rather than a placeholder, and writes
+are decided per team — administrators from `BMAPP_ADMIN_EMAILS` register teams and
+name leaders, a team's leader manages its members, and anyone signed in may read
+everything.
+
 Everything else in the domain model above — meetings,
-metrics and their values, targets, problems, tasks, archiving, and
-authentication — is agreed but not built. Each is a capability of its own;
+metrics and their values, targets, problems, tasks and archiving — is agreed but
+not built. Each is a capability of its own;
 propose it through `/opsx:propose` rather than adding it inline.
 
 ## Repository layout
@@ -358,22 +365,32 @@ A task is done when:
 
 - All configuration comes from environment variables (see `.env.example`).
   Never commit `.env` or any secret.
+- `SECURITY.md` is the agreed security concept in full — the federation, the
+  token handling and the permission table. This section is the summary; when the
+  two disagree, `SECURITY.md` is the one to fix.
 - Authentication (agreed, not yet built): a **federated chain of two OIDC /
-  OAuth2 hops** — the application delegates to an identity broker, which in turn
-  delegates to ADFS. The employee's email is the identity BMAPP keys on. This
-  gets its own change; nothing about it exists yet.
-- Until that lands, a **`dev-basic-auth` profile behind a feature toggle**: HTTP
-  Basic, user ids are employee emails, passwords in a local file. It exists so
-  that authorization rules can be built and tested before the federation is
-  available. Non-negotiable constraints, because the passwords are plain text:
-  the toggle is **off by default**; the password file is **never committed** and
-  must be added to `.gitignore` by the change that introduces it; it holds test
-  accounts only, never a real
-  credential; the stack stays bound to `127.0.0.1`; and enabling it must be
-  impossible in a deployed environment, not merely discouraged. Anything
-  deployed uses the federated chain or is not deployed.
-- Authorization: team leaders can configure their own board; members can edit
-  problems and tasks of their own teams; everyone can read every board.
+  OAuth2 hops** — the application delegates to an identity broker
+  (`identity.intra.pse.pl`), which in turn delegates to ADFS. BMAPP is a
+  **public client** using Authorization Code Flow with PKCE and holds no client
+  secret; the backend validates the resulting JWT against the broker's JWKS and
+  keeps no session. The employee's email is the identity BMAPP keys on. This gets
+  its own change; nothing about it exists yet.
+- Until that lands, a **dev mode behind a toggle** (`BMAPP_MODE=dev`, plus
+  `VITE_AUTH_MODE=dev` for the web app): `POST /auth/dev-login` takes an email and
+  no password and returns a JWT of the same shape, so authorization is exercised
+  through the same code path production uses. It is off by default and cannot work
+  in a deployed environment: the route is not registered when the mode is off, the
+  server refuses to start when the mode is on and `BMAPP_OIDC_ISSUER` is set, and
+  the two modes sign and accept **disjoint algorithms** (dev `HS256` against a
+  per-process secret, broker `RS256` against the published JWKS), so a dev token
+  fails on the algorithm before any key is consulted. Anything deployed uses the
+  federated chain or is not deployed.
+- Authorization has **no roles**: a global admin flag from `BMAPP_ADMIN_EMAILS`,
+  and membership read from `team_members`. The question is always "may this user
+  do X to *this team*", never "what role is this user". Admins register teams and
+  assign their leaders; a team's leader configures that team's board and manages
+  its members; members edit the meeting data of their own teams; a valid token
+  reads everything. Reading is not gated on an Employee record.
 - Validate all input at the API boundary with Pydantic. Never build SQL strings.
 - Log at INFO for business events, DEBUG for details. No personal data in logs
   beyond the employee email where needed for auditing.

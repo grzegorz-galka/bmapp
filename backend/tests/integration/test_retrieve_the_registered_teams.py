@@ -68,5 +68,8 @@ def test_the_list_costs_a_fixed_number_of_statements(client: TestClient, session
         sa.event.remove(connection, "before_cursor_execute", count)
 
     assert [team["member_count"] for team in body] == [2, 2, 2]
-    # One for the teams with their boards, one for every team's members.
-    assert len(statements) == 2, statements
+    # One to resolve who is calling, one for the teams with their boards, one
+    # for every team's members. The identity costs a fixed statement per
+    # request; what this guards against is a statement per *team*, which is
+    # why the count does not grow with the three registered above.
+    assert len(statements) == 3, statements

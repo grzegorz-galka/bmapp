@@ -40,8 +40,33 @@ docker compose exec backend alembic upgrade head
 
 Then open <http://localhost:5173>. You land on the hub; the team registration
 page is at `/teams`, reachable from the header. The header also carries the
-English/Polish language toggle and the dark/light theme toggle — dark by default, and
-your choice is remembered.
+English/Polish language toggle, the dark/light theme toggle — dark by default, and
+your choice is remembered — and the account control.
+
+### Signing in locally
+
+Everything now requires a signed-in person, and the identity broker is not
+reachable from a developer machine. The stack therefore runs in **development
+mode** (`BMAPP_MODE=dev` for the API, `VITE_AUTH_MODE=dev` for the web app),
+which mints a local token for whatever email you ask for. The compose file
+signs you in as `admin@example.com`, an administrator, so you can register a
+team straight away.
+
+To be somebody else, set the email the page reads before it loads:
+
+```js
+// In the browser console, then reload.
+localStorage.setItem('bmapp.devEmail', 'jan.kowalski@pse.pl');
+```
+
+Override the administrator list with `BMAPP_ADMIN_EMAILS` in `.env` (and
+`VITE_DEV_EMAIL` to sign in as one of them by default).
+
+Development mode is for local work only, and the application enforces that
+rather than asking you to remember it: a server in development mode refuses to
+start if an identity broker is configured, the local login endpoint does not
+exist outside it, and the two modes sign and accept tokens with different
+algorithms, so a token minted here cannot be used against a deployed server.
 
 A database created before team membership arrived (migration `0002`) holds teams
 with no leader, and the migration refuses to run over it rather than invent one.
@@ -201,3 +226,17 @@ uv run alembic upgrade head
 
 All configuration comes from environment variables — see `.env.example` for
 the full list. Never commit `.env`.
+
+The identity settings are the ones to get right:
+
+| Variable | Meaning |
+|------------------------|--------------------------------------------------|
+| `BMAPP_MODE` | `broker` (default) or `dev`. Never `dev` anywhere deployed. |
+| `BMAPP_OIDC_ISSUER` | The identity broker. Setting it alongside `dev` stops the server starting. |
+| `BMAPP_OIDC_CLIENT_ID` | What BMAPP is registered as. |
+| `BMAPP_OIDC_AUDIENCE` | What a token must name as its audience; defaults to the client id. |
+| `BMAPP_ADMIN_EMAILS` | Comma-separated administrators. Empty refuses every write that needs one. |
+| `VITE_AUTH_MODE` | `dev` to obtain the session locally instead of from the broker. |
+
+`SECURITY.md` holds the whole picture: the federated chain, how tokens are
+validated, and who may do what.

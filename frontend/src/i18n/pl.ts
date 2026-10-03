@@ -146,6 +146,19 @@ export const pl: Translations = {
     makeLeader: 'Ustaw jako lidera',
     makeLeaderLabel: 'Ustaw jako lidera: {{email}}',
   },
+  auth: {
+    signIn: 'Zaloguj się',
+    signOut: 'Wyloguj się',
+    account: 'Konto',
+    accountLabel: 'Konto: {{email}}',
+    signedOut: 'Nie jesteś zalogowany.',
+    signedIn: 'Zalogowano.',
+    completing: 'Kończenie logowania...',
+    restoring: 'Przywracanie sesji...',
+    signInFailedTitle: 'Nie udało się dokończyć logowania',
+    signInFailed: 'Odpowiedź dostawcy tożsamości nie pasuje do tego logowania. Spróbuj ponownie.',
+    sessionEnded: 'Twoja sesja wygasła. Zaloguj się ponownie, aby kontynuować.',
+  },
   errors: {
     generic: 'Coś poszło nie tak. Spróbuj ponownie.',
     'team_name.blank': 'Podaj nazwę zespołu.',
@@ -161,5 +174,11 @@ export const pl: Translations = {
     'team_member.is_leader':
       'Nie można usunąć lidera zespołu. Najpierw ustaw innego członka jako lidera.',
     'team_leader.not_member': 'Liderem zespołu może zostać tylko jego członek.',
+    'auth.token_missing': 'Nie jesteś zalogowany. Zaloguj się, aby kontynuować.',
+    'auth.token_expired': 'Twoja sesja wygasła. Zaloguj się ponownie, aby kontynuować.',
+    'auth.token_invalid': 'Twoja sesja jest nieważna. Zaloguj się ponownie, aby kontynuować.',
+    'auth.forbidden': 'Nie masz uprawnień do wykonania tej czynności.',
+    'auth.not_an_employee':
+      'Nie należysz jeszcze do żadnego zespołu, więc możesz tylko przeglądać dane.',
   },
 };

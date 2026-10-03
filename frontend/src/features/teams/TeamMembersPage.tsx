@@ -5,6 +5,8 @@ import type { TFunction } from 'i18next';
 import { ApiError, type Member } from '../../api/teams';
 import { translateErrorCode } from '../../i18n/apiErrors';
 import { useAddMember, useMakeLeader, useRemoveMember, useTeam } from './useTeams';
+import { useAuth } from '../auth/AuthProvider';
+import { useIsAdmin } from '../auth/useCurrentUser';
 import styles from './teams.module.css';
 
 /**
@@ -33,6 +35,8 @@ function isMissingTeam(error: Error | null): boolean {
 }
 
 export function TeamMembersPage() {
+  const isAdmin = useIsAdmin();
+  const { email: signedInEmail } = useAuth();
   const { teamId = '' } = useParams();
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
@@ -99,41 +103,51 @@ export function TeamMembersPage() {
     );
   }
 
+  // What this viewer may do here, decided the same way the API decides it:
+  // an administrator, or the leader of this very team. The server refuses
+  // regardless; hiding a control the person cannot use is a courtesy, not the
+  // enforcement.
+  const leaderEmail = team.data.members.find((member) => member.is_leader)?.email;
+  const mayManageMembers = isAdmin || (signedInEmail !== null && signedInEmail === leaderEmail);
+  const mayHandOverLeadership = isAdmin;
+
   return (
     <main className={styles.page}>
       {back}
       <h1 className={styles.heading}>{t('members.heading', { name: team.data.name })}</h1>
 
-      <form className={styles.form} onSubmit={handleSubmit} noValidate>
-        <div className={styles.field}>
-          <label className={styles.label} htmlFor="member-email">
-            {t('members.emailLabel')}
-          </label>
-          <input
-            id="member-email"
-            name="email"
-            type="email"
-            autoComplete="off"
-            className={styles.input}
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            aria-invalid={emailError !== undefined}
-            aria-describedby={emailError ? 'member-email-error' : undefined}
-          />
-          {emailError && (
-            <p id="member-email-error" role="alert" className={styles.error}>
-              {emailError}
-            </p>
-          )}
-        </div>
-        <button
-          type="submit"
-          className={`${styles.primary} ${styles.submit}`}
-          disabled={addMember.isPending}
-        >
-          {addMember.isPending ? t('members.adding') : t('members.add')}
-        </button>
-      </form>
+      {mayManageMembers && (
+        <form className={styles.form} onSubmit={handleSubmit} noValidate>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="member-email">
+              {t('members.emailLabel')}
+            </label>
+            <input
+              id="member-email"
+              name="email"
+              type="email"
+              autoComplete="off"
+              className={styles.input}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              aria-invalid={emailError !== undefined}
+              aria-describedby={emailError ? 'member-email-error' : undefined}
+            />
+            {emailError && (
+              <p id="member-email-error" role="alert" className={styles.error}>
+                {emailError}
+              </p>
+            )}
+          </div>
+          <button
+            type="submit"
+            className={`${styles.primary} ${styles.submit}`}
+            disabled={addMember.isPending}
+          >
+            {addMember.isPending ? t('members.adding') : t('members.add')}
+          </button>
+        </form>
+      )}
 
       <ul className={styles.list} aria-label={t('members.listLabel')}>
         {team.data.members.map((member) => {
@@ -152,26 +166,32 @@ export function TeamMembersPage() {
               </span>
               {/* The leader can be neither removed nor made leader again:
                   leadership has to be handed to someone else first. */}
-              {!member.is_leader && (
+              {!member.is_leader && (mayHandOverLeadership || mayManageMembers) && (
                 <span className={styles.actions}>
-                  <button
-                    type="button"
-                    className={styles.button}
-                    disabled={busy}
-                    onClick={() => handOver(member)}
-                    aria-label={t('members.makeLeaderLabel', { email: member.email })}
-                  >
-                    {t('members.makeLeader')}
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.button}
-                    disabled={busy}
-                    onClick={() => remove(member)}
-                    aria-label={t('members.removeLabel', { email: member.email })}
-                  >
-                    {t('members.remove')}
-                  </button>
+                  {/* Handing over leadership is an administrator's; adding and
+                      removing ordinary members is the leader's too. */}
+                  {mayHandOverLeadership && (
+                    <button
+                      type="button"
+                      className={styles.button}
+                      disabled={busy}
+                      onClick={() => handOver(member)}
+                      aria-label={t('members.makeLeaderLabel', { email: member.email })}
+                    >
+                      {t('members.makeLeader')}
+                    </button>
+                  )}
+                  {mayManageMembers && (
+                    <button
+                      type="button"
+                      className={styles.button}
+                      disabled={busy}
+                      onClick={() => remove(member)}
+                      aria-label={t('members.removeLabel', { email: member.email })}
+                    >
+                      {t('members.remove')}
+                    </button>
+                  )}
                 </span>
               )}
               {error && (

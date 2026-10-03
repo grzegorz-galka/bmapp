@@ -4,9 +4,14 @@ import { Link } from 'react-router';
 import { ApiError } from '../../api/teams';
 import { translateErrorCode } from '../../i18n/apiErrors';
 import { useRegisterTeam, useTeams } from './useTeams';
+import { useIsAdmin } from '../auth/useCurrentUser';
 import styles from './teams.module.css';
 
 export function TeamsPage() {
+  // Registering a team is an administrator's: there is no leader before the
+  // team exists, so there is nobody else it could belong to. Everyone else
+  // still sees the list, because reading is open to anyone signed in.
+  const isAdmin = useIsAdmin();
   // Local UI state only. The team list is server state and lives in the query.
   const [name, setName] = useState('');
   const [leaderEmail, setLeaderEmail] = useState('');
@@ -40,55 +45,57 @@ export function TeamsPage() {
     <main className={styles.page}>
       <h1 className={styles.heading}>{t('teams.heading')}</h1>
 
-      <form className={styles.form} onSubmit={handleSubmit} noValidate>
-        <div className={styles.field}>
-          <label className={styles.label} htmlFor="team-name">
-            {t('teams.nameLabel')}
-          </label>
-          <input
-            id="team-name"
-            name="name"
-            className={styles.input}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            aria-invalid={nameError !== undefined}
-            aria-describedby={nameError ? 'team-name-error' : undefined}
-          />
-          {nameError && (
-            <p id="team-name-error" role="alert" className={styles.error}>
-              {nameError}
-            </p>
-          )}
-        </div>
-        <div className={styles.field}>
-          <label className={styles.label} htmlFor="team-leader-email">
-            {t('teams.leaderEmailLabel')}
-          </label>
-          <input
-            id="team-leader-email"
-            name="leader_email"
-            type="email"
-            autoComplete="off"
-            className={styles.input}
-            value={leaderEmail}
-            onChange={(event) => setLeaderEmail(event.target.value)}
-            aria-invalid={leaderEmailError !== undefined}
-            aria-describedby={leaderEmailError ? 'team-leader-email-error' : undefined}
-          />
-          {leaderEmailError && (
-            <p id="team-leader-email-error" role="alert" className={styles.error}>
-              {leaderEmailError}
-            </p>
-          )}
-        </div>
-        <button
-          type="submit"
-          className={`${styles.primary} ${styles.submit}`}
-          disabled={registerTeam.isPending}
-        >
-          {registerTeam.isPending ? t('teams.registering') : t('teams.register')}
-        </button>
-      </form>
+      {isAdmin && (
+        <form className={styles.form} onSubmit={handleSubmit} noValidate>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="team-name">
+              {t('teams.nameLabel')}
+            </label>
+            <input
+              id="team-name"
+              name="name"
+              className={styles.input}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              aria-invalid={nameError !== undefined}
+              aria-describedby={nameError ? 'team-name-error' : undefined}
+            />
+            {nameError && (
+              <p id="team-name-error" role="alert" className={styles.error}>
+                {nameError}
+              </p>
+            )}
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="team-leader-email">
+              {t('teams.leaderEmailLabel')}
+            </label>
+            <input
+              id="team-leader-email"
+              name="leader_email"
+              type="email"
+              autoComplete="off"
+              className={styles.input}
+              value={leaderEmail}
+              onChange={(event) => setLeaderEmail(event.target.value)}
+              aria-invalid={leaderEmailError !== undefined}
+              aria-describedby={leaderEmailError ? 'team-leader-email-error' : undefined}
+            />
+            {leaderEmailError && (
+              <p id="team-leader-email-error" role="alert" className={styles.error}>
+                {leaderEmailError}
+              </p>
+            )}
+          </div>
+          <button
+            type="submit"
+            className={`${styles.primary} ${styles.submit}`}
+            disabled={registerTeam.isPending}
+          >
+            {registerTeam.isPending ? t('teams.registering') : t('teams.register')}
+          </button>
+        </form>
+      )}
 
       {teams.isPending && <p>{t('teams.loading')}</p>}
       {teams.isError && <p role="alert">{t('teams.loadFailed')}</p>}
