@@ -7,12 +7,42 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import health_router, hub_router, teams_router
-from app.core.config import get_settings
+from app.api import auth_router, health_router, hub_router, teams_router
+from app.core.config import Mode, get_settings
 from app.core.exceptions import GENERIC_ERROR_CODE, DomainError
 
 settings = get_settings()
 logging.basicConfig(level=settings.log_level)
+logger = logging.getLogger(__name__)
+
+
+def _refuse_dev_mode_in_a_deployed_environment() -> None:
+    """Stop at boot if development mode is paired with a real identity broker.
+
+    Dev mode mints tokens for any email with no proof of anything. Every
+    deployed environment configures a broker and no local one does, so the two
+    settings together can only be a mistake - and a mistake that must fail
+    loudly at boot rather than quietly at the first request.
+
+    This is a guard, not the guarantee. The guarantee is that the two modes
+    accept disjoint signing algorithms, so a dev token cannot verify against a
+    broker-mode server even if this check were somehow passed.
+    """
+    if settings.mode is Mode.DEV and settings.oidc_issuer:
+        raise RuntimeError(
+            "BMAPP_MODE=dev cannot be used with BMAPP_OIDC_ISSUER set: development "
+            "mode issues tokens for any email without authenticating anybody. "
+            "Unset one of the two."
+        )
+
+
+_refuse_dev_mode_in_a_deployed_environment()
+
+# Counted, never listed: the number makes a misconfigured list visible without
+# putting anyone's address in the log.
+logger.info("Authorization: %d administrator(s) configured.", len(settings.admin_emails))
+if settings.mode is Mode.DEV:
+    logger.warning("BMAPP_MODE=dev: the local login endpoint is enabled. Never deploy this.")
 
 app = FastAPI(title="BMAPP", version="0.1.0")
 app.add_middleware(
@@ -21,6 +51,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(auth_router)
 app.include_router(health_router)
 app.include_router(hub_router)
 app.include_router(teams_router)

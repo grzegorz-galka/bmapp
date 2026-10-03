@@ -12,6 +12,10 @@ from app.services.hub import build_hub_summary, next_occurrence
 
 # A Thursday, so that "today" can be moved forwards and backwards from a
 # weekday every slot in the fixture can be compared against.
+#: Whoever the summary is built for. The identity is the one real thing
+#: in the payload; everything else is still placeholder data.
+SIGNED_IN = "jan.kowalski@pse.pl"
+
 THURSDAY = datetime.datetime(2026, 9, 17, 12, 0, tzinfo=datetime.UTC)
 
 # One request moment per weekday, plus two either side of a slot's time of
@@ -78,7 +82,7 @@ class TestBuildHubSummary:
 
     def test_is_built_from_the_declared_constants(self) -> None:
         # The seeds cover every field the schema declares, or this raises.
-        summary = build_hub_summary(THURSDAY)
+        summary = build_hub_summary(THURSDAY, SIGNED_IN)
 
         assert isinstance(summary, HubSummary)
         assert summary.teams
@@ -86,18 +90,18 @@ class TestBuildHubSummary:
         assert summary.funnel.stages
 
     def test_marks_itself_provisional(self) -> None:
-        assert build_hub_summary(THURSDAY).provisional is True
+        assert build_hub_summary(THURSDAY, SIGNED_IN).provisional is True
 
     @pytest.mark.parametrize("now", A_WEEK_OF_MOMENTS)
     def test_orders_teams_by_their_next_meeting(self, now: datetime.datetime) -> None:
-        teams = build_hub_summary(now).teams
+        teams = build_hub_summary(now, SIGNED_IN).teams
 
         meetings = [team.next_meeting_at for team in teams]
         assert meetings == sorted(meetings)
 
     @pytest.mark.parametrize("now", A_WEEK_OF_MOMENTS)
     def test_every_next_meeting_is_ahead_of_the_request(self, now: datetime.datetime) -> None:
-        for team in build_hub_summary(now).teams:
+        for team in build_hub_summary(now, SIGNED_IN).teams:
             assert team.next_meeting_at > now
 
     @pytest.mark.parametrize("now", A_WEEK_OF_MOMENTS)
@@ -106,7 +110,7 @@ class TestBuildHubSummary:
     ) -> None:
         today = now.date()
 
-        due_dates = [item.due_on for item in build_hub_summary(now).assigned_items]
+        due_dates = [item.due_on for item in build_hub_summary(now, SIGNED_IN).assigned_items]
 
         assert any(due < today for due in due_dates)
         assert any(due >= today for due in due_dates)
@@ -127,17 +131,17 @@ class TestPayloadShape:
         ]
 
     def test_every_prose_field_carries_both_languages(self) -> None:
-        for text in self._localized_texts(build_hub_summary(THURSDAY)):
+        for text in self._localized_texts(build_hub_summary(THURSDAY, SIGNED_IN)):
             assert text.en.strip(), text
             assert text.pl.strip(), text
 
     def test_the_two_languages_are_not_the_same_text(self) -> None:
         # A catalogue wired to itself would otherwise pass the check above.
-        for text in self._localized_texts(build_hub_summary(THURSDAY)):
+        for text in self._localized_texts(build_hub_summary(THURSDAY, SIGNED_IN)):
             assert text.en != text.pl, text
 
     def test_states_are_codes_from_the_fixed_sets(self) -> None:
-        summary = build_hub_summary(THURSDAY)
+        summary = build_hub_summary(THURSDAY, SIGNED_IN)
 
         for team in summary.teams:
             assert team.role in {"leader", "member"}
@@ -149,14 +153,15 @@ class TestPayloadShape:
 
     def test_a_ready_board_carries_no_count_and_a_missing_one_does(self) -> None:
         readiness = {
-            team.readiness.code: team.readiness for team in build_hub_summary(THURSDAY).teams
+            team.readiness.code: team.readiness
+            for team in build_hub_summary(THURSDAY, SIGNED_IN).teams
         }
 
         assert readiness["ready"].count is None
         assert readiness["metrics_missing"].count is not None
 
     def test_instants_are_utc_and_due_dates_are_plain_dates(self) -> None:
-        summary = build_hub_summary(THURSDAY)
+        summary = build_hub_summary(THURSDAY, SIGNED_IN)
 
         for team in summary.teams:
             assert team.next_meeting_at.tzinfo is not None
@@ -166,7 +171,7 @@ class TestPayloadShape:
             assert type(item.due_on) is datetime.date
 
     def test_serialises_instants_as_iso_8601_in_utc(self) -> None:
-        body = build_hub_summary(THURSDAY).model_dump(mode="json")
+        body = build_hub_summary(THURSDAY, SIGNED_IN).model_dump(mode="json")
 
         for team in body["teams"]:
             assert team["next_meeting_at"].endswith("Z") or team["next_meeting_at"].endswith(
@@ -176,5 +181,5 @@ class TestPayloadShape:
             assert datetime.date.fromisoformat(item["due_on"])
 
     def test_progress_is_a_percentage(self) -> None:
-        for item in build_hub_summary(THURSDAY).assigned_items:
+        for item in build_hub_summary(THURSDAY, SIGNED_IN).assigned_items:
             assert 0 <= item.progress <= 100

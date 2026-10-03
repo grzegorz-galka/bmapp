@@ -32,6 +32,10 @@ services:
       BMAPP_HOST: 0.0.0.0
       BMAPP_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-bmapp}:${POSTGRES_PASSWORD:-bmapp}@db:5432/${POSTGRES_DB:-bmapp}
       BMAPP_FRONTEND_ORIGIN: http://localhost:5173
+      # Local development only: turns on the local login endpoint. A server
+      # in this mode accepts no broker-issued token and vice versa.
+      BMAPP_MODE: dev
+      BMAPP_ADMIN_EMAILS: ${BMAPP_ADMIN_EMAILS:-admin@example.com}
     ports:
       - "127.0.0.1:${BMAPP_API_PORT:-8000}:8000"
     volumes:
@@ -48,6 +52,11 @@ services:
       # backend: one origin, so no CORS preflight in development.
       VITE_API_PROXY_TARGET: http://backend:8000
       VITE_USE_POLLING: "1"
+      # Obtain the session from the backend's local login rather than from the
+      # identity broker, which an on-premise developer machine cannot reach.
+      # The counterpart of BMAPP_MODE=dev above; never set in a deployed build.
+      VITE_AUTH_MODE: dev
+      VITE_DEV_EMAIL: ${BMAPP_ADMIN_EMAILS:-admin@example.com}
     ports:
       - "127.0.0.1:${BMAPP_WEB_PORT:-5173}:5173"
     volumes:

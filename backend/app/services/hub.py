@@ -68,7 +68,18 @@ class _ItemSeed:
     due_in_days: int
 
 
-_CURRENT_USER = CurrentUser(email="g.galka@pse.pl", initials="GG")
+def _identify(email: str) -> CurrentUser:
+    """The signed-in person, as the hub shows them.
+
+    Initials are derived from the email rather than stored: there is no name
+    on an employee yet, and the header needs something short. "jan.kowalski"
+    gives JK, a single-part address gives its first letter.
+    """
+    local = email.partition("@")[0]
+    parts = [part for part in local.replace("_", ".").replace("-", ".").split(".") if part]
+    initials = "".join(part[0] for part in parts[:2]).upper() or email[:1].upper()
+    return CurrentUser(email=email, initials=initials)
+
 
 _DECLARATIONS = Declarations(
     mission=LocalizedText(
@@ -215,12 +226,16 @@ def next_occurrence(
     return candidate
 
 
-def build_hub_summary(now: datetime.datetime) -> HubSummary:
-    """Assemble the hub summary as of `now`.
+def build_hub_summary(now: datetime.datetime, email: str) -> HubSummary:
+    """Assemble the hub summary as of `now`, for the person signed in.
 
     Teams come back ordered by their next meeting, soonest first, because that
     is the order the hub displays them in and the first of them is the one the
     countdown counts down to.
+
+    The identity is the caller's and is the one real thing in here; the teams,
+    counts and items remain placeholder data, which is why the response still
+    declares itself provisional.
     """
     teams = sorted(
         (
@@ -251,7 +266,7 @@ def build_hub_summary(now: datetime.datetime) -> HubSummary:
     ]
 
     return HubSummary(
-        current_user=_CURRENT_USER,
+        current_user=_identify(email),
         declarations=_DECLARATIONS,
         teams=teams,
         preparation=_PREPARATION,
