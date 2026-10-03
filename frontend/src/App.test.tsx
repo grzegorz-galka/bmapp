@@ -9,7 +9,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { App } from './App';
+import { AppRoutes } from './routes';
 import { renderWithLanguage } from './test/render';
 import { en } from './i18n/en';
 import { pl } from './i18n/pl';
@@ -41,7 +41,10 @@ describe('App', () => {
   it('shows the language toggle above the page', async () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => [] } as Response);
 
-    await renderWithLanguage(<App />, 'en', { route: '/teams' });
+    await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', {
+      route: '/teams',
+      auth: { isAdmin: true },
+    });
 
     expect(screen.getByRole('button', { name: en.language.switchToPl })).toBeInTheDocument();
     expect(await screen.findByText(en.teams.empty)).toBeInTheDocument();
@@ -54,7 +57,10 @@ describe('App', () => {
       json: async () => [team('Platform')],
     } as Response);
 
-    await renderWithLanguage(<App />, 'en', { route: '/teams' });
+    await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', {
+      route: '/teams',
+      auth: { isAdmin: true },
+    });
     await screen.findByRole('listitem');
 
     await userEvent.click(screen.getByRole('button', { name: en.language.switchToPl }));
@@ -76,7 +82,10 @@ describe('App', () => {
       json: async () => [team('Platform')],
     } as Response);
 
-    await renderWithLanguage(<App />, 'en', { route: '/teams' });
+    await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', {
+      route: '/teams',
+      auth: { isAdmin: true },
+    });
     await screen.findByRole('listitem');
 
     await userEvent.type(screen.getByLabelText(en.teams.nameLabel), 'Half typed');

@@ -37,11 +37,59 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The access token, held here and nowhere that survives the page.
+ *
+ * A module variable rather than storage: the specification requires that no
+ * token be readable after a reload, and `AuthProvider` is the only thing that
+ * ever sets it.
+ */
+let accessToken: string | null = null;
+
+/** What to do when a request comes back 401. Installed by `AuthProvider`. */
+let reauthenticate: (() => Promise<string | null>) | null = null;
+
+export function setAccessToken(token: string | null): void {
+  accessToken = token;
+}
+
+export function setReauthenticate(handler: (() => Promise<string | null>) | null): void {
+  reauthenticate = handler;
+}
+
+/** Only for tests, which must not leak a session from one case into the next. */
+export function resetAuthForTests(): void {
+  accessToken = null;
+  reauthenticate = null;
+}
+
+function headersWith(token: string | null, init?: RequestInit): HeadersInit {
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(init?.headers ?? {}),
+  };
+}
+
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+  let response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
+    headers: headersWith(accessToken, init),
   });
+
+  if (response.status === 401 && reauthenticate) {
+    // A 401 says the session is gone, not that a field was wrong, so it is
+    // raised to the auth layer instead of being shown beside a form. Exactly
+    // one retry: if the fresh token is refused too, retrying again would
+    // loop.
+    const renewed = await reauthenticate();
+    if (renewed) {
+      response = await fetch(`${API_BASE_URL}${path}`, {
+        ...init,
+        headers: headersWith(renewed, init),
+      });
+    }
+  }
 
   if (!response.ok) {
     let errors: ApiFieldError[] = [];

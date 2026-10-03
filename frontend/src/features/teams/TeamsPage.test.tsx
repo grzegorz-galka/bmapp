@@ -51,7 +51,7 @@ describe('TeamsPage in English', () => {
   it('renders the teams in the order the API returned them', async () => {
     fetchMock.mockResolvedValue(jsonResponse([team('alpha'), team('Platform'), team('Quality')]));
 
-    await renderWithLanguage(<TeamsPage />, 'en');
+    await renderWithLanguage(<TeamsPage />, 'en', { auth: { isAdmin: true } });
 
     const items = await screen.findAllByRole('listitem');
     expect(items.map((item) => within(item).getByText(/ — board: /).textContent)).toEqual([
@@ -64,7 +64,7 @@ describe('TeamsPage in English', () => {
   it("shows each team's leader, member count and a link to its members page", async () => {
     fetchMock.mockResolvedValue(jsonResponse([team('Platform', 'anna@example.com', 3)]));
 
-    await renderWithLanguage(<TeamsPage />, 'en');
+    await renderWithLanguage(<TeamsPage />, 'en', { auth: { isAdmin: true } });
 
     const item = await screen.findByRole('listitem');
     expect(item).toHaveTextContent('leader: anna@example.com');
@@ -78,7 +78,7 @@ describe('TeamsPage in English', () => {
   it('reports when no teams are registered yet', async () => {
     fetchMock.mockResolvedValue(jsonResponse([]));
 
-    await renderWithLanguage(<TeamsPage />, 'en');
+    await renderWithLanguage(<TeamsPage />, 'en', { auth: { isAdmin: true } });
 
     expect(await screen.findByText(en.teams.empty)).toBeInTheDocument();
   });
@@ -86,7 +86,7 @@ describe('TeamsPage in English', () => {
   it('reports when the list could not be loaded', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ errors: [] }, 500));
 
-    await renderWithLanguage(<TeamsPage />, 'en');
+    await renderWithLanguage(<TeamsPage />, 'en', { auth: { isAdmin: true } });
 
     expect(await screen.findByText(en.teams.loadFailed)).toBeInTheDocument();
   });
@@ -97,7 +97,7 @@ describe('TeamsPage in English', () => {
       .mockResolvedValueOnce(jsonResponse(team('Platform'), 201))
       .mockResolvedValue(jsonResponse([team('Platform')]));
 
-    await renderWithLanguage(<TeamsPage />, 'en');
+    await renderWithLanguage(<TeamsPage />, 'en', { auth: { isAdmin: true } });
     await screen.findByText(en.teams.empty);
 
     await register(en, 'Platform', 'lead@example.com');
@@ -113,7 +113,7 @@ describe('Members are managed from the team page', () => {
       .mockResolvedValueOnce(jsonResponse(team('Platform', 'anna@example.com'), 201))
       .mockResolvedValue(jsonResponse([team('Platform', 'anna@example.com', 1)]));
 
-    await renderWithLanguage(<TeamsPage />, 'en');
+    await renderWithLanguage(<TeamsPage />, 'en', { auth: { isAdmin: true } });
     await screen.findByText(en.teams.empty);
 
     await register(en, 'Platform', 'anna@example.com');
@@ -138,7 +138,7 @@ describe('Members are managed from the team page', () => {
         fieldError('employee_email.invalid', 'Not an email address.', 422, 'leader_email'),
       );
 
-    await renderWithLanguage(<TeamsPage />, 'en');
+    await renderWithLanguage(<TeamsPage />, 'en', { auth: { isAdmin: true } });
     await screen.findByText(en.teams.empty);
 
     await register(en, 'Platform', 'not-an-email');
@@ -159,7 +159,7 @@ describe('TeamsPage in Polish', () => {
   it('renders every string in Polish', async () => {
     fetchMock.mockResolvedValue(jsonResponse([team('Platform')]));
 
-    await renderWithLanguage(<TeamsPage />, 'pl');
+    await renderWithLanguage(<TeamsPage />, 'pl', { auth: { isAdmin: true } });
 
     // A team name is data, not text to translate, but the label around it is.
     const item = await screen.findByRole('listitem');
@@ -177,7 +177,7 @@ describe('TeamsPage in Polish', () => {
   it('reports an empty list in Polish', async () => {
     fetchMock.mockResolvedValue(jsonResponse([]));
 
-    await renderWithLanguage(<TeamsPage />, 'pl');
+    await renderWithLanguage(<TeamsPage />, 'pl', { auth: { isAdmin: true } });
 
     expect(await screen.findByText(pl.teams.empty)).toBeInTheDocument();
   });
@@ -185,7 +185,7 @@ describe('TeamsPage in Polish', () => {
   it('reports a failed load in Polish', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ errors: [] }, 500));
 
-    await renderWithLanguage(<TeamsPage />, 'pl');
+    await renderWithLanguage(<TeamsPage />, 'pl', { auth: { isAdmin: true } });
 
     expect(await screen.findByText(pl.teams.loadFailed)).toBeInTheDocument();
   });
@@ -197,7 +197,7 @@ describe('an error the API reports against a field', () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValue(fieldError('team_name.duplicate', DUPLICATE_MESSAGE));
 
-    await renderWithLanguage(<TeamsPage />, 'en');
+    await renderWithLanguage(<TeamsPage />, 'en', { auth: { isAdmin: true } });
     await screen.findByText(en.teams.empty);
 
     await register(en, 'Platform', 'lead@example.com');
@@ -212,7 +212,7 @@ describe('an error the API reports against a field', () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValue(fieldError('team_name.duplicate', DUPLICATE_MESSAGE));
 
-    await renderWithLanguage(<TeamsPage />, 'pl');
+    await renderWithLanguage(<TeamsPage />, 'pl', { auth: { isAdmin: true } });
     await screen.findByText(pl.teams.empty);
 
     await register(pl, 'Platform', 'lead@example.com');
@@ -229,7 +229,7 @@ describe('an error the API reports against a field', () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValue(fieldError('team_name.cursed', 'A reason this build never heard of.'));
 
-    await renderWithLanguage(<TeamsPage />, 'pl');
+    await renderWithLanguage(<TeamsPage />, 'pl', { auth: { isAdmin: true } });
     await screen.findByText(pl.teams.empty);
 
     await register(pl, 'Platform', 'lead@example.com');

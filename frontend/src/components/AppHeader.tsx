@@ -2,16 +2,18 @@ import { NavLink } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { LanguageToggle } from './LanguageToggle';
 import { ThemeToggle } from './ThemeToggle';
+import { AccountControl } from './AccountControl';
 import { useHubSummary } from '../features/hub/useHubSummary';
 import styles from './AppHeader.module.css';
 
 /**
  * The shell every page renders inside.
  *
- * The identity comes from the hub summary rather than being written in here,
- * and it is plain text: there is no session behind it, so offering a sign-out
- * would be a lie. The query is the same one the hub page uses, so this costs
- * no second request.
+ * The identity comes from the hub summary rather than being written in here.
+ * There is a session behind it now, so the account control offers a sign-out;
+ * the summary supplies only the initials, which it derives from the email.
+ * The query is the same one the hub page uses, so this costs no second
+ * request.
  */
 export function AppHeader() {
   const { t } = useTranslation();
@@ -49,14 +51,7 @@ export function AppHeader() {
       <div className={styles.controls}>
         <LanguageToggle />
         <ThemeToggle />
-        {user && (
-          <p className={styles.identity}>
-            <span className={styles.avatar} aria-hidden="true">
-              {user.initials}
-            </span>
-            <span className={styles.email}>{user.email}</span>
-          </p>
-        )}
+        <AccountControl initials={user?.initials} />
       </div>
     </header>
   );

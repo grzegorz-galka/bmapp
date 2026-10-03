@@ -56,14 +56,25 @@ function onlyRequest(method: string): { url: string; body: unknown } {
   return { url, body: init?.body ? JSON.parse(String(init.body)) : undefined };
 }
 
-async function renderPage(language: Language = 'en', teamId = TEAM_ID) {
+/**
+ * Render the members page for a given viewer.
+ *
+ * An administrator by default: these tests are about what the page does, and
+ * the controls that do it are offered only to someone permitted to use them.
+ * The tests about *who* is offered what name their viewer explicitly.
+ */
+async function renderPage(
+  language: Language = 'en',
+  teamId = TEAM_ID,
+  auth: { email?: string | null; isAdmin?: boolean } = { isAdmin: true },
+) {
   await renderWithLanguage(
     <Routes>
       <Route path="/teams/:teamId/members" element={<TeamMembersPage />} />
       <Route path="/teams" element={<p>the team list</p>} />
     </Routes>,
     language,
-    { route: `/teams/${teamId}/members` },
+    { route: `/teams/${teamId}/members`, auth },
   );
 }
 

@@ -1,5 +1,7 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router';
 import { AppHeader } from './components/AppHeader';
+import { AuthCallbackPage } from './features/auth/AuthCallbackPage';
+import { CALLBACK_PATH } from './features/auth/config';
 import { HubPage } from './features/hub/HubPage';
 import { TeamMembersPage } from './features/teams/TeamMembersPage';
 import { TeamsPage } from './features/teams/TeamsPage';
@@ -12,7 +14,7 @@ import { TeamsPage } from './features/teams/TeamsPage';
  * hub is the page that explains the application, which is what someone who
  * mistyped a URL needs.
  */
-export function AppRoutes() {
+export function AppRoutes({ completeSignIn }: { completeSignIn: () => Promise<boolean> }) {
   return (
     <Routes>
       <Route
@@ -24,6 +26,10 @@ export function AppRoutes() {
         }
       >
         <Route index element={<HubPage />} />
+        <Route
+          path={CALLBACK_PATH.replace(/^\//, '')}
+          element={<AuthCallbackPage complete={completeSignIn} />}
+        />
         <Route path="teams" element={<TeamsPage />} />
         {/* The bare /teams/:teamId is left free on purpose: a team's page is
             its board, and the board capability will want that address. */}
