@@ -10,11 +10,16 @@ export const en = {
     title: 'BMAPP',
   },
   language: {
-    label: 'Language',
     // Each language is named in its own language: someone looking for Polish
     // is not helped by the word "Polish" written in a language they don't read.
     en: 'English',
     pl: 'Polski',
+    // The toggle is captioned with the language it switches *to*, as the
+    // theme toggle is; these full sentences are what assistive technology reads.
+    switchToEn: 'Switch to English',
+    switchToPl: 'Switch to Polish',
+    currentEn: 'Current language: English',
+    currentPl: 'Current language: Polish',
   },
   nav: {
     label: 'Sections',

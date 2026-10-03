@@ -69,7 +69,7 @@ test('the hub reads in Polish and switches back without a reload', async ({ page
   await page.goto('/');
   await expect(page.getByRole('heading', { name: en.hub.heroTitle })).toBeVisible();
 
-  await page.getByLabel(en.language.label).selectOption('pl');
+  await page.getByRole('button', { name: en.language.switchToPl }).click();
 
   await expect(page.getByRole('heading', { name: pl.hub.heroTitle })).toBeVisible();
   await expect(page.getByRole('heading', { name: pl.tiles.conductTitle })).toBeVisible();
@@ -77,7 +77,7 @@ test('the hub reads in Polish and switches back without a reload', async ({ page
   // The declarations came from the API carrying both languages, so they follow.
   await expect(page.getByRole('heading', { name: pl.declarations.mission })).toBeVisible();
 
-  await page.getByLabel(pl.language.label).selectOption('en');
+  await page.getByRole('button', { name: pl.language.switchToEn }).click();
 
   await expect(page.getByRole('heading', { name: en.hub.heroTitle })).toBeVisible();
 });

@@ -1,0 +1,20 @@
+/*
+ * The look the header's two toggles share - theme and language - so they read
+ * as a pair. Each keeps its own icon rules in its own module.
+ */
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 7px var(--sp-3);
+  border: 1px solid var(--line-control);
+  border-radius: 9px;
+  background: var(--panel);
+  color: var(--ink);
+  font: 500 var(--fs-xs) var(--font-sans);
+  cursor: pointer;
+}
+
+.toggle:hover {
+  background: var(--panel-2);
+}

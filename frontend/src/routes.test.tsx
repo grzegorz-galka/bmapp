@@ -102,13 +102,13 @@ describe('the header', () => {
   it('is on the hub and on the team page alike', async () => {
     await renderWithLanguage(<App />, 'en', { route: '/' });
     expect(nav()).toBeInTheDocument();
-    expect(screen.getByLabelText(en.language.label)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: en.language.switchToPl })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: en.theme.switchToLight })).toBeInTheDocument();
 
     await userEvent.click(within(nav()).getByRole('link', { name: en.nav.teams }));
 
     expect(nav()).toBeInTheDocument();
-    expect(screen.getByLabelText(en.language.label)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: en.language.switchToPl })).toBeInTheDocument();
   });
 
   it('marks the destination currently being shown', async () => {

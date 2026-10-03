@@ -12,9 +12,12 @@ export const pl: Translations = {
     title: 'BMAPP',
   },
   language: {
-    label: 'Język',
     en: 'English',
     pl: 'Polski',
+    switchToEn: 'Przełącz na język angielski',
+    switchToPl: 'Przełącz na język polski',
+    currentEn: 'Bieżący język: angielski',
+    currentPl: 'Bieżący język: polski',
   },
   nav: {
     label: 'Sekcje',

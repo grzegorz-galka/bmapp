@@ -1,5 +1,5 @@
 /**
- * The app-level scenarios: the language control is on the page whatever it
+ * The app-level scenarios: the language toggle is on the page whatever it
  * shows, and changing language does not throw away work in progress.
  * See "A user can change the language" in specs/localization/spec.md.
  *
@@ -38,12 +38,12 @@ afterEach(() => {
 });
 
 describe('App', () => {
-  it('shows the language control above the page', async () => {
+  it('shows the language toggle above the page', async () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => [] } as Response);
 
     await renderWithLanguage(<App />, 'en', { route: '/teams' });
 
-    expect(screen.getByLabelText(en.language.label)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: en.language.switchToPl })).toBeInTheDocument();
     expect(await screen.findByText(en.teams.empty)).toBeInTheDocument();
   });
 
@@ -57,13 +57,13 @@ describe('App', () => {
     await renderWithLanguage(<App />, 'en', { route: '/teams' });
     await screen.findByRole('listitem');
 
-    await userEvent.selectOptions(screen.getByLabelText(en.language.label), 'pl');
+    await userEvent.click(screen.getByRole('button', { name: en.language.switchToPl }));
 
     expect(await screen.findByRole('heading', { name: pl.teams.heading })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: pl.teams.register })).toBeInTheDocument();
     expect(screen.queryByText(en.teams.heading)).not.toBeInTheDocument();
 
-    await userEvent.selectOptions(screen.getByLabelText(pl.language.label), 'en');
+    await userEvent.click(screen.getByRole('button', { name: pl.language.switchToEn }));
 
     expect(await screen.findByRole('heading', { name: en.teams.heading })).toBeInTheDocument();
     expect(screen.queryByText(pl.teams.heading)).not.toBeInTheDocument();
@@ -82,7 +82,7 @@ describe('App', () => {
     await userEvent.type(screen.getByLabelText(en.teams.nameLabel), 'Half typed');
     const requestsBefore = fetchMock.mock.calls.length;
 
-    await userEvent.selectOptions(screen.getByLabelText(en.language.label), 'pl');
+    await userEvent.click(screen.getByRole('button', { name: en.language.switchToPl }));
 
     // The field keeps what was typed, under its now-Polish label...
     expect(await screen.findByLabelText(pl.teams.nameLabel)).toHaveValue('Half typed');

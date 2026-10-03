@@ -1,0 +1,11 @@
+/*
+ * An outline on the flag: without it the white half of the Polish flag
+ * dissolves into the light theme's panel. --line-control is already held to
+ * 3:1 against every surface by contrast.test.ts.
+ */
+.flag {
+  display: block;
+  flex: none;
+  outline: 1px solid var(--line-control);
+  border-radius: 1px;
+}
