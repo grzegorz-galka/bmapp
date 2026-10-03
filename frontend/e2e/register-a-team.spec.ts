@@ -123,7 +123,7 @@ test('the language can be switched in the running app', async ({ page }) => {
   await page.goto('/teams');
   await expect(page.getByRole('heading', { name: en.teams.heading })).toBeVisible();
 
-  await page.getByLabel(en.language.label).selectOption('pl');
+  await page.getByRole('button', { name: en.language.switchToPl }).click();
 
   await expect(page.getByRole('heading', { name: pl.teams.heading })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'pl');

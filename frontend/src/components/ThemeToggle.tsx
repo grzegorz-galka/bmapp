@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../theme/ThemeProvider';
+import shared from './HeaderToggle.module.css';
 import styles from './ThemeToggle.module.css';
 
 const SWITCH_TO = { dark: 'theme.switchToDark', light: 'theme.switchToLight' } as const;
@@ -20,7 +21,7 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
-      className={styles.toggle}
+      className={shared.toggle}
       onClick={toggle}
       aria-label={t(SWITCH_TO[next])}
       title={t(CURRENT[theme])}

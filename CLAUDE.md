@@ -101,7 +101,10 @@ Polish page. `t()` keys are type-checked the same way. Translations of the
 domain glossary (Tablica, Spotkanie, Zespół, Wskaźnik, Zadanie) are fixed in the
 `add-i18n-en-pl` change's `design.md`; follow them rather than inventing
 synonyms. Language is resolved from a remembered choice, then the
-browser, then English, and a switcher sits in the app header.
+browser, then English. The app header carries a language toggle twinned with
+the theme toggle: captioned with the flag and own-language name of the language
+it switches to, flags drawn as inline SVG. A toggle means exactly two languages;
+`languages.test.ts` pins that.
 
 **API field errors carry a stable `code`.** Every entry in an error response is
 `{field, code, message}`. `code` names the reason (`team_name.duplicate`) and is

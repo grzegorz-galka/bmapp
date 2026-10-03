@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { LanguageSwitcher } from './LanguageSwitcher';
+import { LanguageToggle } from './LanguageToggle';
 import { ThemeToggle } from './ThemeToggle';
 import { useHubSummary } from '../features/hub/useHubSummary';
 import styles from './AppHeader.module.css';
@@ -47,7 +47,7 @@ export function AppHeader() {
       </nav>
 
       <div className={styles.controls}>
-        <LanguageSwitcher />
+        <LanguageToggle />
         <ThemeToggle />
         {user && (
           <p className={styles.identity}>

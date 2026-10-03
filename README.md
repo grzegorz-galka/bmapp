@@ -40,7 +40,7 @@ docker compose exec backend alembic upgrade head
 
 Then open <http://localhost:5173>. You land on the hub; the team registration
 page is at `/teams`, reachable from the header. The header also carries the
-English/Polish switcher and the dark/light theme toggle — dark by default, and
+English/Polish language toggle and the dark/light theme toggle — dark by default, and
 your choice is remembered.
 
 A database created before team membership arrived (migration `0002`) holds teams
@@ -107,7 +107,8 @@ once at startup: a language you chose explicitly before, else the first
 supported language the browser asks for (`pl-PL` counts as Polish), else
 English.
 
-To read it in Polish, pick Polish in the switcher in the page header. The
+To read it in Polish, click the language toggle in the page header — while the
+page is in English it shows the Polish flag and "Polski". The
 choice is remembered in `localStorage` under `bmapp.language` and applies on
 your next visit, so to get back to browser detection, clear that key. You can
 also set it directly — this is how the Playwright specs pin a language:
@@ -118,13 +119,18 @@ localStorage.setItem('bmapp.language', 'pl');   // in the browser console, then 
 
 ### Adding a language
 
+The header's language control is a two-state toggle, so a third language first
+needs a control that can offer every language: `src/i18n/languages.test.ts`
+fails as soon as `SUPPORTED_LANGUAGES` grows past two, to make that impossible
+to miss. With that control in place:
+
 Catalogues are TypeScript, not JSON, so that the compiler owns completeness: a
 key present in one language and missing from another is a `tsc` error rather
 than a silent English fallback in a translated page. To add German, say:
 
 1. Add `'de'` to `SUPPORTED_LANGUAGES` in `frontend/src/i18n/languages.ts`.
 2. Add a `language.de` entry to `en.ts`, naming the language *in* that language
-   (`Deutsch`). The switcher lists whatever `SUPPORTED_LANGUAGES` holds.
+   (`Deutsch`).
 3. Create `frontend/src/i18n/de.ts` exporting `const de: Translations = {…}`.
    Annotating it as `Translations` is what makes the next step tell you exactly
    which keys you still owe.
