@@ -5,6 +5,7 @@ import sqlalchemy as sa
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from tests.integration.meetings_api import set_schedule
 from tests.integration.teams_api import add, register
 
 pytestmark = pytest.mark.integration
@@ -47,6 +48,18 @@ def test_no_teams_have_been_registered(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_a_boards_schedule_is_returned_with_its_team(client: TestClient) -> None:
+    """Scenario: A board's schedule is returned with its team."""
+    scheduled = register(client, "Alpha", "lead.alpha@example.com")
+    register(client, "Beta", "lead.beta@example.com")
+    set_schedule(client, scheduled["id"], weekday=3, time="13:00")
+
+    alpha, beta = client.get("/teams").json()
+
+    assert alpha["board"]["schedule"] == {"weekday": 3, "time": "13:00"}
+    assert beta["board"]["schedule"] is None
 
 
 def test_the_list_costs_a_fixed_number_of_statements(client: TestClient, session: Session) -> None:

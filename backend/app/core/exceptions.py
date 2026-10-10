@@ -153,3 +153,39 @@ class LeaderNotMemberError(DomainError):
 
     def __init__(self, employee_id: object) -> None:
         super().__init__(f"Employee {employee_id} is not a member of this team.")
+
+
+class MeetingDateTakenError(DomainError):
+    """Raised when a team already holds a meeting on the date asked for."""
+
+    status_code = 409
+    field = "date"
+    code = "meeting_date.taken"
+
+    def __init__(self, date: object) -> None:
+        super().__init__(f"This team already holds a meeting on {date}.")
+
+
+class MeetingNotFoundError(DomainError):
+    """Raised when a meeting identifier names no meeting of the team in the path.
+
+    A meeting of another team is "not found" too, so a guessed identifier
+    says nothing about which team it belongs to.
+    """
+
+    status_code = 404
+    code = "meeting.not_found"
+
+    def __init__(self, meeting_id: object) -> None:
+        super().__init__(f"This team has no meeting with the identifier {meeting_id}.")
+
+
+class MeetingHostNotMemberError(DomainError):
+    """Raised when someone outside a team is named host of one of its meetings."""
+
+    status_code = 409
+    field = "host_employee_id"
+    code = "meeting_host.not_member"
+
+    def __init__(self, employee_id: object) -> None:
+        super().__init__(f"Employee {employee_id} is not a member of this team.")

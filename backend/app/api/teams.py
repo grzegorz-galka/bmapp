@@ -13,7 +13,7 @@ from app.api.dependencies import (
     require_admin,
 )
 from app.core.db import get_session
-from app.schemas import LeaderChange, MemberAdd, TeamCreate, TeamDetail, TeamRead
+from app.schemas import LeaderChange, MemberAdd, ScheduleSet, TeamCreate, TeamDetail, TeamRead
 from app.services import (
     add_member,
     change_leader,
@@ -21,8 +21,13 @@ from app.services import (
     list_teams,
     register_team,
     remove_member,
+    set_schedule,
 )
-from app.services.authz import may_change_the_leader, may_manage_membership
+from app.services.authz import (
+    may_change_the_leader,
+    may_configure_the_board,
+    may_manage_membership,
+)
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 
@@ -113,3 +118,25 @@ def replace_leader(
     """
     require(may_change_the_leader(is_admin=current_user.is_admin))
     return TeamDetail.model_validate(change_leader(session, team_id, payload.employee_id))
+
+
+@router.put("/{team_id}/schedule", response_model=TeamRead)
+def replace_schedule(
+    team_id: uuid.UUID,
+    payload: ScheduleSet,
+    session: SessionDependency,
+    current_user: CurrentUserDependency,
+) -> TeamRead:
+    """Set when the team meets each week, replacing any schedule it had.
+
+    The team's leader, or an administrator: when a team meets is part of
+    configuring its board.
+    """
+    require(
+        may_configure_the_board(
+            is_admin=current_user.is_admin,
+            relationship=relationship_to(session, current_user, team_id),
+        )
+    )
+    team = set_schedule(session, team_id, payload.weekday, payload.time, current_user.email)
+    return TeamRead.model_validate(team)
