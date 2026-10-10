@@ -3,6 +3,7 @@
 No HTTP, and no session lifecycle: the caller provides the session.
 """
 
+import datetime
 import logging
 import uuid
 
@@ -152,6 +153,26 @@ def change_leader(session: Session, team_id: uuid.UUID, employee_id: uuid.UUID) 
     new_leader.is_leader = True
     session.commit()
     logger.info("Leadership of team %s handed over to %s", team.id, new_leader.email)
+    return team
+
+
+def set_schedule(
+    session: Session,
+    team_id: uuid.UUID,
+    weekday: int,
+    time: datetime.time,
+    actor_email: str,
+) -> Team:
+    """Set when a team meets each week, replacing any schedule it had.
+
+    Meetings already opened keep their dates: the schedule only drives what
+    is proposed next.
+    """
+    team = get_team(session, team_id)
+    team.board.schedule_weekday = weekday
+    team.board.schedule_time = time
+    session.commit()
+    logger.info("Schedule of team %s set by %s", team.id, actor_email)
     return team
 
 

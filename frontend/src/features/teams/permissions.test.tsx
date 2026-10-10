@@ -27,7 +27,7 @@ function member(email: string, isLeader = false): Member {
 const TEAM: TeamDetail = {
   id: TEAM_ID,
   name: 'Platform',
-  board: { id: 'board-1', name: 'Platform' },
+  board: { id: 'board-1', name: 'Platform', schedule: null },
   members: [member(LEADER_EMAIL, true), member(MEMBER_EMAIL)],
 };
 
@@ -162,7 +162,7 @@ describe('the team page', () => {
       {
         id: TEAM_ID,
         name: 'Platform',
-        board: { id: 'b', name: 'Platform' },
+        board: { id: 'b', name: 'Platform', schedule: null },
         leader: { employee_id: 'e', email: LEADER_EMAIL },
         member_count: 2,
       },

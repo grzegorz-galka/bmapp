@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { ApiError } from '../../api/teams';
 import { translateErrorCode } from '../../i18n/apiErrors';
+import { useFormat } from '../../i18n/format';
 import { useRegisterTeam, useTeams } from './useTeams';
 import { useIsAdmin } from '../auth/useCurrentUser';
 import styles from './teams.module.css';
@@ -16,6 +17,7 @@ export function TeamsPage() {
   const [name, setName] = useState('');
   const [leaderEmail, setLeaderEmail] = useState('');
   const { t } = useTranslation();
+  const format = useFormat();
   const teams = useTeams();
   const registerTeam = useRegisterTeam();
 
@@ -112,15 +114,29 @@ export function TeamsPage() {
                   </span>
                   <span className={styles.itemMeta}>
                     {t('teams.leaderSuffix', { email: team.leader.email })} ·{' '}
-                    {t('teams.memberCount', { count: team.member_count })}
+                    {t('teams.memberCount', { count: team.member_count })} ·{' '}
+                    {team.board.schedule
+                      ? t('teams.schedule', {
+                          weekday: format.scheduleWeekday(team.board.schedule.weekday),
+                          time: format.meetingTime(team.board.schedule.time),
+                        })
+                      : t('teams.noSchedule')}
                   </span>
                 </span>
-                <Link
-                  to={`/teams/${encodeURIComponent(team.id)}/members`}
-                  aria-label={t('teams.membersLinkLabel', { name: team.name })}
-                >
-                  {t('teams.membersLink')}
-                </Link>
+                <span className={styles.actions}>
+                  <Link
+                    to={`/teams/${encodeURIComponent(team.id)}/meetings`}
+                    aria-label={t('teams.meetingsLinkLabel', { name: team.name })}
+                  >
+                    {t('teams.meetingsLink')}
+                  </Link>
+                  <Link
+                    to={`/teams/${encodeURIComponent(team.id)}/members`}
+                    aria-label={t('teams.membersLinkLabel', { name: team.name })}
+                  >
+                    {t('teams.membersLink')}
+                  </Link>
+                </span>
               </li>
             ))}
           </ul>

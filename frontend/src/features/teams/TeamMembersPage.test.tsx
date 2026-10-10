@@ -24,7 +24,12 @@ function member(email: string, isLeader = false): Member {
 }
 
 function detail(...members: Member[]): TeamDetail {
-  return { id: TEAM_ID, name: 'Platform', board: { id: 'board-1', name: 'Platform' }, members };
+  return {
+    id: TEAM_ID,
+    name: 'Platform',
+    board: { id: 'board-1', name: 'Platform', schedule: null },
+    members,
+  };
 }
 
 function jsonResponse(body: unknown, status = 200) {

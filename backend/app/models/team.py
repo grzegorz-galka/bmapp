@@ -1,9 +1,20 @@
 """Persistence models for teams and the board definition each one owns."""
 
 import uuid
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, time
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, func, text
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    SmallInteger,
+    String,
+    Time,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -48,10 +59,28 @@ class Team(Base):
         return len(self.members)
 
 
+@dataclass(frozen=True, slots=True)
+class WeeklySchedule:
+    """When a team meets each week: an ISO weekday and a wall-clock time."""
+
+    weekday: int
+    time: time
+
+
 class BoardDefinition(Base):
-    """The single board belonging to a team."""
+    """The single board belonging to a team, and when its team meets."""
 
     __tablename__ = "board_definitions"
+    __table_args__ = (
+        CheckConstraint(
+            "schedule_weekday BETWEEN 1 AND 7", name="ck_board_definitions_schedule_weekday"
+        ),
+        # A weekday without a time, or the reverse, is not a schedule.
+        CheckConstraint(
+            "(schedule_weekday IS NULL) = (schedule_time IS NULL)",
+            name="ck_board_definitions_schedule_complete",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(TEAM_NAME_MAX_LENGTH), nullable=False)
@@ -62,8 +91,23 @@ class BoardDefinition(Base):
         nullable=False,
         unique=True,
     )
+    #: ISO weekday, Monday 1 through Sunday 7, in the organization's zone.
+    schedule_weekday: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    #: Wall-clock start time in the organization's zone, never an instant:
+    #: "Wednesdays at 13:00" stays 13:00 across the change of clocks.
+    schedule_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
     team: Mapped[Team] = relationship(back_populates="board")
+
+    @property
+    def schedule(self) -> WeeklySchedule | None:
+        """The schedule as one value, or None until one is set.
+
+        The check constraint guarantees both columns are set or neither is.
+        """
+        if self.schedule_weekday is None or self.schedule_time is None:
+            return None
+        return WeeklySchedule(self.schedule_weekday, self.schedule_time)

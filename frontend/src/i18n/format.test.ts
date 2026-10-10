@@ -1,10 +1,13 @@
 /** Dates, times and numbers in the conventions of each language. */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   countdownFrom,
   formatDate,
   formatDateTime,
+  formatMeetingDate,
+  formatMeetingTime,
   formatNumber,
+  formatScheduleWeekday,
   formatWeekdayAndTime,
 } from './format';
 
@@ -107,5 +110,47 @@ describe('countdownFrom', () => {
 
     expect(hours).toBe(23);
     expect(minutes).toBe(59);
+  });
+});
+
+describe('meeting dates and times', () => {
+  const readerZone = process.env.TZ;
+
+  afterEach(() => {
+    process.env.TZ = readerZone;
+  });
+
+  it('names a meeting date in English', () => {
+    expect(formatMeetingDate('2026-10-14', 'en', UNAVAILABLE)).toBe('Wed, 14 Oct 2026');
+  });
+
+  it('names a meeting date in Polish', () => {
+    expect(formatMeetingDate('2026-10-14', 'pl', UNAVAILABLE)).toBe('śr., 14 paź 2026');
+  });
+
+  it('shows a start time on a 24-hour clock in both languages', () => {
+    expect(formatMeetingTime('13:00', 'en', UNAVAILABLE)).toBe('13:00');
+    expect(formatMeetingTime('09:30', 'pl', UNAVAILABLE)).toBe('09:30');
+  });
+
+  it('names a schedule weekday in each language', () => {
+    expect(formatScheduleWeekday(3, 'en', UNAVAILABLE)).toBe('Wednesday');
+    expect(formatScheduleWeekday(3, 'pl', UNAVAILABLE)).toBe('środa');
+    expect(formatScheduleWeekday(7, 'en', UNAVAILABLE)).toBe('Sunday');
+  });
+
+  it("shows the organization's time to a reader in another zone", () => {
+    // Far enough east that local midnight is already the next day in UTC.
+    process.env.TZ = 'Pacific/Auckland';
+
+    expect(formatMeetingDate('2026-10-14', 'en', UNAVAILABLE)).toBe('Wed, 14 Oct 2026');
+    expect(formatMeetingTime('23:30', 'en', UNAVAILABLE)).toBe('23:30');
+    expect(formatScheduleWeekday(1, 'en', UNAVAILABLE)).toBe('Monday');
+  });
+
+  it('reports a value it cannot read as unavailable', () => {
+    expect(formatMeetingDate('14.10.2026', 'en', UNAVAILABLE)).toBe(UNAVAILABLE);
+    expect(formatMeetingTime('1pm', 'en', UNAVAILABLE)).toBe(UNAVAILABLE);
+    expect(formatScheduleWeekday(8, 'en', UNAVAILABLE)).toBe(UNAVAILABLE);
   });
 });

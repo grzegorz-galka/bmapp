@@ -3,6 +3,7 @@ import { AppHeader } from './components/AppHeader';
 import { AuthCallbackPage } from './features/auth/AuthCallbackPage';
 import { CALLBACK_PATH } from './features/auth/config';
 import { HubPage } from './features/hub/HubPage';
+import { TeamMeetingsPage } from './features/meetings/TeamMeetingsPage';
 import { TeamMembersPage } from './features/teams/TeamMembersPage';
 import { TeamsPage } from './features/teams/TeamsPage';
 
@@ -34,6 +35,7 @@ export function AppRoutes({ completeSignIn }: { completeSignIn: () => Promise<bo
         {/* The bare /teams/:teamId is left free on purpose: a team's page is
             its board, and the board capability will want that address. */}
         <Route path="teams/:teamId/members" element={<TeamMembersPage />} />
+        <Route path="teams/:teamId/meetings" element={<TeamMeetingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

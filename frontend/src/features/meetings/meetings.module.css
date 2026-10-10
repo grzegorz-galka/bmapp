@@ -1,0 +1,30 @@
+/*
+ * What the meetings page adds to the shared team sheet: sections with their
+ * own headings, and the select the schedule and the host are chosen with.
+ */
+
+.section {
+  margin-bottom: var(--sp-6);
+}
+
+.subheading {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.select {
+  width: 100%;
+  padding: 8px var(--sp-3);
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+}
+
+/* An edit form inside a meeting row takes the row's full width. */
+.rowForm {
+  flex-basis: 100%;
+  margin: var(--sp-2) 0 0;
+}

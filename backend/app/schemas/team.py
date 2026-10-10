@@ -8,6 +8,7 @@ from pydantic_core import PydanticCustomError
 
 from app.models import TEAM_NAME_MAX_LENGTH
 from app.schemas.employee import EmployeeEmail
+from app.schemas.meeting import ScheduleRead
 
 
 class TeamCreate(BaseModel):
@@ -60,6 +61,7 @@ class BoardRead(BaseModel):
 
     id: uuid.UUID
     name: str
+    schedule: ScheduleRead | None
 
 
 class LeaderRead(BaseModel):
