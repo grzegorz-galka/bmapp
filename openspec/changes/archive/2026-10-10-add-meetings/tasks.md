@@ -41,7 +41,7 @@
 
 - [x] 7.1 Add `frontend/e2e/prepare-a-meeting.spec.ts` (the leader sets the schedule; a member prepares the next meeting from the proposal, names a host, moves it, prepares the following one; repeated in Polish). Verify that `npm run test:e2e` passes against `docker compose up`.
 - [x] 7.2 Update CLAUDE.md's *Current state* (meetings implemented; hub still placeholder), extend the glossary with "Host", and add the meetings API to README if it lists endpoints. Verify by reading the diff that no convention is left stale.
-- [ ] 7.3 On a fresh volume (`docker compose down -v && docker compose up -d && docker compose exec backend alembic upgrade head`), register a team, set its schedule, and prepare two meetings through the UI. Verify that it works end to end.
+- [x] 7.3 On a fresh volume (`docker compose down -v && docker compose up -d && docker compose exec backend alembic upgrade head`), register a team, set its schedule, and prepare two meetings through the UI. Verify that it works end to end.
 
 ## Workflow follow-up
 
