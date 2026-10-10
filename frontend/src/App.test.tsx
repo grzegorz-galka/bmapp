@@ -19,7 +19,7 @@ function team(name: string): Team {
   return {
     id: `id-${name}`,
     name,
-    board: { id: `board-${name}`, name },
+    board: { id: `board-${name}`, name, schedule: null },
     leader: { id: `leader-${name}`, email: 'lead@example.com' },
     member_count: 1,
   };

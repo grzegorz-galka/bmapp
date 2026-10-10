@@ -8,9 +8,20 @@ import { request } from './client';
 
 export { ApiError, type ApiFieldError } from './client';
 
+/**
+ * When a board's team meets each week: an ISO weekday (Monday 1 to Sunday 7)
+ * and an "HH:MM" start, both on the organization's clock.
+ */
+export interface Schedule {
+  weekday: number;
+  time: string;
+}
+
 export interface Board {
   id: string;
   name: string;
+  /** None until the team's leader sets one. */
+  schedule: Schedule | null;
 }
 
 export interface Employee {
@@ -78,5 +89,12 @@ export function makeLeader(teamId: string, employeeId: string): Promise<TeamDeta
   return request<TeamDetail>(`/teams/${encodeURIComponent(teamId)}/leader`, {
     method: 'PUT',
     body: JSON.stringify({ employee_id: employeeId }),
+  });
+}
+
+export function setSchedule(teamId: string, schedule: Schedule): Promise<Team> {
+  return request<Team>(`/teams/${encodeURIComponent(teamId)}/schedule`, {
+    method: 'PUT',
+    body: JSON.stringify(schedule),
   });
 }

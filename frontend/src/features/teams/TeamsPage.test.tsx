@@ -11,7 +11,7 @@ function team(name: string, leaderEmail = 'lead@example.com', memberCount = 1): 
   return {
     id: `id-${name}`,
     name,
-    board: { id: `board-${name}`, name },
+    board: { id: `board-${name}`, name, schedule: null },
     leader: { id: `leader-${name}`, email: leaderEmail },
     member_count: memberCount,
   };
@@ -72,6 +72,24 @@ describe('TeamsPage in English', () => {
     expect(within(item).getByRole('link', { name: 'Members of Platform' })).toHaveAttribute(
       'href',
       '/teams/id-Platform/members',
+    );
+  });
+
+  it("shows each team's schedule, or that it has none, and a link to its meetings", async () => {
+    const scheduled = {
+      ...team('Alpha'),
+      board: { id: 'b-a', name: 'Alpha', schedule: { weekday: 3, time: '13:00' } },
+    };
+    fetchMock.mockResolvedValue(jsonResponse([scheduled, team('Beta')]));
+
+    await renderWithLanguage(<TeamsPage />, 'en', { auth: { isAdmin: true } });
+
+    const [alpha, beta] = await screen.findAllByRole('listitem');
+    expect(alpha).toHaveTextContent('meets Wednesday at 13:00');
+    expect(beta).toHaveTextContent('no schedule');
+    expect(within(alpha!).getByRole('link', { name: 'Meetings of Alpha' })).toHaveAttribute(
+      'href',
+      '/teams/id-Alpha/meetings',
     );
   });
 
@@ -167,6 +185,8 @@ describe('TeamsPage in Polish', () => {
     expect(item).toHaveTextContent('lider zespołu: lead@example.com');
     expect(item).toHaveTextContent('Liczba członków: 1');
     expect(within(item).getByRole('link', { name: 'Członkowie zespołu Platform' })).toBeVisible();
+    expect(within(item).getByRole('link', { name: 'Spotkania zespołu Platform' })).toBeVisible();
+    expect(item).toHaveTextContent('brak harmonogramu');
     expect(screen.getByRole('heading', { name: pl.teams.heading })).toBeInTheDocument();
     expect(screen.getByLabelText(pl.teams.nameLabel)).toBeInTheDocument();
     expect(screen.getByLabelText(pl.teams.leaderEmailLabel)).toBeInTheDocument();

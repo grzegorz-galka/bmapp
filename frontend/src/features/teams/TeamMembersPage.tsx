@@ -1,38 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
-import type { TFunction } from 'i18next';
-import { ApiError, type Member } from '../../api/teams';
-import { translateErrorCode } from '../../i18n/apiErrors';
+import type { Member } from '../../api/teams';
+import { describeFailure, isNotFound } from '../../i18n/apiErrors';
 import { useAddMember, useMakeLeader, useRemoveMember, useTeam } from './useTeams';
 import { useAuth } from '../auth/AuthProvider';
 import { useIsAdmin } from '../auth/useCurrentUser';
 import styles from './teams.module.css';
-
-/**
- * The text for a failed mutation: the error on `field` if the API named one,
- * otherwise its first error, otherwise the generic message. A failure always
- * says something, in the language being read, and never the API's English.
- */
-function describeFailure(t: TFunction, error: Error | null, field?: string): string | undefined {
-  if (!error) return undefined;
-  if (error instanceof ApiError) {
-    const failure = (field ? error.errorFor(field) : undefined) ?? error.errors[0];
-    if (failure) return translateErrorCode(t, failure);
-  }
-  return t('errors.generic');
-}
-
-/**
- * Whether the team could not be read because there is no such team.
- *
- * A 422 counts as well: on a GET with no body the only thing to reject is the
- * identifier in the address, and an identifier that is not even well formed
- * names no team either.
- */
-function isMissingTeam(error: Error | null): boolean {
-  return error instanceof ApiError && (error.status === 404 || error.status === 422);
-}
 
 export function TeamMembersPage() {
   const isAdmin = useIsAdmin();
@@ -94,7 +68,7 @@ export function TeamMembersPage() {
     return (
       <main className={styles.page}>
         {back}
-        {isMissingTeam(team.error) ? (
+        {isNotFound(team.error) ? (
           <h1 className={styles.heading}>{t('members.notFound')}</h1>
         ) : (
           <p role="alert">{t('members.loadFailed')}</p>

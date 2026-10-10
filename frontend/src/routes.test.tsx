@@ -59,7 +59,7 @@ describe('the route table', () => {
             : {
                 id: 'team-1',
                 name: 'Platform',
-                board: { id: 'board-1', name: 'Platform' },
+                board: { id: 'board-1', name: 'Platform', schedule: null },
                 members: [{ employee_id: 'emp-1', email: 'anna@example.com', is_leader: true }],
               },
       } as Response),

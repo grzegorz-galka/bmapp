@@ -12,7 +12,12 @@ import type { Member, Team, TeamDetail } from '../../api/teams';
 const TEAM_ID = 'team-1';
 
 function detail(...members: Member[]): TeamDetail {
-  return { id: TEAM_ID, name: 'Platform', board: { id: 'board-1', name: 'Platform' }, members };
+  return {
+    id: TEAM_ID,
+    name: 'Platform',
+    board: { id: 'board-1', name: 'Platform', schedule: null },
+    members,
+  };
 }
 
 const anna: Member = { employee_id: 'emp-anna', email: 'anna@example.com', is_leader: true };
@@ -23,7 +28,7 @@ function listed(memberCount: number): Team[] {
     {
       id: TEAM_ID,
       name: 'Platform',
-      board: { id: 'board-1', name: 'Platform' },
+      board: { id: 'board-1', name: 'Platform', schedule: null },
       leader: { id: anna.employee_id, email: anna.email },
       member_count: memberCount,
     },

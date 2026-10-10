@@ -102,6 +102,62 @@ export function formatWeekdayAndTime(
   );
 }
 
+/*
+ * Meetings carry wall-clock values - "2026-10-14", "13:00" - already on the
+ * organization's clock, so they are formatted as they stand rather than
+ * converted to the reader's zone. Building them as UTC and formatting in UTC
+ * is what keeps the reader's zone out: a colleague working from another
+ * country still sees the time the team actually meets.
+ */
+const WALL_CLOCK: Intl.DateTimeFormatOptions = { timeZone: 'UTC' };
+
+function wallClockDate(date: string): Date | undefined {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!match) return undefined;
+  const [, year, month, day] = match.map(Number);
+  return new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1));
+}
+
+/** "Wed, 14 Oct 2026" - the date a meeting falls on. */
+export function formatMeetingDate(date: string, language: Language, unavailable: string): string {
+  const value = wallClockDate(date);
+  return value
+    ? new Intl.DateTimeFormat(LOCALES[language], {
+        ...WALL_CLOCK,
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      }).format(value)
+    : unavailable;
+}
+
+/** "13:00" - a meeting's start, or a schedule's. */
+export function formatMeetingTime(time: string, language: Language, unavailable: string): string {
+  const match = /^(\d{2}):(\d{2})$/.exec(time);
+  if (!match) return unavailable;
+  const value = new Date(Date.UTC(1970, 0, 1, Number(match[1]), Number(match[2])));
+  return new Intl.DateTimeFormat(LOCALES[language], {
+    ...WALL_CLOCK,
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(value);
+}
+
+/** "Wednesday" - an ISO weekday, Monday 1 to Sunday 7. */
+export function formatScheduleWeekday(
+  weekday: number,
+  language: Language,
+  unavailable: string,
+): string {
+  if (!Number.isInteger(weekday) || weekday < 1 || weekday > 7) return unavailable;
+  // 2024-01-01 was a Monday.
+  const value = new Date(Date.UTC(2024, 0, weekday));
+  return new Intl.DateTimeFormat(LOCALES[language], { ...WALL_CLOCK, weekday: 'long' }).format(
+    value,
+  );
+}
+
 export function formatNumber(value: number, language: Language, unavailable: string): string {
   return Number.isFinite(value)
     ? new Intl.NumberFormat(LOCALES[language]).format(value)
@@ -130,6 +186,9 @@ export function useFormat() {
       weekdayAndTime: (value: string | number | Date) =>
         formatWeekdayAndTime(value, language, unavailable),
       number: (value: number) => formatNumber(value, language, unavailable),
+      meetingDate: (date: string) => formatMeetingDate(date, language, unavailable),
+      meetingTime: (time: string) => formatMeetingTime(time, language, unavailable),
+      scheduleWeekday: (weekday: number) => formatScheduleWeekday(weekday, language, unavailable),
     }),
     [language, unavailable],
   );
