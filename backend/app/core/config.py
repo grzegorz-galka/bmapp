@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="BMAPP_", env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql+psycopg://bmapp:bmapp@localhost:5432/bmapp"
+    database_url: str = "postgresql+psycopg://bmapp:bmapp@localhost:5433/bmapp"
     # Localhost only by default. Until this change is deployed and verified,
     # binding to 0.0.0.0 would expose board material to the network.
     host: str = "127.0.0.1"

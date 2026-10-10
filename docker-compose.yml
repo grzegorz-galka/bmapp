@@ -9,9 +9,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bmapp}
       POSTGRES_DB: ${POSTGRES_DB:-bmapp}
     ports:
-      # Host port is configurable so the stack can coexist with another
-      # Postgres already using 5432 on the developer's machine.
-      - "127.0.0.1:${BMAPP_DB_PORT:-5432}:5432"
+      # 5433 rather than 5432 so the stack coexists with a Postgres already
+      # running on the developer's machine; override with BMAPP_DB_PORT.
+      - "127.0.0.1:${BMAPP_DB_PORT:-5433}:5432"
     volumes:
       # PostgreSQL 18 images expect the mount at /var/lib/postgresql and place
       # the cluster in a version-specific subdirectory, so that pg_upgrade

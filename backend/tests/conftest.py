@@ -35,7 +35,7 @@ os.environ["BMAPP_OIDC_ISSUER"] = ""
 ADMIN_EMAIL = "admin@pse.pl"
 os.environ.setdefault("BMAPP_ADMIN_EMAILS", ADMIN_EMAIL)
 
-DEFAULT_TEST_DATABASE_URL = "postgresql+psycopg://bmapp:bmapp@localhost:5432/bmapp_test"
+DEFAULT_TEST_DATABASE_URL = "postgresql+psycopg://bmapp:bmapp@localhost:5433/bmapp_test"
 
 
 def _test_database_url() -> str:
