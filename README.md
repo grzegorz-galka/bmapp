@@ -7,7 +7,9 @@ has agreed.
 
 This repository currently contains the **walking skeleton**. One vertical slice
 is real end to end through the UI, the API, a service layer and PostgreSQL:
-register a team and see the registered teams, at `/teams`. On top of it sits
+register a team and see the registered teams, at `/teams`; each team has a
+members page and a meetings page, where its weekly schedule is set and its
+board meetings are prepared. On top of it sits
 the **hub** at `/`, the landing page built from the mockup in `mockups/` — the
 company declarations, your teams and the countdown to the next board meeting,
 what happens at a board meeting, and the problem and task funnel. See
@@ -17,8 +19,8 @@ what happens at a board meeting, and the problem and task funnel. See
 > endpoint, `GET /hub`, built from constants: no tables, no migration, nothing
 > recorded. The response says so in a `provisional` field and the page says so
 > at the foot. It exists so the shell is real while the capabilities behind it
-> — meetings, metrics, problems, tasks — are built; each will replace a slice
-> of it.
+> — metrics, problems, tasks, and the meetings now recorded — are wired in;
+> each will replace a slice of it.
 
 > **Not deployable.** No endpoint is authenticated. Every service binds to
 > `127.0.0.1` and the stack must not be exposed to a network or hold real board
@@ -82,7 +84,7 @@ docker compose exec backend alembic upgrade head
 | Frontend | <http://localhost:5173>                        |
 | API      | <http://localhost:8000>, docs at `/docs`       |
 | Health   | <http://localhost:8000/health>                 |
-| Database | `localhost:5432`                               |
+| Database | `localhost:5433`                               |
 
 Sources are bind-mounted and both dev servers watch them, so edits reload
 without a rebuild. Rebuild only when a dependency changes:

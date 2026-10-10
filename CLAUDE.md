@@ -55,7 +55,9 @@ Glossary (use these exact terms in code, UI and tests):
   and the countdown to their next meeting, what can be done at a board meeting,
   and the problem/task funnel. Not a board; the way in to them.
 - **Board** — a team's page: metrics + problems + tasks.
-- **Meeting** — one occurrence of a team's board meeting. Metric values are recorded at a meeting and belong to it.
+- **Meeting** — one occurrence of a team's board meeting. Metric values are recorded at a meeting and belong to it. Opened explicitly by a member; a skipped week simply has none.
+- **Schedule** — the weekday and start time a board's team meets, on the organization's clock (Europe/Warsaw). It proposes the next meeting's date; it never creates meetings.
+- **Host** — the member who runs one meeting (*prowadzący*). Rotates from meeting to meeting; not the team leader.
 - **Metric** — a named thing the team measures (e.g. "Open bugs"), with a unit and an acceptable min/max. Teams track metrics directly.
 - **Metric value** — one number, recorded at one meeting, for one metric. Its date is the meeting's date; it has none of its own.
 - **Target** — a declaration in prose, *not* a numeric range: what the company or the team is aiming at. Company-wide targets appear on every board; a team may add **custom targets**. Red/green never comes from a target — only from the metric's min/max.
@@ -201,7 +203,12 @@ employees are identified by a lower-cased email and recorded the first time
 they are assigned to a team; a team has members and exactly one leader, who is
 always one of them, set when the team is registered and handed over between
 members on the members page at `/teams/:teamId/members`. One employee may lead
-any number of teams.
+any number of teams. `meetings` is implemented: a board has an optional weekly
+schedule set by its leader, and any member opens, moves, hosts and deletes the
+team's meetings on the meetings page at `/teams/:teamId/meetings`, one per date
+at most, with the next date proposed from the schedule. Dates and times are
+wall-clock values on the organization's clock, Europe/Warsaw, fixed in
+`app/core/time.py`; instants are stored in UTC.
 
 **The hub is served from placeholder data.** `GET /hub` returns one read-only
 payload built from constants in `app/services/hub.py` — no tables, no
@@ -217,8 +224,7 @@ are decided per team — administrators from `BMAPP_ADMIN_EMAILS` register teams
 name leaders, a team's leader manages its members, and anyone signed in may read
 everything.
 
-Everything else in the domain model above — meetings,
-metrics and their values, targets, problems, tasks and archiving — is agreed but
+Everything else in the domain model above — metrics and their values, targets, problems, tasks and archiving — is agreed but
 not built. Each is a capability of its own;
 propose it through `/opsx:propose` rather than adding it inline.
 
