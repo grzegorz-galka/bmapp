@@ -5,7 +5,7 @@
  * everything they may read.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, screen } from '@testing-library/react';
+import { cleanup, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { BoardPage } from './BoardPage';
@@ -13,6 +13,7 @@ import { MetricSettingsPage } from '../metrics/MetricSettingsPage';
 import { renderWithLanguage } from '../../test/render';
 import { en } from '../../i18n/en';
 import type { Metric } from '../../api/metrics';
+import type { PulseResults } from '../../api/pulse';
 import {
   ADMIN,
   board,
@@ -22,6 +23,7 @@ import {
   MEETINGS,
   MEMBER,
   MONDAY,
+  pulseResults,
   serveBoard,
   TEAM_ID,
   threshold,
@@ -30,15 +32,18 @@ import {
 
 const fetchMock = vi.fn();
 const METRICS: Metric[] = [{ ...definition(), threshold: threshold() }];
+let pulse: Record<string, PulseResults>;
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(MONDAY);
   vi.stubGlobal('fetch', fetchMock);
   fetchMock.mockReset();
+  pulse = { 'm-2026-10-14': pulseResults('m-2026-10-14') };
   serveBoard(fetchMock, {
     boards: Object.fromEntries(MEETINGS.meetings.map((m) => [m.id, board(m.date)])),
     trend: TREND,
+    pulse,
     write: () => jsonResponse({}),
   });
   const served = fetchMock.getMockImplementation()!;
@@ -118,5 +123,63 @@ describe('the board offers only what its viewer may do', () => {
 
     expect(recordingControls()).toMatchObject({ record: null, correct: null });
     expect(recordingControls().list).toBeInTheDocument();
+  });
+});
+
+/*
+ * Requirement: The pulse check view offers only what its viewer may do
+ * (specs/authorization). Names come from the server, which withholds them
+ * from a stranger; the form is offered to members only.
+ */
+describe('the pulse check view offers only what its viewer may do', () => {
+  async function openPulse(auth: { email: string; isAdmin?: boolean }) {
+    await renderWithLanguage(
+      <Routes>
+        <Route path="/teams/:teamId" element={<BoardPage />} />
+      </Routes>,
+      'en',
+      { route: `/teams/${TEAM_ID}?meeting=m-2026-10-14&view=pulse`, auth },
+    );
+    return screen.findByRole('region', { name: en.pulse.answeredLabel });
+  }
+
+  it('A member sees the form and the answers', async () => {
+    const user = userEvent.setup();
+    const answered = await openPulse({ email: MEMBER });
+
+    expect(answered).toHaveTextContent('Missing: hania@example.com');
+    expect(screen.getByRole('region', { name: en.pulse.answersHeading })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: en.pulse.yourAnswer }));
+    expect(screen.getAllByRole('radio')).toHaveLength(5);
+  });
+
+  it('A stranger sees the aggregates and no form', async () => {
+    pulse['m-2026-10-14'] = pulseResults('m-2026-10-14', {
+      answers: null,
+      missing: null,
+      own: null,
+    });
+    const answered = await openPulse({ email: 'stranger@example.com' });
+
+    expect(answered).toHaveTextContent('7 of 11');
+    expect(answered).toHaveTextContent('Answers missing: 4');
+    expect(
+      within(screen.getByRole('region', { name: en.pulse.trendTitle })).getByRole('img', {
+        name: en.pulse.trendLabel,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: en.pulse.answersHeading })).not.toBeInTheDocument();
+    expect(screen.queryByText(/@example\.com/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: en.pulse.yourAnswer })).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: en.pulse.hideNames })).not.toBeInTheDocument();
+  });
+
+  it('An administrator sees the answers and no form', async () => {
+    const answered = await openPulse({ email: ADMIN, isAdmin: true });
+
+    expect(answered).toHaveTextContent('Missing: hania@example.com');
+    expect(screen.getByRole('region', { name: en.pulse.answersHeading })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: en.pulse.yourAnswer })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
   });
 });

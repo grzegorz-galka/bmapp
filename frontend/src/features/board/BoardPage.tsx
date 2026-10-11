@@ -15,6 +15,8 @@ import { organizationToday } from './organizationDate';
 import { RecordingView, type RecordingMode } from './RecordingView';
 import { Sparkline } from './Sparkline';
 import { useBoard } from './useBoard';
+import { PulseView } from './pulse/PulseView';
+import { usePulse } from './pulse/usePulse';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
 import styles from './board.module.css';
@@ -45,7 +47,10 @@ export function BoardPage() {
   const all = meetings.data?.meetings ?? [];
   const shown =
     all.find((meeting) => meeting.id === search.get('meeting')) ?? defaultMeeting(all, today);
+  const view = search.get('view') === 'pulse' ? 'pulse' : 'metrics';
   const board = useBoard(teamId, shown?.id);
+  // Fetched whichever view is open: the switch shows how many have answered.
+  const pulse = usePulse(teamId, shown?.id);
   const teamPath = `/teams/${encodeURIComponent(teamId)}`;
 
   const back = (
@@ -81,9 +86,18 @@ export function BoardPage() {
   const viewer = team.data.members.find((member) => member.email === signedInEmail);
   const mayConfigure = isAdmin || viewer?.is_leader === true;
   const mayRecord = isAdmin || viewer !== undefined;
+  // Membership alone: an administrator does not answer on a team's behalf.
+  const mayAnswer = viewer !== undefined;
+
+  /** The address keeps both the meeting and the view, so a reload lands on the same one. */
+  function show(meeting: Meeting, nextView: 'metrics' | 'pulse' = view) {
+    setSearch(
+      nextView === 'pulse' ? { meeting: meeting.id, view: 'pulse' } : { meeting: meeting.id },
+    );
+  }
 
   function go(meeting: Meeting) {
-    setSearch({ meeting: meeting.id });
+    show(meeting);
   }
 
   const index = shown ? all.indexOf(shown) : -1;
@@ -147,7 +161,35 @@ export function BoardPage() {
             </button>
           </div>
 
-          {board.isPending ? (
+          <div
+            role="group"
+            aria-label={t('pulse.viewSwitchLabel')}
+            className={`${styles.segmented} ${styles.viewSwitch}`}
+          >
+            <button
+              type="button"
+              aria-pressed={view === 'metrics'}
+              onClick={() => show(shown, 'metrics')}
+            >
+              {t('pulse.metricsView')}
+            </button>
+            <button
+              type="button"
+              aria-pressed={view === 'pulse'}
+              onClick={() => show(shown, 'pulse')}
+            >
+              {pulse.data
+                ? t('pulse.switchCount', {
+                    answered: pulse.data.answered,
+                    members: pulse.data.members,
+                  })
+                : t('pulse.view')}
+            </button>
+          </div>
+
+          {view === 'pulse' ? (
+            <PulseView key={shown.id} teamId={teamId} meeting={shown} mayAnswer={mayAnswer} />
+          ) : board.isPending ? (
             <p>{t('board.loading')}</p>
           ) : board.isError ? (
             <p role="alert">{describeFailure(t, board.error)}</p>

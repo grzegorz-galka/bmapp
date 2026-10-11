@@ -9,6 +9,7 @@ import type {
   Threshold,
 } from '../../api/metrics';
 import type { TeamDetail } from '../../api/teams';
+import type { PulseAnswerRead, PulseRating, PulseResults, PulseStatus } from '../../api/pulse';
 
 export const TEAM_ID = 'team-1';
 export const LEADER = 'anna@example.com';
@@ -135,6 +136,101 @@ export const TREND: MetricTrend = {
   corrections: [],
 };
 
+const RATING_STATUS: Record<PulseRating, PulseStatus> = {
+  5: 'green',
+  4: 'green',
+  3: 'amber',
+  2: 'red',
+  1: 'red',
+};
+
+export function pulseAnswer(
+  email: string,
+  rating: PulseRating,
+  overrides: Partial<PulseAnswerRead> = {},
+): PulseAnswerRead {
+  return {
+    employee_id: `emp-${email.split('@')[0] ?? email}`,
+    email,
+    rating,
+    status: RATING_STATUS[rating],
+    positive: `${email} positive`,
+    negative: `${email} negative`,
+    better: `${email} better`,
+    updated_at: '2026-10-12T08:00:00Z',
+    ...overrides,
+  };
+}
+
+/** The spec's meeting: 7 answers of 11, rated 5, 4, 4, 4, 3, 3 and 2. */
+export const SEVEN_ANSWERS: PulseAnswerRead[] = (
+  [
+    ['ala', 5],
+    ['bartek', 4],
+    ['celina', 4],
+    ['darek', 4],
+    ['ewa', 3],
+    ['franek', 3],
+    ['gosia', 2],
+  ] as const
+).map(([name, rating]) => pulseAnswer(`${name}@example.com`, rating));
+
+export const FOUR_MISSING = ['hania', 'igor', 'jan', 'kasia'].map((name) => ({
+  employee_id: `emp-${name}`,
+  email: `${name}@example.com`,
+}));
+
+/** A meeting's pulse results as a member reads them: 7 of 11, averaging 3.57. */
+export function pulseResults(
+  meetingId = 'm-2026-10-14',
+  overrides: Partial<PulseResults> = {},
+): PulseResults {
+  return {
+    meeting_id: meetingId,
+    editable: meetingId === 'm-2026-10-07' || meetingId === 'm-2026-10-14',
+    answered: 7,
+    members: 11,
+    average: '3.57',
+    status: 'amber',
+    previous: { meeting_id: 'm-2026-10-07', date: '2026-10-07', average: '3.80' },
+    change: '-0.23',
+    distribution: { '1': 0, '2': 1, '3': 2, '4': 3, '5': 1 },
+    trend: [
+      {
+        meeting_id: 'm-2026-10-07',
+        date: '2026-10-07',
+        average: '3.80',
+        status: 'amber',
+        answered: 10,
+      },
+      { meeting_id: meetingId, date: '2026-10-14', average: '3.57', status: 'amber', answered: 7 },
+    ],
+    answers: SEVEN_ANSWERS,
+    missing: FOUR_MISSING,
+    missing_count: 4,
+    own: null,
+    ...overrides,
+  };
+}
+
+/** A meeting at which nobody has answered. */
+export function noPulse(meetingId: string, overrides: Partial<PulseResults> = {}): PulseResults {
+  return pulseResults(meetingId, {
+    answered: 0,
+    members: 2,
+    average: null,
+    status: 'no_data',
+    previous: null,
+    change: null,
+    distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
+    trend: [],
+    answers: [],
+    missing: TEAM.members.map(({ employee_id, email }) => ({ employee_id, email })),
+    missing_count: 2,
+    ...overrides,
+  });
+}
+
 export function jsonResponse(body: unknown, status = 200) {
   return { ok: status < 400, status, json: async () => body } as Response;
 }
@@ -146,6 +242,8 @@ export function errorResponse(status: number, field: string | null, code: string
 export interface Fixtures {
   boards: Record<string, MeetingBoard>;
   trend: MetricTrend;
+  /** Pulse results by meeting id; a meeting not listed has no answers. */
+  pulse?: Record<string, PulseResults>;
   write: (url: string, init: RequestInit) => Response;
 }
 
@@ -162,6 +260,11 @@ export function serveBoard(fetchMock: ReturnType<typeof vi.fn>, fixtures: Fixtur
       return Promise.resolve(
         found ? jsonResponse(found) : errorResponse(404, null, 'meeting.not_found'),
       );
+    }
+    const pulseMatch = /\/meetings\/([^/]+)\/pulse$/.exec(url);
+    if (pulseMatch) {
+      const meetingId = decodeURIComponent(pulseMatch[1] ?? '');
+      return Promise.resolve(jsonResponse(fixtures.pulse?.[meetingId] ?? noPulse(meetingId)));
     }
     if (url.endsWith('/meetings')) return Promise.resolve(jsonResponse(MEETINGS));
     if (url.endsWith('/trend')) return Promise.resolve(jsonResponse(fixtures.trend));
