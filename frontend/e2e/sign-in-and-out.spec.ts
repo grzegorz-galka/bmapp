@@ -8,7 +8,8 @@
  */
 import { expect, test, type Page } from '@playwright/test';
 import { en } from '../src/i18n/en';
-import { ADMIN_EMAIL, signInAs } from './auth';
+import { apiAs, uniqueSuffix } from './api';
+import { ADMIN_EMAIL, devPassword, fillLoginWindow, loginWindow, signInAs } from './auth';
 
 /** The application header, where the identity and the account control live. */
 function header(page: Page) {
@@ -51,4 +52,80 @@ test('signing out leaves no identity and offers the way back in', async ({ page 
   // And what was fetched for them is gone with the session, rather than
   // waiting on the page for whoever signs in next.
   await expect(page.getByText(`Assigned to ${ADMIN_EMAIL}`)).toBeHidden();
+});
+
+/*
+ * Requirement: development mode signs in through a login window. These tests
+ * answer the window themselves rather than through `signInAs`, which would
+ * answer it for them.
+ */
+
+test('the window opens on a page with no session', async ({ page }) => {
+  await page.goto('/');
+
+  const window = page.getByRole('dialog', { name: en.auth.devLoginTitle });
+  await expect(window).toBeVisible();
+  await expect(window.getByLabel(en.auth.devLoginEmail)).toBeVisible();
+  await expect(window.getByLabel(en.auth.devLoginPassword)).toHaveValue('');
+});
+
+test('signing in through the window shows the person in the header', async ({ page }) => {
+  await page.goto('/');
+
+  await fillLoginWindow(loginWindow(page), ADMIN_EMAIL);
+
+  await expect(loginWindow(page)).toBeHidden();
+  await expect(header(page).getByText(ADMIN_EMAIL, { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: en.hub.heroTitle })).toBeVisible();
+});
+
+test('a refusal is shown in the window', async ({ page }) => {
+  await page.goto('/');
+  const window = page.getByRole('dialog', { name: en.auth.devLoginTitle });
+
+  await fillLoginWindow(window, ADMIN_EMAIL, 'wrong');
+  await expect(window.getByLabel(en.auth.devLoginPassword)).toHaveAccessibleDescription(
+    en.errors['auth.password_incorrect'],
+  );
+
+  const stranger = `e2e.stranger.${Date.now()}@example.com`;
+  await fillLoginWindow(window, stranger, devPassword(stranger));
+  await expect(window.getByLabel(en.auth.devLoginEmail)).toHaveAccessibleDescription(
+    en.errors['auth.employee_unknown'],
+  );
+
+  await expect(window).toBeVisible();
+  await expect(header(page).getByRole('button', { name: en.auth.signIn })).toBeVisible();
+});
+
+test('closing the window leaves the person signed out', async ({ page }) => {
+  await page.goto('/');
+  const window = page.getByRole('dialog', { name: en.auth.devLoginTitle });
+
+  await window.getByRole('button', { name: en.auth.devLoginClose }).click();
+
+  await expect(window).toBeHidden();
+  const signIn = header(page).getByRole('button', { name: en.auth.signIn });
+  await expect(signIn).toBeVisible();
+
+  await signIn.click();
+  await expect(window).toBeVisible();
+});
+
+test('a reload asks again, with the email remembered', async ({ page, request }) => {
+  // Someone other than the administrator, whose address is also the default
+  // the window would show anyway.
+  const leader = `e2e.remembered.${uniqueSuffix()}@example.com`;
+  const admin = await apiAs(request, ADMIN_EMAIL);
+  await admin.registerTeam(`E2E Remembered ${uniqueSuffix()}`, leader);
+  await page.goto('/');
+  await fillLoginWindow(loginWindow(page), leader);
+  await expect(header(page).getByText(leader, { exact: true })).toBeVisible();
+
+  await page.reload();
+
+  const window = page.getByRole('dialog', { name: en.auth.devLoginTitle });
+  await expect(window).toBeVisible();
+  await expect(window.getByLabel(en.auth.devLoginEmail)).toHaveValue(leader);
+  await expect(window.getByLabel(en.auth.devLoginPassword)).toHaveValue('');
 });

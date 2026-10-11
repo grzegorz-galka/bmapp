@@ -335,6 +335,14 @@ export const pl: Translations = {
     signInFailedTitle: 'Nie udało się dokończyć logowania',
     signInFailed: 'Odpowiedź dostawcy tożsamości nie pasuje do tego logowania. Spróbuj ponownie.',
     sessionEnded: 'Twoja sesja wygasła. Zaloguj się ponownie, aby kontynuować.',
+    devLoginTitle: 'Logowanie (tryb deweloperski)',
+    devLoginHint:
+      'Hasło to pierwszy znak adresu e-mail i pierwszy znak po każdej kropce, małpie lub innym separatorze - grzegorz.galka@pse.pl loguje się hasłem ggpp.',
+    devLoginEmail: 'E-mail',
+    devLoginPassword: 'Hasło',
+    devLoginSubmit: 'Zaloguj się',
+    devLoginSubmitting: 'Logowanie...',
+    devLoginClose: 'Zamknij',
   },
   errors: {
     generic: 'Coś poszło nie tak. Spróbuj ponownie.',
@@ -357,6 +365,9 @@ export const pl: Translations = {
     'auth.forbidden': 'Nie masz uprawnień do wykonania tej czynności.',
     'auth.not_an_employee':
       'Nie należysz jeszcze do żadnego zespołu, więc możesz tylko przeglądać dane.',
+    'auth.password_incorrect': 'To nie jest hasło dla tego adresu e-mail.',
+    'auth.employee_unknown':
+      'Żaden pracownik nie ma tego adresu e-mail. Poproś lidera zespołu o dodanie Cię do zespołu.',
     'schedule_weekday.out_of_range': 'Wybierz dzień tygodnia.',
     'meeting_date.taken': 'Ten zespół ma już spotkanie w tym dniu.',
     'meeting.not_found': 'To spotkanie już nie istnieje.',

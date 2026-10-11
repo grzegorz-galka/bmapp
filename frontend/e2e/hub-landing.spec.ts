@@ -3,6 +3,7 @@ import { en } from '../src/i18n/en';
 import { pl } from '../src/i18n/pl';
 import { LANGUAGE_STORAGE_KEY } from '../src/i18n/languages';
 import { THEME_STORAGE_KEY } from '../src/theme/themes';
+import { signInAs } from './auth';
 
 /**
  * Pin the language before the app boots, the way the team-board spec does:
@@ -22,6 +23,12 @@ async function useLanguage(page: Page, language: 'en' | 'pl') {
     [LANGUAGE_STORAGE_KEY, language],
   );
 }
+
+// The administrator the stack configures, as the development session used to
+// sign in by itself.
+test.beforeEach(async ({ page }) => {
+  await signInAs(page);
+});
 
 test('the hub shows the declarations, the teams and the assigned items', async ({ page }) => {
   await useLanguage(page, 'en');

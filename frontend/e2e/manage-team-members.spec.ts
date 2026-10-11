@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { en, type Translations } from '../src/i18n/en';
 import { pl } from '../src/i18n/pl';
 import { LANGUAGE_STORAGE_KEY } from '../src/i18n/languages';
+import { signInAs } from './auth';
 
 /*
  * The members flow from the team list to a handover. The stack keeps its data
@@ -94,6 +95,12 @@ async function handOverAndRemove(page: Page, catalogue: Translations) {
   await expect(entry).toContainText(fill(catalogue.teams.leaderSuffix, { email: first }));
   await expect(entry).toContainText(fill(catalogue.teams.memberCount, { count: '2' }));
 }
+
+// The administrator the stack configures, as the development session used to
+// sign in by itself.
+test.beforeEach(async ({ page }) => {
+  await signInAs(page);
+});
 
 test('members are added, the leadership is handed over and the old leader removed', async ({
   page,

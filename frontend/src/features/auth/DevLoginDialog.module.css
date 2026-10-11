@@ -1,0 +1,105 @@
+/*
+ * The development login window. Sized for a phone first: it never exceeds
+ * the viewport less a gutter, and its buttons wrap under one another when the
+ * Polish captions need the room.
+ */
+
+.dialog {
+  width: min(26rem, calc(100vw - 2 * var(--sp-4)));
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-5);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 600;
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.label {
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.input {
+  width: 100%;
+  padding: 8px var(--sp-3);
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-sm);
+  background: var(--panel-2);
+  color: var(--ink);
+  font: inherit;
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--bad);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--bad);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+}
+
+.button,
+.primary {
+  padding: 8px var(--sp-4);
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-sm);
+  font: 500 var(--fs-sm) var(--font-sans);
+  cursor: pointer;
+}
+
+.button {
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.button:hover {
+  background: var(--panel-2);
+}
+
+.primary {
+  background: var(--accent-solid);
+  color: var(--on-accent-solid);
+}
+
+.primary:disabled {
+  cursor: default;
+  opacity: 0.7;
+}

@@ -353,6 +353,14 @@ export const en = {
     signInFailedTitle: 'Sign-in could not be completed',
     signInFailed: 'The response from the identity provider did not match this sign-in. Try again.',
     sessionEnded: 'Your session has ended. Sign in again to continue.',
+    devLoginTitle: 'Sign in (development)',
+    devLoginHint:
+      'The password is the first character of the email and the first character after each dot, at-sign or other separator - grzegorz.galka@pse.pl signs in with ggpp.',
+    devLoginEmail: 'Email',
+    devLoginPassword: 'Password',
+    devLoginSubmit: 'Sign in',
+    devLoginSubmitting: 'Signing in...',
+    devLoginClose: 'Close',
   },
   errors: {
     // Keyed by the code the API reports. `generic` covers a code this
@@ -377,6 +385,8 @@ export const en = {
     'auth.forbidden': 'You are not allowed to do this.',
     'auth.not_an_employee':
       'You do not belong to any team yet, so you can read but not change anything.',
+    'auth.password_incorrect': 'This is not the password for this email.',
+    'auth.employee_unknown': 'No employee has this email. Ask a team leader to add you to a team.',
     'schedule_weekday.out_of_range': 'Choose a day of the week.',
     'meeting_date.taken': 'This team already has a meeting on that date.',
     'meeting.not_found': 'This meeting no longer exists.',
