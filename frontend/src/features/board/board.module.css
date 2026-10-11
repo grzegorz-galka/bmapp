@@ -1,0 +1,241 @@
+/*
+ * The board: a meeting's metrics as tiles, the recording list, and the metric
+ * detail laid over both. Wider than the team sheet, since tiles sit in a grid.
+ */
+
+.page {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--sp-6) var(--sp-4) 56px;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.navigator {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+
+.meetingSelect {
+  width: auto;
+  min-width: 14rem;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+  margin: 0 0 var(--sp-4);
+}
+
+.muted {
+  display: block;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.toolbar .muted {
+  display: inline;
+}
+
+.group {
+  margin-bottom: var(--sp-6);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: var(--sp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The status stripe repeats what the badge says in words. */
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--line-control);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  min-width: 0;
+}
+
+.tile[data-status='green'] {
+  border-left-color: var(--status-green);
+}
+
+.tile[data-status='amber'] {
+  border-left-color: var(--status-amber);
+}
+
+.tile[data-status='red'] {
+  border-left-color: var(--status-red);
+}
+
+.tileName {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.tileValue {
+  margin: 0;
+  font: 600 var(--fs-2xl) var(--font-mono);
+  letter-spacing: -0.02em;
+}
+
+.tileMeta {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.tileComment {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+
+.button {
+  padding: 6px var(--sp-3);
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font: 500 var(--fs-sm) var(--font-sans);
+  cursor: pointer;
+}
+
+/* The recording list. */
+
+.recording {
+  margin-bottom: var(--sp-6);
+}
+
+.completeness {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.reason {
+  max-width: 32rem;
+  margin: var(--sp-3) 0;
+}
+
+.recordFields {
+  display: flex;
+  flex: 1 1 28rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-2);
+}
+
+.valueField {
+  flex: 0 1 8rem;
+}
+
+.colourField {
+  flex: 0 1 11rem;
+}
+
+.unit {
+  padding-bottom: 9px;
+  color: var(--ink-2);
+}
+
+.rowState {
+  min-width: 5rem;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.readValue {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-mono);
+}
+
+.rowComment {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-style: italic;
+}
+
+/* The metric detail, over the board. */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--sp-6) var(--sp-4);
+  background: rgba(0, 0, 0, 0.55);
+  overflow-y: auto;
+}
+
+.detail {
+  width: min(56rem, 100%);
+  padding: var(--sp-5);
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+}
+
+.detailHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.detailHeading {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.detailSubheading {
+  margin: var(--sp-5) 0 var(--sp-2);
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.chart {
+  width: 100%;
+  min-height: 240px;
+}
+
+.plainList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

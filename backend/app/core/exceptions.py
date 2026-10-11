@@ -189,3 +189,132 @@ class MeetingHostNotMemberError(DomainError):
 
     def __init__(self, employee_id: object) -> None:
         super().__init__(f"Employee {employee_id} is not a member of this team.")
+
+
+class MeetingHasValuesError(DomainError):
+    """Raised when a meeting with recorded values is deleted or moved to another date.
+
+    Its values are judged against the thresholds in force on its date, so the
+    date is part of what was recorded.
+    """
+
+    status_code = 409
+    code = "meeting.has_values"
+
+    def __init__(self, meeting_id: object) -> None:
+        super().__init__(f"Meeting {meeting_id} has recorded metric values.")
+
+
+class DuplicateMetricNameError(DomainError):
+    """Raised when a board already has a metric of that name, ignoring case."""
+
+    status_code = 409
+    field = "name"
+    code = "metric_name.duplicate"
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"This board already has a metric named {name!r}.")
+
+
+class MetricOwnerNotMemberError(DomainError):
+    """Raised when someone outside a team is named owner of one of its metrics."""
+
+    status_code = 409
+    field = "owner_employee_id"
+    code = "metric_owner.not_member"
+
+    def __init__(self, employee_id: object) -> None:
+        super().__init__(f"Employee {employee_id} is not a member of this team.")
+
+
+class MetricDirectionImmutableError(DomainError):
+    """Raised when a request changes a metric's direction.
+
+    What "better" means is fixed when a metric is added: every threshold
+    version and every change between meetings is read through it.
+    """
+
+    status_code = 409
+    field = "direction"
+    code = "metric_direction.immutable"
+
+    def __init__(self) -> None:
+        super().__init__("A metric's direction cannot change; add a new metric instead.")
+
+
+class MetricNotFoundError(DomainError):
+    """Raised when a metric identifier names no metric of the team in the path."""
+
+    status_code = 404
+    code = "metric.not_found"
+
+    def __init__(self, metric_id: object) -> None:
+        super().__init__(f"This team has no metric with the identifier {metric_id}.")
+
+
+class MetricRetiredError(DomainError):
+    """Raised when a value is recorded for a retired metric."""
+
+    status_code = 409
+    code = "metric.retired"
+
+    def __init__(self, metric_id: object) -> None:
+        super().__init__(f"Metric {metric_id} is retired and accepts no values.")
+
+
+class MetricHasValuesError(DomainError):
+    """Raised when a metric with recorded values is deleted; retire it instead."""
+
+    status_code = 409
+    code = "metric.has_values"
+
+    def __init__(self, metric_id: object) -> None:
+        super().__init__(f"Metric {metric_id} has recorded values; retire it instead.")
+
+
+class ThresholdOrderError(DomainError):
+    """Raised when a threshold's amber boundary is better than its green one."""
+
+    status_code = 422
+    code = "threshold.order_invalid"
+
+    def __init__(self) -> None:
+        super().__init__("The amber zone must contain the green zone.")
+
+
+class ThresholdShapeError(DomainError):
+    """Raised when a threshold's boundaries do not fit its metric's direction.
+
+    A malformed request rather than a rule a person can break from the
+    interface, so it reports the general code against the offending field.
+    """
+
+    status_code = 422
+
+    def __init__(self, field: str, message: str) -> None:
+        super().__init__(message, field)
+
+
+class MeetingFrozenError(DomainError):
+    """Raised when a value is recorded at a meeting outside the editing window.
+
+    A domain rule rather than a permission refusal: an administrator is let
+    through it, but only as a correction with a reason.
+    """
+
+    status_code = 409
+    code = "metric_value.meeting_frozen"
+
+    def __init__(self, meeting_id: object) -> None:
+        super().__init__(f"Meeting {meeting_id} can no longer be edited.")
+
+
+class CorrectionReasonBlankError(DomainError):
+    """Raised when an administrator corrects a frozen value without a reason."""
+
+    status_code = 422
+    field = "reason"
+    code = "metric_value_reason.blank"
+
+    def __init__(self) -> None:
+        super().__init__("A correction to a frozen value needs a reason.")

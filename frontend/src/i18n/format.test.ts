@@ -6,9 +6,12 @@ import {
   formatDateTime,
   formatMeetingDate,
   formatMeetingTime,
+  formatMetricValue,
   formatNumber,
   formatScheduleWeekday,
   formatWeekdayAndTime,
+  editableDecimal,
+  parseLocalizedDecimal,
 } from './format';
 
 // A Thursday, given with an explicit offset so the instant is unambiguous.
@@ -152,5 +155,71 @@ describe('meeting dates and times', () => {
     expect(formatMeetingDate('14.10.2026', 'en', UNAVAILABLE)).toBe(UNAVAILABLE);
     expect(formatMeetingTime('1pm', 'en', UNAVAILABLE)).toBe(UNAVAILABLE);
     expect(formatScheduleWeekday(8, 'en', UNAVAILABLE)).toBe(UNAVAILABLE);
+  });
+});
+
+describe('parseLocalizedDecimal', () => {
+  it('reads a Polish decimal comma', () => {
+    expect(parseLocalizedDecimal('95,3', 'pl')).toBe('95.3');
+  });
+
+  it('reads an English decimal point', () => {
+    expect(parseLocalizedDecimal('95.3', 'en')).toBe('95.3');
+  });
+
+  it.each([
+    ['1 234 567,25', 'pl', '1234567.25'],
+    ['1 234,5', 'pl', '1234.5'],
+    ['174122665', 'pl', '174122665'],
+    ['1,234,567.25', 'en', '1234567.25'],
+    ['-0.5', 'en', '-0.5'],
+    ['−5,5', 'pl', '-5.5'],
+    ['  12  ', 'en', '12'],
+  ] as const)('reads %s in %s with thousands separators and signs', (text, language, expected) => {
+    expect(parseLocalizedDecimal(text, language)).toBe(expected);
+  });
+
+  it.each([
+    ['95,3,1', 'pl'],
+    ['95,3,1', 'en'],
+    ['95,3', 'en'],
+    ['95.3', 'pl'],
+    ['12 34', 'pl'],
+    ['', 'en'],
+    ['abc', 'en'],
+    ['1e5', 'en'],
+  ] as const)('refuses %s in %s', (text, language) => {
+    expect(parseLocalizedDecimal(text, language)).toBeNull();
+  });
+});
+
+describe('formatMetricValue', () => {
+  it('shows the metric’s decimals and unit in each language', () => {
+    expect(formatMetricValue('95.3', 1, '%', 'pl')).toBe('95,3 %');
+    expect(formatMetricValue('95.3', 1, '%', 'en')).toBe('95.3 %');
+  });
+
+  it('rounds to the decimals shown and groups thousands', () => {
+    expect(formatMetricValue('165.36', 1, 'mln zł', 'pl')).toBe('165,4 mln zł');
+    expect(formatMetricValue('174122665', 0, '', 'en')).toBe('174,122,665');
+  });
+
+  it('keeps every digit of the largest value stored', () => {
+    expect(formatMetricValue('999999999999999.999999', 6, '', 'en')).toBe(
+      '999,999,999,999,999.999999',
+    );
+  });
+
+  it('shows a dash when there is no number', () => {
+    expect(formatMetricValue(null, 1, '%', 'en')).toBe('—');
+  });
+});
+
+describe('editableDecimal', () => {
+  it('writes a stored value as the reader would type it, and reads back unchanged', () => {
+    expect(editableDecimal('-1234.5', 'pl')).toBe('-1234,5');
+    expect(parseLocalizedDecimal(editableDecimal('-1234.5', 'pl'), 'pl')).toBe('-1234.5');
+    expect(editableDecimal('95.3', 'en')).toBe('95.3');
+    expect(editableDecimal(null, 'en')).toBe('');
   });
 });

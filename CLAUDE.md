@@ -13,9 +13,8 @@ teams. The briefings are called "board meetings" because the team meets at a
 board. BMAPP provides that board online and lets a team:
 
 1. Record the values of the team's metrics for this meeting. The board shows a
-   trend chart per metric and highlights the current value in red or green
-   depending on whether it is below the acceptable minimum or above the
-   acceptable maximum.
+   trend chart per metric and colours the current value green, amber or red
+   against the threshold in force at that meeting.
 2. Register new problems and update the status of tracked problems.
 3. Register new tasks and update the status of tracked tasks.
 
@@ -26,12 +25,12 @@ board. BMAPP provides that board online and lets a team:
 2. Every team has its own board with its own metrics, problems table and tasks
    table.
 3. The team leader configures the board for their team: its metrics with their
-   acceptable min / max, and custom targets. Company-wide targets are inherited.
+   thresholds, and custom targets. Company-wide targets are inherited.
 4. An employee can be a member of one or many teams.
 5. Closed problems and completed tasks are archived and can be viewed in an
    "Archived" tab.
-6. Current metric values are shown in red or green depending on status, together
-   with charts showing their trend.
+6. Current metric values are shown green, amber or red depending on status,
+   together with charts showing their trend.
 7. Board meetings are recorded. Every metric value belongs to the meeting at
    which it was recorded, so a value has no date of its own and the trend runs
    along the sequence of meetings.
@@ -44,8 +43,9 @@ board. BMAPP provides that board online and lets a team:
 | Team              | name, team leader, members (many), board definition                                |
 | Board definition  | name, metrics (many), custom targets (optional), schedule (weekday and time)       |
 | Meeting           | team, date and time, the metric values recorded at it                              |
-| Metric            | name, unit, acceptable min / max, values over time (each bound to a meeting)       |
-| Metric value      | metric, meeting, the number recorded                                               |
+| Metric            | name, unit, decimals, direction, group, owner, thresholds (many), values (many)    |
+| Threshold         | metric, effective from, green and amber boundaries, reason, who recorded it        |
+| Metric value      | metric, meeting, the number recorded, comment, colour set by hand (optional)       |
 | Problem           | team, summary, reason, solution proposal, responsible employee, due date, progress |
 | Task              | team, summary, details, responsible employee, due date, progress                   |
 
@@ -58,9 +58,11 @@ Glossary (use these exact terms in code, UI and tests):
 - **Meeting** — one occurrence of a team's board meeting. Metric values are recorded at a meeting and belong to it. Opened explicitly by a member; a skipped week simply has none.
 - **Schedule** — the weekday and start time a board's team meets, on the organization's clock (Europe/Warsaw). It proposes the next meeting's date; it never creates meetings.
 - **Host** — the member who runs one meeting (*prowadzący*). Rotates from meeting to meeting; not the team leader.
-- **Metric** — a named thing the team measures (e.g. "Open bugs"), with a unit and an acceptable min/max. Teams track metrics directly.
-- **Metric value** — one number, recorded at one meeting, for one metric. Its date is the meeting's date; it has none of its own.
-- **Target** — a declaration in prose, *not* a numeric range: what the company or the team is aiming at. Company-wide targets appear on every board; a team may add **custom targets**. Red/green never comes from a target — only from the metric's min/max.
+- **Metric** — a named thing the team measures (e.g. "Open bugs"), with a unit and a fixed **direction**: higher is better, lower is better, or within a band. Teams track metrics directly. A metric with values is **retired**, never deleted.
+- **Threshold** (*próg*) — one version of what green and amber mean for a metric, from an effective date on, with a reason. Versions are append-only and may be back-dated; a value is judged against the version in force on its meeting's date.
+- **Metric value** — one number, recorded at one meeting, for one metric. Its date is the meeting's date; it has none of its own. It may carry a comment and a **colour set by hand**, which needs the comment.
+- **Status** — green, amber, red, no data or no threshold. Computed when read by `status_of`, never stored; boundaries count as the better zone.
+- **Target** — a declaration in prose, *not* a numeric range: what the company or the team is aiming at. Company-wide targets appear on every board; a team may add **custom targets**. A colour never comes from a target — only from the metric's threshold.
 - **Problem** — an obstacle identified at the board meeting; has a root cause ("reason") and a proposed solution.
 - **Task** — an action item. Problems and tasks are **archived**, never deleted, once closed/done.
 
@@ -81,10 +83,9 @@ Three-tier web application hosted on-premise.
 | Tooling  | uv (Python deps), Ruff (lint+format), mypy, ESLint + Prettier                      |                                      |
 | Runtime  | Docker Compose for local dev; single Compose stack on-prem                         | Node 24 and Python 3.14 base images  |
 
-Recharts is the agreed charting library but is not installed yet: nothing
-renders a chart until metrics arrive — the hub's bar glyph is three coloured
-`div`s. Everything else in the table is in the tree and exercised by the test
-suite.
+Recharts is pinned at an exact version and draws the board's sparklines and
+the metric detail's trend. Charts plot floats; no status is ever decided from
+them. Everything in the table is in the tree and exercised by the test suite.
 
 **TypeScript stays on 6, not 7, deliberately.** TypeScript 7.0 is the native
 compiler port and works for `tsc`, the build and the tests, but
@@ -224,7 +225,16 @@ are decided per team — administrators from `BMAPP_ADMIN_EMAILS` register teams
 name leaders, a team's leader manages its members, and anyone signed in may read
 everything.
 
-Everything else in the domain model above — metrics and their values, targets, problems, tasks and archiving — is agreed but
+`metrics` and `metric-values` are implemented: a board's leader defines its
+metrics and their versioned thresholds on the settings page at
+`/teams/:teamId/metrics`, and members record values at the latest held and the
+next meeting on the board at `/teams/:teamId`, which shows a meeting's tiles,
+sparklines and each metric's trend. Older meetings are frozen; an administrator
+corrects a frozen value with a reason, and the correction is logged. Numbers
+are exact decimals (`NUMERIC(21, 6)`) and travel as strings. A meeting with
+values can no longer be deleted or moved to another date.
+
+Everything else in the domain model above — targets, problems, tasks and archiving — is agreed but
 not built. Each is a capability of its own;
 propose it through `/opsx:propose` rather than adding it inline.
 
@@ -262,10 +272,10 @@ propose it through `/opsx:propose` rather than adding it inline.
 └── CLAUDE.md
 ```
 
-`backend/tests/features/` exists but is empty: what has been built so far is
-validation, ordering, layout and a date calculation, which the Testing section
-calls CRUD plumbing. The first BDD feature arrives with red/green highlighting
-or archiving.
+`backend/tests/features/` holds the first BDD feature, `metric_status.feature`:
+the status rule and the threshold in force at a meeting, exercised directly
+against the pure functions in `app/services/metric_status.py`. Step definitions
+live in `tests/features/steps/`.
 
 `src/pages/` never appeared; a feature folder holds its own page component, and
 routing is one file. Reinstate it only when a page belongs to no feature.
@@ -339,8 +349,8 @@ backend and meaningful coverage of every user-facing flow on the frontend.
   metric values, add/close problem, add/complete task, configure metrics, view
   archive.
 - **BDD tests** (pytest-bdd) only for business rules worth stating in plain
-  language, e.g. red/green highlighting of a metric value against its min/max,
-  archiving. Do not write BDD for CRUD plumbing. Target inheritance is not one
+  language, e.g. the status of a metric value against its threshold (the one
+  that exists), archiving. Do not write BDD for CRUD plumbing. Target inheritance is not one
   of these: targets are declarations that are displayed, not evaluated.
 - A change is not done until its tests pass locally and coverage does not drop.
 

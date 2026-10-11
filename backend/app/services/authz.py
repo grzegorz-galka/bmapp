@@ -53,20 +53,18 @@ def may_manage_membership(*, is_admin: bool, relationship: Relationship) -> bool
 
 
 def may_configure_the_board(*, is_admin: bool, relationship: Relationship) -> bool:
-    """The metrics, their acceptable range, the custom targets and the schedule.
+    """The metrics, their thresholds, the custom targets and the schedule.
 
-    The one thing a leader does that an ordinary member cannot. Nothing uses
-    this yet - the board definition is not configurable until the capability
-    that builds it lands - and it is here so that capability implements this
-    rule rather than inventing one.
+    The one thing a leader does that an ordinary member cannot.
     """
     return is_admin or relationship is Relationship.LEADER
 
 
 def may_record_meeting_data(*, is_admin: bool, relationship: Relationship) -> bool:
-    """Metric values, problems and tasks: anyone on the team.
+    """Meetings, metric values, problems and tasks: anyone on the team.
 
-    Also not reachable yet, and here for the same reason.
+    For metric values this is only the first question; the editing window,
+    which only an administrator's correction gets past, is the second.
     """
     return is_admin or relationship in {Relationship.LEADER, Relationship.MEMBER}
 

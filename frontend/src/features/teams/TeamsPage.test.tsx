@@ -91,6 +91,10 @@ describe('TeamsPage in English', () => {
       'href',
       '/teams/id-Alpha/meetings',
     );
+    expect(within(alpha!).getByRole('link', { name: 'Board of Alpha' })).toHaveAttribute(
+      'href',
+      '/teams/id-Alpha',
+    );
   });
 
   it('reports when no teams are registered yet', async () => {

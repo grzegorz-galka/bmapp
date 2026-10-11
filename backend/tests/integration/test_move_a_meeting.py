@@ -1,10 +1,13 @@
 """One test per scenario of "Move a meeting" in specs/meetings/spec.md."""
 
 import uuid
+from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from tests.integration.meetings_api import error_of, meetings_of, open_meeting
+from tests.integration.metrics_api import add_metric, freeze_today, record
 from tests.integration.teams_api import add, member_id, register
 
 MEMBER = "member@example.com"
@@ -99,3 +102,42 @@ def test_an_identifier_that_is_not_a_uuid(client: TestClient) -> None:
 
     assert response.status_code == 422
     assert error_of(response) == ("meeting_id", "request.invalid_field")
+
+
+def _meeting_with_a_value(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> tuple[str, Any]:
+    freeze_today(monkeypatch)
+    team = register(client)
+    metric = add_metric(client, team["id"])
+    meeting = open_meeting(client, team["id"], "2026-10-14", "13:00")
+    record(client, team["id"], meeting["id"], metric["id"], value="1")
+    return team["id"], meeting
+
+
+def test_a_meeting_with_values_cannot_change_its_date(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scenario: A meeting with values cannot change its date."""
+    team_id, meeting = _meeting_with_a_value(client, monkeypatch)
+
+    response = client.patch(
+        f"/teams/{team_id}/meetings/{meeting['id']}", json={"date": "2026-10-15"}
+    )
+
+    assert response.status_code == 409
+    assert error_of(response) == (None, "meeting.has_values")
+    assert meetings_of(client, team_id)["meetings"] == [meeting]
+
+
+def test_a_meeting_with_values_can_change_its_start_time(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scenario: A meeting with values can change its start time."""
+    team_id, meeting = _meeting_with_a_value(client, monkeypatch)
+
+    response = client.patch(
+        f"/teams/{team_id}/meetings/{meeting['id']}",
+        json={"date": "2026-10-14", "time": "15:00"},
+    )
+
+    assert response.status_code == 200
+    assert (response.json()["date"], response.json()["time"]) == ("2026-10-14", "15:00")

@@ -79,6 +79,14 @@ export function TeamMeetingsPage() {
     <main className={teamStyles.page}>
       {back}
       <h1 className={teamStyles.heading}>{t('meetings.heading', { name: team.data.name })}</h1>
+      <nav className={`${teamStyles.actions} ${styles.section}`} aria-label={t('nav.label')}>
+        <Link className={teamStyles.button} to={`/teams/${encodeURIComponent(teamId)}`}>
+          {t('teams.boardLink')}
+        </Link>
+        <Link className={teamStyles.button} to={`/teams/${encodeURIComponent(teamId)}/metrics`}>
+          {t('board.settingsLink')}
+        </Link>
+      </nav>
 
       <ScheduleSection
         teamId={teamId}

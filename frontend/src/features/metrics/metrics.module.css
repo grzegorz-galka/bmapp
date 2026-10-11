@@ -1,0 +1,23 @@
+/*
+ * What the metric settings add to the shared team sheet: narrow numeric
+ * fields and the threshold dialog.
+ */
+
+.narrow {
+  flex: 0 1 9rem;
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.dialog {
+  flex-basis: 100%;
+  margin-top: var(--sp-2);
+  padding: var(--sp-4);
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+}

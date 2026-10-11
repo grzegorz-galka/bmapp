@@ -1,15 +1,18 @@
 # BMAPP — Board Meetings Application
 
 BMAPP provides an online board for the weekly team briefings ("board meetings")
-that software teams here run along Kaizen / Lean lines: performance indicators
-with their trends, the problems the team is working through, and the tasks it
+that software teams here run along Kaizen / Lean lines: metrics judged green,
+amber or red against their thresholds, with their trends, the problems the team is working through, and the tasks it
 has agreed.
 
 This repository currently contains the **walking skeleton**. One vertical slice
 is real end to end through the UI, the API, a service layer and PostgreSQL:
 register a team and see the registered teams, at `/teams`; each team has a
 members page and a meetings page, where its weekly schedule is set and its
-board meetings are prepared. On top of it sits
+board meetings are prepared; a metric settings page at `/teams/:teamId/metrics`,
+where its leader defines metrics and their thresholds; and its board at
+`/teams/:teamId`, where members record each meeting's values and read their
+trends. On top of it sits
 the **hub** at `/`, the landing page built from the mockup in `mockups/` — the
 company declarations, your teams and the countdown to the next board meeting,
 what happens at a board meeting, and the problem and task funnel. See
@@ -19,7 +22,7 @@ what happens at a board meeting, and the problem and task funnel. See
 > endpoint, `GET /hub`, built from constants: no tables, no migration, nothing
 > recorded. The response says so in a `provisional` field and the page says so
 > at the foot. It exists so the shell is real while the capabilities behind it
-> — metrics, problems, tasks, and the meetings now recorded — are wired in;
+> — problems, tasks, and the meetings and metric values now recorded — are wired in;
 > each will replace a slice of it.
 
 > **Not deployable.** No endpoint is authenticated. Every service binds to

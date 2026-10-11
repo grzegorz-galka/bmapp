@@ -2,9 +2,11 @@
 
 import uuid
 
+import pytest
 from fastapi.testclient import TestClient
 
 from tests.integration.meetings_api import error_of, meetings_of, open_meeting
+from tests.integration.metrics_api import add_metric, board_of, freeze_today, record, tile
 from tests.integration.teams_api import register
 
 
@@ -28,3 +30,21 @@ def test_the_meeting_does_not_exist(client: TestClient) -> None:
 
     assert response.status_code == 404
     assert error_of(response) == (None, "meeting.not_found")
+
+
+def test_a_meeting_with_values_cannot_be_deleted(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scenario: A meeting with values cannot be deleted."""
+    freeze_today(monkeypatch)
+    team = register(client)
+    metric = add_metric(client, team["id"])
+    meeting = open_meeting(client, team["id"], "2026-10-14")
+    record(client, team["id"], meeting["id"], metric["id"], value="1")
+
+    response = client.delete(f"/teams/{team['id']}/meetings/{meeting['id']}")
+
+    assert response.status_code == 409
+    assert error_of(response) == (None, "meeting.has_values")
+    assert meetings_of(client, team["id"])["meetings"] == [meeting]
+    assert tile(board_of(client, team["id"], meeting["id"]), metric["id"])["value"] == "1"
