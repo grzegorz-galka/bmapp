@@ -25,9 +25,10 @@ what happens at a board meeting, and the problem and task funnel. See
 > — problems, tasks, and the meetings and metric values now recorded — are wired in;
 > each will replace a slice of it.
 
-> **Not deployable.** No endpoint is authenticated. Every service binds to
-> `127.0.0.1` and the stack must not be exposed to a network or hold real board
-> material until an access-control capability exists.
+> **Not deployable, except as a demo.** Every service in the Compose stack
+> binds to `127.0.0.1`. The only deployment is a public demonstration on
+> Railway, in development mode, holding invented data only - see
+> [Railway demo](#railway-demo) and `SECURITY.md`.
 
 ## Prerequisites
 
@@ -245,3 +246,32 @@ The identity settings are the ones to get right:
 
 `SECURITY.md` holds the whole picture: the federated chain, how tokens are
 validated, and who may do what.
+
+## Railway demo
+
+A public demonstration instance runs on [Railway](https://railway.com) in
+**development mode**: anyone with the URL signs in as an administrator. Invented
+data only - the terms are in `SECURITY.md` under "The one exception".
+
+One Railway project, three services:
+
+| Service    | Source                                  | Variables |
+|------------|-----------------------------------------|-----------|
+| `Postgres` | Railway's PostgreSQL template           | - |
+| `backend`  | `backend/` (`Dockerfile.railway`)       | `RAILWAY_DOCKERFILE_PATH=Dockerfile.railway`, `PORT=8000`, `BMAPP_MODE=dev`, `BMAPP_ADMIN_EMAILS=admin@example.com`, `BMAPP_FRONTEND_ORIGIN=https://<frontend domain>`, `BMAPP_DATABASE_URL=postgresql+psycopg://${{Postgres.PGUSER}}:${{Postgres.PGPASSWORD}}@${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}` |
+| `frontend` | `frontend/` (`Dockerfile.railway`)      | `RAILWAY_DOCKERFILE_PATH=Dockerfile.railway`, `PORT=8080`, `VITE_API_BASE_URL=https://<backend domain>`, `VITE_AUTH_MODE=dev`, `VITE_DEV_EMAIL=admin@example.com` |
+
+`RAILWAY_DOCKERFILE_PATH` is what selects the demo image: without it Railway
+builds the development `Dockerfile` beside it, and a `railway.json` is not read
+when deploying a subdirectory with `--path-as-root`. Each `PORT` matches the
+target port of the service's public domain. The backend migrates the database
+on every start. The web app is a static
+build served by nginx and calls the API on its public URL, so the two public
+domains must be named in each other's variables, and the frontend rebuilt when
+the backend's domain changes (Vite inlines `VITE_*` at build time).
+
+```bash
+railway up backend --path-as-root --service backend
+railway up frontend --path-as-root --service frontend
+```
+

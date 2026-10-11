@@ -130,6 +130,35 @@ For local development and testing, a `dev` mode replaces OIDC with a simple logi
 
 The returned JWT has the same structure as a real IdentityServer token (contains `email` claim), so the rest of the backend authorization logic works identically.
 
+## The one exception: the Railway demo
+
+Dev mode is not deployed - with **one sanctioned exception**: a public
+demonstration instance on [Railway](https://railway.com), run in dev mode
+because the identity broker (`identity.intra.pse.pl`) is reachable only from the
+internal network and so cannot sign anyone in from a public cloud.
+
+What that instance is, and what it therefore must never become:
+
+- **Anyone with the URL is an administrator.** `POST /auth/dev-login` mints a
+  token for any email with no password, and the web app signs in as
+  `VITE_DEV_EMAIL`, which is in `BMAPP_ADMIN_EMAILS`. Treat everything on it as
+  public and writable by strangers.
+- **Invented data only.** No real team, employee, metric or board material is
+  ever entered into it. It runs on a third-party public cloud, outside the
+  on-premise deployment this application is designed for.
+- **Disposable.** Its database may be wiped at any time; sessions end whenever
+  the API restarts, because the signing key lives only in the process.
+- **Isolated.** It never sets `BMAPP_OIDC_ISSUER` (the server would refuse to
+  start), shares no database, secret or token with any other environment, and
+  a token minted there is refused by any broker-mode server on its algorithm.
+- **Deleted when no longer needed** for a demonstration.
+
+The deployment files are `backend/Dockerfile.railway` and
+`frontend/Dockerfile.railway`; the README
+describes how the services are wired. Every rule above still holds for any
+environment other than this one: anything else deployed uses the federated
+chain or is not deployed.
+
 ---
 
 # Authorization
