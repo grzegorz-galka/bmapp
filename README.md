@@ -53,19 +53,29 @@ your choice is remembered — and the account control.
 Everything now requires a signed-in person, and the identity broker is not
 reachable from a developer machine. The stack therefore runs in **development
 mode** (`BMAPP_MODE=dev` for the API, `VITE_AUTH_MODE=dev` for the web app),
-which mints a local token for whatever email you ask for. The compose file
-signs you in as `admin@example.com`, an administrator, so you can register a
-team straight away.
+which signs you in through a login window instead of the broker. The window
+opens when the page loads and asks for an email and a password.
 
-To be somebody else, set the email the page reads before it loads:
+The password is not a secret. It is derived from the email: the first character,
+then the first character after each dot, at-sign or other run of characters that
+are not letters or digits.
 
-```js
-// In the browser console, then reload.
-localStorage.setItem('bmapp.devEmail', 'jan.kowalski@pse.pl');
-```
+| Email                   | Password |
+|-------------------------|----------|
+| `admin@example.com`     | `aec`    |
+| `grzegorz.galka@pse.pl` | `ggpp`   |
+| `admin@company.com`     | `acc`    |
 
-Override the administrator list with `BMAPP_ADMIN_EMAILS` in `.env` (and
-`VITE_DEV_EMAIL` to sign in as one of them by default).
+Only a recorded employee - someone who has been put on a team - or an
+administrator can sign in. The compose file makes `admin@example.com` the
+administrator, and it needs no employee record. Sign in as it first and
+register a team.
+
+Tokens live only in the page, so a reload asks again. The window remembers the
+last email under `localStorage['bmapp.devEmail']` and never remembers the
+password. Override the administrator list with `BMAPP_ADMIN_EMAILS` in `.env`,
+and `VITE_DEV_EMAIL` sets the email the window shows before you have signed in
+at all.
 
 Development mode is for local work only, and the application enforces that
 rather than asking you to remember it: a server in development mode refuses to

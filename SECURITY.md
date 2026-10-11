@@ -113,13 +113,16 @@ The backend acts as a **stateless OAuth2 Resource Server**:
 For local development and testing, a `dev` mode replaces OIDC with a simple login endpoint:
 
 - **Endpoint:** `POST /api/auth/dev-login`
-- **Request body:** `{ "email": "user@company.com" }`
-- **Behavior:** Mints a token for that email. There is deliberately **no password
-  field**: one that is sent, named `password` and never checked reads as
-  authentication to anyone reviewing the code, while protecting nothing the mode
-  toggle does not already protect. The email need not match an Employee record —
-  someone on no team is authenticated and may read, which is what the
-  authorization rules below say.
+- **Request body:** `{ "email": "user@company.com", "password": "ucc" }`
+- **Behavior:** Mints a token for that email when the password is the one derived
+  from it and the email belongs to a recorded Employee or an administrator from
+  `BMAPP_ADMIN_EMAILS`. Otherwise it refuses with 401 and
+  `auth.password_incorrect` or `auth.employee_unknown`. The password is the first
+  character of the email followed by the first character after each run of
+  non-alphanumeric characters (`grzegorz.galka@pse.pl` → `ggpp`). It is **not a
+  secret** and adds no protection beyond the mode toggle. It is a typing check
+  that keeps a developer deliberate about who they sign in as, behind a login
+  window in the web app. Signing in never creates an Employee record.
 - **Response:** A JWT signed with a key generated per process, so none exists to leak or commit
 - **Activation:** environment variable `BMAPP_MODE=dev`
 - **Safety:** This endpoint does not exist when the mode is off, the server refuses

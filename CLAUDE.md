@@ -393,7 +393,10 @@ A task is done when:
   its own change; nothing about it exists yet.
 - Until that lands, a **dev mode behind a toggle** (`BMAPP_MODE=dev`, plus
   `VITE_AUTH_MODE=dev` for the web app): `POST /auth/dev-login` takes an email and
-  no password and returns a JWT of the same shape, so authorization is exercised
+  the password derived from it (first character, then the first after each run of
+  non-alphanumerics: `grzegorz.galka@pse.pl` → `ggpp`; not a secret), accepts only
+  a recorded employee or an administrator, and returns a JWT of the same shape;
+  the web app asks for both in a login window, so authorization is exercised
   through the same code path production uses. It is off by default and cannot work
   in a deployed environment: the route is not registered when the mode is off, the
   server refuses to start when the mode is on and `BMAPP_OIDC_ISSUER` is set, and
