@@ -92,7 +92,7 @@ The system SHALL propose, for a team whose board has a schedule, the earliest da
 
 ### Requirement: Move a meeting
 
-The system SHALL allow a meeting's date, its start time, or both to be changed. The new date SHALL be subject to the same rules as when a meeting is opened. The meeting SHALL keep its identifier and its host. The response SHALL be the meeting as changed. A meeting identifier that names no meeting of that team SHALL be rejected with the code `meeting.not_found`.
+The system SHALL allow a meeting's date, its start time, or both to be changed. The new date SHALL be subject to the same rules as when a meeting is opened. The meeting SHALL keep its identifier and its host. The response SHALL be the meeting as changed. A meeting identifier that names no meeting of that team SHALL be rejected with the code `meeting.not_found`. Once any metric value is recorded at a meeting, a change of its date SHALL be rejected with the code `meeting.has_values`, because its values are judged against the thresholds in force on that date. Its start time MAY still change.
 
 #### Scenario: A meeting is rescheduled
 
@@ -113,6 +113,16 @@ The system SHALL allow a meeting's date, its start time, or both to be changed. 
 
 - **WHEN** a meeting is moved by an identifier that names no meeting of that team, including a meeting of another team
 - **THEN** the request is rejected with the code `meeting.not_found` and HTTP 404
+
+#### Scenario: A meeting with values cannot change its date
+
+- **WHEN** a meeting at which a metric value is recorded is moved to another date
+- **THEN** the request is rejected with the code `meeting.has_values` and HTTP 409, and the meeting is unchanged
+
+#### Scenario: A meeting with values can change its start time
+
+- **WHEN** the start time of a meeting at which a metric value is recorded is changed, and its date is left as it was
+- **THEN** the meeting is returned at the new start time
 
 ### Requirement: Name the host of a meeting
 
@@ -140,7 +150,7 @@ The system SHALL allow the host of a meeting to be set to a member of its team, 
 
 ### Requirement: Delete a meeting
 
-The system SHALL allow a meeting to be deleted, after which it SHALL no longer be returned and its date SHALL be free for another meeting of the team. A meeting identifier that names no meeting of that team SHALL be rejected with the code `meeting.not_found`.
+The system SHALL allow a meeting to be deleted, after which it SHALL no longer be returned and its date SHALL be free for another meeting of the team. A meeting identifier that names no meeting of that team SHALL be rejected with the code `meeting.not_found`. A meeting at which any metric value is recorded SHALL NOT be deleted: the request SHALL be rejected with the code `meeting.has_values`.
 
 #### Scenario: A meeting opened by mistake is deleted
 
@@ -151,6 +161,11 @@ The system SHALL allow a meeting to be deleted, after which it SHALL no longer b
 
 - **WHEN** a meeting is deleted by an identifier that names no meeting of that team
 - **THEN** the request is rejected with the code `meeting.not_found` and HTTP 404
+
+#### Scenario: A meeting with values cannot be deleted
+
+- **WHEN** a meeting at which a metric value is recorded is deleted
+- **THEN** the request is rejected with the code `meeting.has_values` and HTTP 409, and the meeting and its values remain
 
 ### Requirement: Meetings are managed from the meetings page
 
