@@ -40,9 +40,20 @@ export interface Threshold extends Bounds {
   recorded_at: string;
 }
 
+/**
+ * Whose definition a metric on a board is: the board's own, or a global
+ * metric from the company-wide catalogue that the board includes. A global
+ * metric's name, unit, decimals, direction and thresholds are read-only on a
+ * board; only its placement there (group, position, owner, retirement) is the
+ * board's.
+ */
+export type MetricScope = 'board' | 'global';
+
 export interface MetricDefinition {
   id: string;
+  /** The board being read, for a global metric as for an own one. */
   team_id: string;
+  scope: MetricScope;
   name: string;
   unit: string;
   decimals: number;
@@ -51,6 +62,8 @@ export interface MetricDefinition {
   position: number;
   owner: Employee | null;
   retired: boolean;
+  /** Retired by an administrator; bringing it back on the board would not show it. */
+  retired_in_catalogue: boolean;
 }
 
 /** A metric as the settings list it, with the threshold in force today. */
@@ -66,6 +79,24 @@ export interface MetricCreate {
   group_label: string | null;
   position: number;
   owner_employee_id: string | null;
+}
+
+/** A global metric placed on a board. Its definition comes from the catalogue. */
+export interface MetricInclusion {
+  global_metric_id: string;
+  position: number;
+  group_label: string | null;
+  owner_employee_id: string | null;
+}
+
+/**
+ * A copy of another board's own metric, with its thresholds, under its own
+ * name unless a new one is given.
+ */
+export interface MetricCopy {
+  source_metric_id: string;
+  name?: string;
+  position?: number;
 }
 
 /** A partial change: a key left out is left alone. The direction cannot change. */
@@ -187,6 +218,20 @@ export function getMetrics(teamId: string): Promise<Metric[]> {
 
 export function addMetric(teamId: string, metric: MetricCreate): Promise<Metric> {
   return request<Metric>(metricsPath(teamId), { method: 'POST', body: JSON.stringify(metric) });
+}
+
+export function includeGlobalMetric(teamId: string, inclusion: MetricInclusion): Promise<Metric> {
+  return request<Metric>(`${metricsPath(teamId)}/inclusions`, {
+    method: 'POST',
+    body: JSON.stringify(inclusion),
+  });
+}
+
+export function copyMetric(teamId: string, copy: MetricCopy): Promise<Metric> {
+  return request<Metric>(`${metricsPath(teamId)}/copies`, {
+    method: 'POST',
+    body: JSON.stringify(copy),
+  });
 }
 
 export function changeMetric(

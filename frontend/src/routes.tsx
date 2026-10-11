@@ -3,6 +3,7 @@ import { AppHeader } from './components/AppHeader';
 import { AuthCallbackPage } from './features/auth/AuthCallbackPage';
 import { BoardPage } from './features/board/BoardPage';
 import { CALLBACK_PATH } from './features/auth/config';
+import { GlobalMetricsPage } from './features/globalMetrics/GlobalMetricsPage';
 import { HubPage } from './features/hub/HubPage';
 import { TeamMeetingsPage } from './features/meetings/TeamMeetingsPage';
 import { MetricSettingsPage } from './features/metrics/MetricSettingsPage';
@@ -39,6 +40,7 @@ export function AppRoutes({ completeSignIn }: { completeSignIn: () => Promise<bo
         <Route path="teams/:teamId/members" element={<TeamMembersPage />} />
         <Route path="teams/:teamId/meetings" element={<TeamMeetingsPage />} />
         <Route path="teams/:teamId/metrics" element={<MetricSettingsPage />} />
+        <Route path="global-metrics" element={<GlobalMetricsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

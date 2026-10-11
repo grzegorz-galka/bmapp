@@ -77,6 +77,21 @@ describe('the route table', () => {
     );
   });
 
+  it('shows the global metrics page at its own address, linked from the header', async () => {
+    await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', { route: '/' });
+    await screen.findByRole('heading', { name: en.hub.heroTitle });
+
+    await userEvent.click(within(nav()).getByRole('link', { name: en.nav.globalMetrics }));
+
+    expect(
+      await screen.findByRole('heading', { name: en.globalMetrics.heading }),
+    ).toBeInTheDocument();
+    expect(within(nav()).getByRole('link', { name: en.nav.globalMetrics })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
   it('falls back to the hub for an address it does not recognise', async () => {
     await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', {
       route: '/nothing-here',

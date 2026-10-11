@@ -83,7 +83,15 @@ describe('the board offers only what its viewer may do', () => {
 
     await screen.findByRole('heading', { name: 'Metrics of Platform' });
     expect(screen.getByRole('listitem')).toHaveTextContent('Green from 95.0 %, amber from 85.0 %');
-    for (const name of [en.metrics.add, /^Edit:/, /^Retire:/, /^Delete:/, /^Change threshold:/]) {
+    for (const name of [
+      en.metrics.add,
+      en.metrics.copy,
+      en.metrics.include,
+      /^Edit:/,
+      /^Retire:/,
+      /^Delete:/,
+      /^Change threshold:/,
+    ]) {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
     }
   });

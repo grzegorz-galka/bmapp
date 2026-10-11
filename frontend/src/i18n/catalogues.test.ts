@@ -77,3 +77,12 @@ function flatValues(catalogue: Catalogue): Record<string, string> {
     ),
   );
 }
+
+describe('the global metric wording', () => {
+  it('follows the agreed Polish terms', () => {
+    expect(pl.nav.globalMetrics).toBe('Wskaźniki globalne');
+    expect(pl.metrics.copy).toBe('Kopiuj z innej tablicy');
+    expect(pl.metrics.include).toBe('Dołącz wskaźnik globalny');
+    expect(pl.metrics.includeSourceLabel).toBe('Wskaźnik globalny');
+  });
+});

@@ -213,6 +213,14 @@
   gap: var(--sp-3);
 }
 
+.detailTitle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-2) var(--sp-3);
+  min-width: 0;
+}
+
 .detailHeading {
   margin: 0 0 var(--sp-3);
   font-size: var(--fs-xl);
