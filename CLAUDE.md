@@ -81,7 +81,7 @@ Three-tier web application hosted on-premise.
 | Frontend | React 19 + TypeScript 6, Vite 8, react-router, TanStack Query, Recharts, i18next + react-i18next, oidc-client-ts, IBM Plex via @fontsource | Vue was an option; React was chosen  |
 | Tests    | pytest, pytest-cov, httpx (API), Vitest + Testing Library, Playwright              | pytest-bdd for BDD where it pays off |
 | Tooling  | uv (Python deps), Ruff (lint+format), mypy, ESLint + Prettier                      |                                      |
-| Runtime  | Docker Compose for local dev; single Compose stack on-prem                         | Node 24 and Python 3.14 base images  |
+| Runtime  | Docker Compose for local dev; single Compose stack on-prem; Railway for a dev-mode demo only | Node 24 and Python 3.14 base images  |
 
 Recharts is pinned at an exact version and draws the board's sparklines and
 the metric detail's trend. Charts plot floats; no status is ever decided from
@@ -400,7 +400,13 @@ A task is done when:
   the two modes sign and accept **disjoint algorithms** (dev `HS256` against a
   per-process secret, broker `RS256` against the published JWKS), so a dev token
   fails on the algorithm before any key is consulted. Anything deployed uses the
-  federated chain or is not deployed.
+  federated chain or is not deployed - with one sanctioned exception.
+- **The Railway demo is that exception.** A public demonstration instance runs
+  on Railway in dev mode (`*/Dockerfile.railway`, `*/railway.json`), because the
+  broker is internal-only. Anyone with its URL is an administrator, so it holds
+  invented data only, is disposable, and never sets `BMAPP_OIDC_ISSUER`.
+  `SECURITY.md` ("The one exception") states the terms; do not extend them to
+  any other environment, and do not put real board material on it.
 - Authorization has **no roles**: a global admin flag from `BMAPP_ADMIN_EMAILS`,
   and membership read from `team_members`. The question is always "may this user
   do X to *this team*", never "what role is this user". Admins register teams and

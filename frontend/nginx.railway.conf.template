@@ -1,0 +1,18 @@
+# Rendered by the nginx image's envsubst step; only ${PORT} is substituted,
+# since nginx's own $variables are not set in the environment.
+server {
+    listen ${PORT};
+    listen [::]:${PORT};
+    root /usr/share/nginx/html;
+
+    # Client-side routes such as /teams/1 have no file of their own.
+    location / {
+        try_files $uri /index.html;
+    }
+
+    # Hashed bundle names change with their content, so they never go stale.
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}
