@@ -15,7 +15,7 @@ another board or includes global metrics; a global metrics page at
 `/global-metrics`, where administrators define metrics shared by every board
 that includes them; and its board at
 `/teams/:teamId`, where members record each meeting's values and read their
-trends. On top of it sits
+trends, and answer and review the weekly pulse check. On top of it sits
 the **hub** at `/`, the landing page built from the mockup in `mockups/` — the
 company declarations, your teams and the countdown to the next board meeting,
 what happens at a board meeting, and the problem and task funnel. See
