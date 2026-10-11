@@ -79,6 +79,27 @@ def may_record_meeting_data(*, is_admin: bool, relationship: Relationship) -> bo
     return is_admin or relationship in {Relationship.LEADER, Relationship.MEMBER}
 
 
+def may_read_pulse_answers(*, is_admin: bool, relationship: Relationship) -> bool:
+    """Who answered the pulse check, and what they said: the team and administrators.
+
+    The one exception to everyone reading everything. The results without
+    names - counts, average, distribution, trend - are still for anyone
+    signed in.
+    """
+    return is_admin or relationship in {Relationship.LEADER, Relationship.MEMBER}
+
+
+def may_answer_the_pulse_check(*, relationship: Relationship) -> bool:
+    """Only someone on the team, and only as their own answer.
+
+    Deliberately takes no `is_admin`: unlike every other write, an answer is
+    not something the organization does on a team's behalf. It is a person's
+    own statement about their week, so an administrator who is not a member
+    has nothing to answer.
+    """
+    return relationship in {Relationship.LEADER, Relationship.MEMBER}
+
+
 def may_read(*, is_authenticated: bool) -> bool:
     """Everything, to anyone signed in.
 

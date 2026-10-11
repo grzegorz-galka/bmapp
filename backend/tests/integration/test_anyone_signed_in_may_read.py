@@ -5,6 +5,8 @@ from collections.abc import Callable
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.integration import pulse_api
+from tests.integration.meetings_api import open_meeting
 from tests.integration.teams_api import register
 
 LEADER = "lead@pse.pl"
@@ -60,6 +62,23 @@ def test_reading_records_no_employee(
         select(func.count()).select_from(Employee).where(Employee.email == OUTSIDER)
     )
     assert recorded == 0
+
+
+def test_individual_pulse_answers_are_the_one_exception(
+    client: TestClient,
+    client_as: Callable[[str], TestClient],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scenario: Individual pulse answers are the one exception."""
+    pulse_api.freeze_today(monkeypatch)
+    team = register(client, "Platform", LEADER)
+    meeting = open_meeting(client, team["id"], "2026-10-14")
+    pulse_api.answer(client_as(LEADER), team["id"], meeting["id"], 5, positive="Shipped")
+
+    results = pulse_api.results_of(client_as(OUTSIDER), team["id"], meeting["id"])
+
+    assert (results["answered"], results["average"]) == (1, "5.00")
+    assert (results["answers"], results["missing"]) == (None, None)
 
 
 @pytest.mark.parametrize("path", ["/teams", "/hub", "/auth/me"])
