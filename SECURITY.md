@@ -153,8 +153,8 @@ What that instance is, and what it therefore must never become:
   a token minted there is refused by any broker-mode server on its algorithm.
 - **Deleted when no longer needed** for a demonstration.
 
-The deployment files are `backend/Dockerfile.railway`,
-`frontend/Dockerfile.railway` and the `railway.json` beside each; the README
+The deployment files are `backend/Dockerfile.railway` and
+`frontend/Dockerfile.railway`; the README
 describes how the services are wired. Every rule above still holds for any
 environment other than this one: anything else deployed uses the federated
 chain or is not deployed.

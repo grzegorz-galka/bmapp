@@ -402,7 +402,7 @@ A task is done when:
   fails on the algorithm before any key is consulted. Anything deployed uses the
   federated chain or is not deployed - with one sanctioned exception.
 - **The Railway demo is that exception.** A public demonstration instance runs
-  on Railway in dev mode (`*/Dockerfile.railway`, `*/railway.json`), because the
+  on Railway in dev mode (`*/Dockerfile.railway`), because the
   broker is internal-only. Anyone with its URL is an administrator, so it holds
   invented data only, is disposable, and never sets `BMAPP_OIDC_ISSUER`.
   `SECURITY.md` ("The one exception") states the terms; do not extend them to

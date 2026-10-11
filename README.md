@@ -258,10 +258,14 @@ One Railway project, three services:
 | Service    | Source                                  | Variables |
 |------------|-----------------------------------------|-----------|
 | `Postgres` | Railway's PostgreSQL template           | - |
-| `backend`  | `backend/` (`Dockerfile.railway`)       | `BMAPP_MODE=dev`, `BMAPP_ADMIN_EMAILS=admin@example.com`, `BMAPP_FRONTEND_ORIGIN=https://<frontend domain>`, `BMAPP_DATABASE_URL=postgresql+psycopg://${{Postgres.PGUSER}}:${{Postgres.PGPASSWORD}}@${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}` |
-| `frontend` | `frontend/` (`Dockerfile.railway`)      | `VITE_API_BASE_URL=https://<backend domain>`, `VITE_AUTH_MODE=dev`, `VITE_DEV_EMAIL=admin@example.com` |
+| `backend`  | `backend/` (`Dockerfile.railway`)       | `RAILWAY_DOCKERFILE_PATH=Dockerfile.railway`, `PORT=8000`, `BMAPP_MODE=dev`, `BMAPP_ADMIN_EMAILS=admin@example.com`, `BMAPP_FRONTEND_ORIGIN=https://<frontend domain>`, `BMAPP_DATABASE_URL=postgresql+psycopg://${{Postgres.PGUSER}}:${{Postgres.PGPASSWORD}}@${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}` |
+| `frontend` | `frontend/` (`Dockerfile.railway`)      | `RAILWAY_DOCKERFILE_PATH=Dockerfile.railway`, `PORT=8080`, `VITE_API_BASE_URL=https://<backend domain>`, `VITE_AUTH_MODE=dev`, `VITE_DEV_EMAIL=admin@example.com` |
 
-The backend migrates the database on every start. The web app is a static
+`RAILWAY_DOCKERFILE_PATH` is what selects the demo image: without it Railway
+builds the development `Dockerfile` beside it, and a `railway.json` is not read
+when deploying a subdirectory with `--path-as-root`. Each `PORT` matches the
+target port of the service's public domain. The backend migrates the database
+on every start. The web app is a static
 build served by nginx and calls the API on its public URL, so the two public
 domains must be named in each other's variables, and the frontend rebuilt when
 the backend's domain changes (Vite inlines `VITE_*` at build time).
