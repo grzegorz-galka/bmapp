@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { en, type Translations } from '../src/i18n/en';
 import { pl } from '../src/i18n/pl';
 import { LANGUAGE_STORAGE_KEY } from '../src/i18n/languages';
+import { signInAs } from './auth';
 
 /*
  * The team page moved to /teams when the hub took the root address; these
@@ -60,6 +61,12 @@ async function useLanguage(page: Page, language: 'en' | 'pl') {
     [LANGUAGE_STORAGE_KEY, language],
   );
 }
+
+// The administrator the stack configures, as the development session used to
+// sign in by itself.
+test.beforeEach(async ({ page }) => {
+  await signInAs(page);
+});
 
 test('a registered team appears in the list and survives a reload', async ({ page }) => {
   const name = uniqueTeamName();

@@ -48,8 +48,9 @@ test('someone who is not an administrator is not offered team registration', asy
   await signInAs(page, ADMIN_EMAIL);
   await registerTeam(page, name, leaderEmail);
 
-  // Come back as an ordinary person, who may read the list and nothing more.
-  await signInAs(page, uniqueEmail('nobody'));
+  // Come back as an ordinary person, who may read the list and nothing more:
+  // the leader is an employee, so may sign in, but not an administrator.
+  await signInAs(page, leaderEmail);
   await page.goto('/teams');
 
   await expect(page.getByRole('heading', { name: en.teams.heading })).toBeVisible();

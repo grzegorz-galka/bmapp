@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 def _refuse_dev_mode_in_a_deployed_environment() -> None:
     """Stop at boot if development mode is paired with a real identity broker.
 
-    Dev mode mints tokens for any email with no proof of anything. Every
+    Dev mode mints tokens for any employee's email against a password anyone
+    can derive from it - no proof of anything. Every
     deployed environment configures a broker and no local one does, so the two
     settings together can only be a mistake - and a mistake that must fail
     loudly at boot rather than quietly at the first request.
