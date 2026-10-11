@@ -7,7 +7,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import auth_router, health_router, hub_router, meetings_router, teams_router
+from app.api import (
+    auth_router,
+    health_router,
+    hub_router,
+    meetings_router,
+    metric_values_router,
+    metrics_router,
+    teams_router,
+)
 from app.core.config import Mode, get_settings
 from app.core.exceptions import GENERIC_ERROR_CODE, DomainError
 
@@ -56,6 +64,8 @@ app.include_router(health_router)
 app.include_router(hub_router)
 app.include_router(teams_router)
 app.include_router(meetings_router)
+app.include_router(metrics_router)
+app.include_router(metric_values_router)
 
 
 def _error_body(

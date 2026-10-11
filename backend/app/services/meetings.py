@@ -11,18 +11,19 @@ import uuid
 from collections.abc import Collection
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import (
     MeetingDateTakenError,
+    MeetingHasValuesError,
     MeetingHostNotMemberError,
     MeetingNotFoundError,
     TeamNotFoundError,
 )
 from app.core.time import ORGANIZATION_TZ
-from app.models import BoardDefinition, Meeting, Team, TeamMember, WeeklySchedule
+from app.models import BoardDefinition, Meeting, MetricValue, Team, TeamMember, WeeklySchedule
 
 logger = logging.getLogger(__name__)
 
@@ -138,9 +139,13 @@ def change_meeting(
     `date` and `time` left as None keep their current value. `set_host`
     distinguishes "clear the host" (True with None) from "leave it alone".
     The host is checked before anything is changed, so a rejected host also
-    leaves the date as it was.
+    leaves the date as it was. Once values are recorded the date is fixed:
+    they were judged against the thresholds in force on it. The start time
+    may still change.
     """
     meeting = get_meeting(session, team_id, meeting_id)
+    if date is not None and date != meeting.date and _has_values(session, meeting_id):
+        raise MeetingHasValuesError(meeting_id)
     naming_a_host = set_host and host_employee_id is not None
     if naming_a_host and session.get(TeamMember, (team_id, host_employee_id)) is None:
         raise MeetingHostNotMemberError(host_employee_id)
@@ -159,8 +164,10 @@ def change_meeting(
 def delete_meeting(
     session: Session, team_id: uuid.UUID, meeting_id: uuid.UUID, actor_email: str
 ) -> None:
-    """Delete a meeting, freeing its date for another meeting of the team."""
+    """Delete a meeting, freeing its date - unless values are recorded at it."""
     meeting = get_meeting(session, team_id, meeting_id)
+    if _has_values(session, meeting_id):
+        raise MeetingHasValuesError(meeting_id)
     session.delete(meeting)
     session.commit()
     logger.info("Meeting %s of team %s deleted by %s", meeting_id, team_id, actor_email)
@@ -172,6 +179,16 @@ def get_meeting(session: Session, team_id: uuid.UUID, meeting_id: uuid.UUID) -> 
     if meeting is None or meeting.team_id != team_id:
         raise MeetingNotFoundError(meeting_id)
     return meeting
+
+
+def _has_values(session: Session, meeting_id: uuid.UUID) -> bool:
+    """Whether any metric value is recorded at this meeting.
+
+    Checked here rather than left to the foreign key, which backs up deletion
+    only: a meeting's date is derived from `starts_at`, so moving it has no
+    database rule to fall back on.
+    """
+    return bool(session.scalar(select(exists().where(MetricValue.meeting_id == meeting_id))))
 
 
 def _commit(session: Session, date: datetime.date) -> None:
