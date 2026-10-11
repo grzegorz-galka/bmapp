@@ -48,6 +48,7 @@ export function definition(overrides: Partial<MetricDefinition> = {}): MetricDef
   return {
     id: 'metric-revenue',
     team_id: TEAM_ID,
+    scope: 'board',
     name: 'Revenue',
     unit: '%',
     decimals: 1,
@@ -56,6 +57,7 @@ export function definition(overrides: Partial<MetricDefinition> = {}): MetricDef
     position: 1,
     owner: null,
     retired: false,
+    retired_in_catalogue: false,
     ...overrides,
   };
 }

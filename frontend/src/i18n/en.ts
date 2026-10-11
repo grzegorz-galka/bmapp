@@ -25,6 +25,7 @@ export const en = {
     label: 'Sections',
     hub: 'Hub',
     teams: 'Teams',
+    globalMetrics: 'Global metrics',
     archive: 'Archive',
     notYetAvailable: 'Not yet available',
     brandSub: 'Board meetings',
@@ -340,6 +341,46 @@ export const en = {
     amberTo: 'Amber to',
     reasonLabel: 'Reason',
     recordThreshold: 'Record threshold',
+    // A global metric: one definition from the company-wide catalogue, placed
+    // on this board. Always shown in words beside its symbol.
+    global: 'Global',
+    globalNote:
+      'Its name, unit, direction and thresholds are set in the catalogue, not on this board.',
+    retiredInCatalogue: 'Retired in the catalogue: only an administrator can bring it back.',
+    editPlacement: 'Edit placement',
+    editPlacementLabel: 'Edit placement: {{name}}',
+    remove: 'Remove from board',
+    removeLabel: 'Remove from board: {{name}}',
+    copy: 'Copy from another board',
+    copyTeamLabel: 'Team',
+    chooseTeam: 'Choose a team',
+    copySourceLabel: 'Metric',
+    chooseMetric: 'Choose a metric',
+    copyNoMetrics: 'That team’s board has no metrics of its own to copy.',
+    copyNameLabel: 'New name (optional)',
+    copyNameHint:
+      'Leave it empty to keep the name. The copy takes the unit, direction, group and every threshold version - not the owner and not the values.',
+    copySubmit: 'Copy metric',
+    copying: 'Copying…',
+    include: 'Include a global metric',
+    includeSourceLabel: 'Global metric',
+    chooseGlobal: 'Choose a global metric',
+    includeNone: 'Every active global metric is already on this board.',
+    includeSubmit: 'Include metric',
+    including: 'Including…',
+    retiredOption: '{{name}} (retired)',
+  },
+  globalMetrics: {
+    heading: 'Global metrics',
+    intro:
+      'Metrics defined once for the whole organization. A board that includes one sets only its place on the board and its owner; its definition and thresholds are kept here.',
+    loading: 'Loading the global metrics…',
+    loadFailed: 'Could not load the global metrics.',
+    empty: 'No global metrics defined yet.',
+    listLabel: 'Global metrics',
+    add: 'Add global metric',
+    // Colon form, as elsewhere: Polish declines nouns after numerals.
+    boards: 'Boards including it: {{count}}',
   },
   auth: {
     signIn: 'Sign in',
@@ -395,7 +436,7 @@ export const en = {
       'Values are recorded at this meeting, so it cannot be deleted or moved to another date.',
     'metric_name.blank': 'Enter a metric name.',
     'metric_name.too_long': 'A metric name can be at most 200 characters.',
-    'metric_name.duplicate': 'This board already has a metric with this name.',
+    'metric_name.duplicate': 'Another metric here already has this name.',
     'metric_unit.too_long': 'A unit can be at most 20 characters.',
     'metric_decimals.out_of_range': 'Choose 0 to 6 decimals.',
     'metric_owner.not_member': 'Only a member of the team can own its metric.',
@@ -410,6 +451,11 @@ export const en = {
     'metric_value.comment_required': 'A colour set by hand needs a comment.',
     'metric_value.meeting_frozen': 'This meeting can no longer be edited.',
     'metric_value_reason.blank': 'Give a reason for the correction.',
+    'global_metric.read_only':
+      'A global metric’s definition and thresholds are set in the catalogue of global metrics, not on a board.',
+    'global_metric.already_included': 'This board already includes this global metric.',
+    'metric_copy.source_global':
+      'A global metric cannot be copied. Include it in the board instead.',
   },
 } as const;
 

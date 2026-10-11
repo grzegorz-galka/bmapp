@@ -8,7 +8,7 @@ import { useFormat } from '../../i18n/format';
 import { useAuth } from '../auth/AuthProvider';
 import { useIsAdmin } from '../auth/useCurrentUser';
 import { useMeetings } from '../meetings/useMeetings';
-import { describeThreshold, StatusBadge } from '../metrics/display';
+import { describeThreshold, GlobalMark, StatusBadge } from '../metrics/display';
 import { useTeam } from '../teams/useTeams';
 import { MetricDetail } from './MetricDetail';
 import { organizationToday } from './organizationDate';
@@ -293,6 +293,7 @@ function Tile({
   return (
     <li className={styles.tile} data-status={entry.status}>
       <h3 className={styles.tileName}>{metric.name}</h3>
+      {metric.scope === 'global' && <GlobalMark />}
       <p className={styles.tileValue}>{show(entry.value)}</p>
       <StatusBadge status={entry.status} setByHand={entry.set_by_hand} />
       <p className={styles.tileMeta} data-improvement={String(entry.improvement)}>

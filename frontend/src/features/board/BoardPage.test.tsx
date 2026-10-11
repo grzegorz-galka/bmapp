@@ -157,6 +157,35 @@ describe('the board page', () => {
     ).toBeInTheDocument();
   });
 
+  it('names a global metric as global on its tile, in words and by a symbol', async () => {
+    // Scenario: A tile names a global metric as global (specs/global-metrics).
+    fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
+      metrics: [
+        tile(),
+        tile({
+          metric: definition({ id: 'metric-availability', name: 'Availability', scope: 'global' }),
+        }),
+      ],
+    });
+    await renderBoard();
+
+    const global = (await screen.findByRole('heading', { name: 'Availability' })).closest('li')!;
+    const mark = within(global).getByText(en.metrics.global);
+    expect(mark.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    const own = screen.getByRole('heading', { name: 'Revenue' }).closest('li')!;
+    expect(within(own).queryByText(en.metrics.global)).not.toBeInTheDocument();
+  });
+
+  it('marks a global metric in Polish too', async () => {
+    fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
+      metrics: [tile({ metric: definition({ scope: 'global' }) })],
+    });
+    await renderBoard('pl');
+
+    const tileItem = (await screen.findByRole('heading', { name: 'Revenue' })).closest('li')!;
+    expect(within(tileItem).getByText(pl.metrics.global)).toBeInTheDocument();
+  });
+
   it('marks a decline as worse, and a band’s change as neither', async () => {
     fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
       metrics: [

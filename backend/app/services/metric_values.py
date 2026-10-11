@@ -13,11 +13,12 @@ from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager
 
 from app.core.exceptions import CorrectionReasonBlankError, MeetingFrozenError, MetricRetiredError
 from app.core.metric_enums import Direction, Status
 from app.core.time import ORGANIZATION_TZ
+from app.models import BoardMetric as Placement
 from app.models import Meeting, Metric, MetricThreshold, MetricValue, MetricValueCorrection
 from app.schemas.meeting import MeetingRead
 from app.schemas.metric import (
@@ -37,7 +38,7 @@ from app.schemas.metric import (
 )
 from app.services.meetings import get_meeting
 from app.services.metric_status import status_of, threshold_in_force
-from app.services.metrics import get_metric, versions_by_metric
+from app.services.metrics import get_board_metric, versions_by_metric
 
 logger = logging.getLogger(__name__)
 
@@ -92,11 +93,11 @@ def record_value(
     properties removes the entry, so the meeting no longer counts as having
     values.
     """
-    metric = get_metric(session, team_id, metric_id)
+    placement = get_board_metric(session, team_id, metric_id)
     # The meeting is looked up by the team in the path, so a metric of one
     # team at a meeting of another reads as "no such meeting".
     meeting = get_meeting(session, team_id, meeting_id)
-    if metric.retired:
+    if placement.retired:
         raise MetricRetiredError(metric_id)
     correcting = meeting.date not in editable_meetings(_dates(session, team_id), today)
     if correcting:
@@ -147,7 +148,7 @@ def record_value(
         value=stored.value if stored else None,
         manual_status=stored.manual_status if stored else None,
         comment=stored.comment if stored else None,
-        status=_status(metric, stored, threshold),
+        status=_status(placement.metric, stored, threshold),
         set_by_hand=bool(stored and stored.manual_status),
         recorded_by_email=stored.recorded_by_email if stored else None,
         recorded_at=stored.recorded_at if stored else None,
@@ -169,19 +170,27 @@ def build_board(
     window = meetings[max(0, position - SPARKLINE_LENGTH + 1) : position + 1]
     previous = meetings[position - 1] if position > 0 else None
 
-    metrics = list(
+    placements = list(
         session.scalars(
-            select(Metric)
-            .where(Metric.team_id == team_id, Metric.retired.is_(False))
-            .order_by(Metric.position, Metric.name)
+            select(Placement)
+            .join(Placement.metric)
+            .options(contains_eager(Placement.metric))
+            .where(
+                Placement.team_id == team_id,
+                Placement.retired_on_board.is_(False),
+                Metric.retired.is_(False),
+            )
+            .order_by(Placement.position, Metric.name)
         )
     )
-    versions = versions_by_metric(session, [metric.id for metric in metrics])
-    values = _values(session, [metric.id for metric in metrics], [m.id for m in window])
+    metric_ids = [placement.metric_id for placement in placements]
+    versions = versions_by_metric(session, metric_ids)
+    values = _values(session, metric_ids, [m.id for m in window])
 
     tiles: list[BoardMetric] = []
     missing: list[MissingMetric] = []
-    for metric in metrics:
+    for placement in placements:
+        metric = placement.metric
         threshold = threshold_in_force(versions[metric.id], meeting.date)
         entry = values.get((metric.id, meeting_id))
         before = values.get((metric.id, previous.id)) if previous else None
@@ -192,11 +201,11 @@ def build_board(
         )
         if number is None:
             missing.append(
-                MissingMetric(metric_id=metric.id, name=metric.name, owner=_owner(metric))
+                MissingMetric(metric_id=metric.id, name=metric.name, owner=_owner(placement))
             )
         tiles.append(
             BoardMetric(
-                metric=MetricDefinitionRead.model_validate(metric),
+                metric=MetricDefinitionRead.model_validate(placement),
                 threshold=ThresholdRead.model_validate(threshold) if threshold else None,
                 value=number,
                 status=_status(metric, entry, threshold),
@@ -216,7 +225,7 @@ def build_board(
         meeting=MeetingRead.model_validate(meeting),
         editable=meeting.date in editable_meetings((m.date for m in meetings), today),
         completeness=Completeness(
-            recorded=len(metrics) - len(missing), total=len(metrics), missing=missing
+            recorded=len(placements) - len(missing), total=len(placements), missing=missing
         ),
         metrics=tiles,
     )
@@ -229,13 +238,16 @@ def build_trend(session: Session, team_id: uuid.UUID, metric_id: uuid.UUID) -> M
     a threshold change shows as a step. A week the team did not meet has no
     meeting and so no entry.
     """
-    metric = get_metric(session, team_id, metric_id)
+    placement = get_board_metric(session, team_id, metric_id)
+    metric = placement.metric
     meetings = _meeting_dates(session, team_id)
     versions = versions_by_metric(session, [metric_id])[metric_id]
     values = _values(session, [metric_id], [m.id for m in meetings])
+    # A global metric's corrections at other teams' meetings are theirs.
     corrections = session.scalars(
         select(MetricValueCorrection)
-        .where(MetricValueCorrection.metric_id == metric_id)
+        .join(Meeting, Meeting.id == MetricValueCorrection.meeting_id)
+        .where(MetricValueCorrection.metric_id == metric_id, Meeting.team_id == team_id)
         .order_by(MetricValueCorrection.corrected_at.desc())
     )
     points = []
@@ -255,7 +267,7 @@ def build_trend(session: Session, team_id: uuid.UUID, metric_id: uuid.UUID) -> M
             )
         )
     return MetricTrend(
-        metric=MetricDefinitionRead.model_validate(metric),
+        metric=MetricDefinitionRead.model_validate(placement),
         points=points,
         corrections=[CorrectionRead.model_validate(c) for c in corrections],
     )
@@ -344,5 +356,5 @@ def _improvement(direction: Direction, change: Decimal | None) -> bool | None:
     return change > 0 if direction is Direction.HIGHER_IS_BETTER else change < 0
 
 
-def _owner(metric: Metric) -> OwnerRead | None:
-    return OwnerRead.model_validate(metric.owner) if metric.owner else None
+def _owner(placement: Placement) -> OwnerRead | None:
+    return OwnerRead.model_validate(placement.owner) if placement.owner else None

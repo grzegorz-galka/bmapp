@@ -11,8 +11,14 @@ from app.core.exceptions import ThresholdOrderError, ThresholdShapeError
 from app.core.metric_enums import Colour, Direction
 from app.main import _validation_code
 from app.schemas import (
+    GlobalMetricChange,
+    GlobalMetricCreate,
+    GlobalMetricInclusion,
+    GlobalMetricRead,
     MetricChange,
+    MetricCopy,
     MetricCreate,
+    MetricDefinitionRead,
     MetricValueWrite,
     ThresholdBounds,
     ThresholdCreate,
@@ -99,6 +105,140 @@ def test_group_and_owner_can_be_cleared() -> None:
     change = MetricChange(group_label=None, owner_employee_id=None)
 
     assert change.model_fields_set == {"group_label", "owner_employee_id"}
+
+
+# The scope of a metric on a board
+
+
+def _definition(**fields: Any) -> dict[str, Any]:
+    return {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "team_id": "00000000-0000-0000-0000-000000000002",
+        "name": "Revenue",
+        "unit": "",
+        "decimals": 0,
+        "direction": "higher_is_better",
+        "group_label": None,
+        "position": 0,
+        "owner": None,
+        "retired": False,
+        "retired_in_catalogue": False,
+        **fields,
+    }
+
+
+@pytest.mark.parametrize("scope", ["board", "global"])
+def test_a_metric_on_a_board_reads_its_scope(scope: str) -> None:
+    read = MetricDefinitionRead.model_validate(_definition(scope=scope))
+
+    assert read.model_dump(mode="json")["scope"] == scope
+
+
+def test_a_scope_is_board_or_global_and_nothing_else() -> None:
+    with pytest.raises(ValidationError):
+        MetricDefinitionRead.model_validate(_definition(scope="team"))
+
+
+# Global metrics
+
+
+def test_a_global_metric_is_validated_like_a_board_metric() -> None:
+    metric = GlobalMetricCreate(name="  Availability ", unit=" % ", direction="higher_is_better")
+
+    assert (metric.name, metric.unit, metric.decimals) == ("Availability", "%", 0)
+    assert _published_code(GlobalMetricCreate, name=" ", direction="higher_is_better") == (
+        ("name",),
+        "metric_name.blank",
+    )
+    assert _published_code(
+        GlobalMetricCreate, name="A", unit="x" * 21, direction="higher_is_better"
+    ) == (("unit",), "metric_unit.too_long")
+    assert _published_code(
+        GlobalMetricCreate, name="A", decimals=7, direction="higher_is_better"
+    ) == (("decimals",), "metric_decimals.out_of_range")
+
+
+def test_a_global_metric_has_no_placement_to_set() -> None:
+    assert "position" not in GlobalMetricCreate.model_fields
+    assert "owner_employee_id" not in GlobalMetricChange.model_fields
+
+
+@pytest.mark.parametrize("field", ["name", "unit", "decimals", "direction", "retired"])
+def test_a_global_property_cannot_be_cleared(field: str) -> None:
+    assert _published_code(GlobalMetricChange, **{field: None}) == (
+        (field,),
+        "request.invalid_field",
+    )
+
+
+def test_a_global_metric_reads_its_threshold_and_board_count() -> None:
+    read = GlobalMetricRead(
+        id="00000000-0000-0000-0000-000000000001",  # type: ignore[arg-type]
+        name="Availability",
+        unit="%",
+        decimals=1,
+        direction=Direction.HIGHER_IS_BETTER,
+        retired=False,
+        threshold=None,
+        boards=3,
+    )
+
+    assert read.model_dump(mode="json")["scope"] == "global"
+    assert set(read.model_dump()) == {
+        "id",
+        "scope",
+        "name",
+        "unit",
+        "decimals",
+        "direction",
+        "retired",
+        "threshold",
+        "boards",
+    }
+
+
+def test_an_inclusion_defaults_its_placement() -> None:
+    inclusion = GlobalMetricInclusion(
+        global_metric_id="00000000-0000-0000-0000-000000000001",  # type: ignore[arg-type]
+        group_label="  ",
+    )
+
+    assert (inclusion.position, inclusion.group_label, inclusion.owner_employee_id) == (
+        0,
+        None,
+        None,
+    )
+
+
+def test_an_inclusion_group_over_200_characters_is_malformed() -> None:
+    fields = {"global_metric_id": "00000000-0000-0000-0000-000000000001", "group_label": "x" * 201}
+
+    assert _published_code(GlobalMetricInclusion, **fields) == (
+        ("group_label",),
+        "request.invalid_field",
+    )
+
+
+# Copy a metric from another board
+
+SOURCE = "00000000-0000-0000-0000-000000000001"
+
+
+def test_a_copy_keeps_the_source_name_unless_given_one() -> None:
+    copy = MetricCopy(source_metric_id=SOURCE)  # type: ignore[arg-type]
+
+    assert (copy.name, copy.position) == (None, 0)
+    assert MetricCopy(source_metric_id=SOURCE, name="  Revenue (Poland) ").name == (  # type: ignore[arg-type]
+        "Revenue (Poland)"
+    )
+
+
+@pytest.mark.parametrize(
+    ("name", "code"),
+    [("   ", "metric_name.blank"), ("x" * 201, "metric_name.too_long")],
+)
+def test_a_copy_name_is_validated_as_a_metric_name(name: str, code: str) -> None:
+    assert _published_code(MetricCopy, source_metric_id=SOURCE, name=name) == (("name",), code)
 
 
 # Record a threshold version

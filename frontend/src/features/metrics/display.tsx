@@ -104,3 +104,30 @@ export function ThresholdList({
     </ul>
   );
 }
+
+/**
+ * Marks a global metric: a globe drawn inline and the word for it, so the mark
+ * never rests on a symbol alone.
+ */
+export function GlobalMark() {
+  const { t } = useTranslation();
+  return (
+    <span className={styles.globalMark}>
+      <svg
+        className={styles.globalIcon}
+        viewBox="0 0 16 16"
+        width="12"
+        height="12"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <g fill="none" stroke="currentColor" strokeWidth="1.3">
+          <circle cx="8" cy="8" r="6.5" />
+          <ellipse cx="8" cy="8" rx="2.8" ry="6.5" />
+          <path d="M1.5 8h13M2.6 4.5h10.8M2.6 11.5h10.8" />
+        </g>
+      </svg>
+      {t('metrics.global')}
+    </span>
+  );
+}

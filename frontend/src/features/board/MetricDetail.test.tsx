@@ -33,9 +33,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function renderDetail(onClose = () => {}) {
+async function renderDetail(onClose = () => {}, metric = definition()) {
   await renderWithLanguage(
-    <MetricDetail teamId={TEAM_ID} metric={definition()} onClose={onClose} />,
+    <MetricDetail teamId={TEAM_ID} metric={metric} onClose={onClose} />,
     'en',
   );
   return screen.getByRole('dialog', { name: 'Revenue' });
@@ -114,6 +114,22 @@ describe('the metric detail', () => {
     expect(dialog).toHaveTextContent('Wed, 26 Aug 2026 12.0 % → 13.0 %');
     expect(await within(dialog).findByText(/Effective from Tue, 1 Sept 2026/)).toBeInTheDocument();
     expect(dialog).toHaveTextContent(`Plan · ${LEADER}`);
+  });
+
+  it('marks a global metric as global, in words and by a symbol', async () => {
+    // Requirement: A global metric is marked as global - in the metric detail.
+    const dialog = await renderDetail(() => {}, definition({ scope: 'global' }));
+
+    const mark = within(dialog).getByText(en.metrics.global);
+    expect(mark.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    // The mark sits beside the heading, so the dialog is still named by the metric alone.
+    expect(within(dialog).getByRole('heading', { level: 2 })).toHaveTextContent(/^Revenue$/);
+  });
+
+  it('does not mark a board’s own metric as global', async () => {
+    const dialog = await renderDetail();
+
+    expect(within(dialog).queryByText(en.metrics.global)).not.toBeInTheDocument();
   });
 
   it('says when nothing has been corrected', async () => {

@@ -10,7 +10,10 @@ is real end to end through the UI, the API, a service layer and PostgreSQL:
 register a team and see the registered teams, at `/teams`; each team has a
 members page and a meetings page, where its weekly schedule is set and its
 board meetings are prepared; a metric settings page at `/teams/:teamId/metrics`,
-where its leader defines metrics and their thresholds; and its board at
+where its leader defines metrics and their thresholds, copies them from
+another board or includes global metrics; a global metrics page at
+`/global-metrics`, where administrators define metrics shared by every board
+that includes them; and its board at
 `/teams/:teamId`, where members record each meeting's values and read their
 trends. On top of it sits
 the **hub** at `/`, the landing page built from the mockup in `mockups/` — the

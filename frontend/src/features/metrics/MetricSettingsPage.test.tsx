@@ -13,7 +13,8 @@ import { en } from '../../i18n/en';
 import { pl } from '../../i18n/pl';
 import type { Language } from '../../i18n/languages';
 import type { Metric, Threshold } from '../../api/metrics';
-import type { TeamDetail } from '../../api/teams';
+import type { GlobalMetric } from '../../api/globalMetrics';
+import type { Team, TeamDetail } from '../../api/teams';
 
 const TEAM_ID = 'team-1';
 const LEADER = 'anna@example.com';
@@ -46,6 +47,7 @@ function metric(overrides: Partial<Metric> = {}): Metric {
   return {
     id: 'metric-revenue',
     team_id: TEAM_ID,
+    scope: 'board',
     name: 'Revenue',
     unit: 'mln zł',
     decimals: 1,
@@ -54,6 +56,7 @@ function metric(overrides: Partial<Metric> = {}): Metric {
     position: 1,
     owner: null,
     retired: false,
+    retired_in_catalogue: false,
     threshold: THRESHOLD,
     ...overrides,
   };
@@ -335,5 +338,412 @@ describe('the metric settings page', () => {
 
     expect(screen.getByRole('button', { name: en.metrics.add })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Change threshold: Revenue' })).toBeInTheDocument();
+  });
+});
+
+/*
+ * Bringing a metric in from elsewhere, and how an included global metric
+ * reads. Scenarios from specs/metrics ("Copy a metric from another board"),
+ * specs/global-metrics and specs/authorization.
+ */
+
+const OTHER_TEAM = 'team-2';
+
+const TEAMS: Team[] = [
+  {
+    id: TEAM_ID,
+    name: 'Platform',
+    board: TEAM.board,
+    leader: { id: 'emp-anna', email: LEADER },
+    member_count: 2,
+  },
+  {
+    id: OTHER_TEAM,
+    name: 'Sales',
+    board: { id: 'board-2', name: 'Sales', schedule: null },
+    leader: { id: 'emp-celina', email: 'celina@example.com' },
+    member_count: 1,
+  },
+];
+
+const OTHER_METRICS: Metric[] = [
+  metric({ id: 'metric-open-bugs', team_id: OTHER_TEAM, name: 'Open bugs' }),
+  metric({ id: 'metric-old-sales', team_id: OTHER_TEAM, name: 'Old sales', retired: true }),
+  metric({ id: 'gm-availability', team_id: OTHER_TEAM, name: 'Availability', scope: 'global' }),
+];
+
+function globalMetric(overrides: Partial<GlobalMetric> = {}): GlobalMetric {
+  return {
+    id: 'gm-availability',
+    scope: 'global',
+    name: 'Availability',
+    unit: '%',
+    decimals: 2,
+    direction: 'higher_is_better',
+    retired: false,
+    threshold: null,
+    boards: 1,
+    ...overrides,
+  };
+}
+
+const CATALOGUE: GlobalMetric[] = [
+  globalMetric(),
+  globalMetric({ id: 'gm-security', name: 'Security findings', retired: true }),
+  globalMetric({ id: 'gm-uptime', name: 'Uptime' }),
+];
+
+/** This board's metrics: its own Revenue, and the global Uptime it includes. */
+const UPTIME = metric({
+  id: 'gm-uptime',
+  name: 'Uptime',
+  unit: '%',
+  decimals: 2,
+  scope: 'global',
+  group_label: 'Operations',
+  position: 2,
+});
+
+/** As `serve`, and also the team list, another team's metrics and the catalogue. */
+function serveElsewhere(write?: (url: string, init: RequestInit) => Response | undefined) {
+  serve(write);
+  const base = fetchMock.getMockImplementation()!;
+  fetchMock.mockImplementation((url: string, init: RequestInit = {}) => {
+    if ((init.method ?? 'GET') === 'GET') {
+      if (url.endsWith('/global-metrics')) return Promise.resolve(jsonResponse(CATALOGUE));
+      if (url.endsWith('/api/teams')) return Promise.resolve(jsonResponse(TEAMS));
+      if (url.endsWith(`/teams/${OTHER_TEAM}/metrics`)) {
+        return Promise.resolve(jsonResponse(OTHER_METRICS));
+      }
+    }
+    return base(url, init) as Promise<Response>;
+  });
+}
+
+function optionNames(select: HTMLElement): string[] {
+  return within(select)
+    .getAllByRole('option')
+    .map((option) => option.textContent ?? '');
+}
+
+async function openCopy(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: en.metrics.copy }));
+  const dialog = screen.getByRole('dialog', { name: en.metrics.copy });
+  await user.selectOptions(within(dialog).getByLabelText(en.metrics.copyTeamLabel), OTHER_TEAM);
+  const source = within(dialog).getByLabelText(en.metrics.copySourceLabel);
+  await within(source).findByRole('option', { name: 'Open bugs' });
+  return { dialog, source };
+}
+
+async function openInclude(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: en.metrics.include }));
+  const dialog = screen.getByRole('dialog', { name: en.metrics.include });
+  const source = await within(dialog).findByLabelText(en.metrics.includeSourceLabel);
+  return { dialog, source };
+}
+
+describe('copying a metric from another board', () => {
+  beforeEach(() => serveElsewhere());
+
+  it('copies a metric with its thresholds, sending only its source', async () => {
+    // Scenario: A metric is copied with its thresholds - the server copies
+    // the definition and every version; the page names only the source.
+    const user = userEvent.setup();
+    await renderSettings();
+
+    const { dialog, source } = await openCopy(user);
+    expect(optionNames(within(dialog).getByLabelText(en.metrics.copyTeamLabel))).toEqual([
+      en.metrics.chooseTeam,
+      'Sales',
+    ]);
+    await user.selectOptions(source, 'metric-open-bugs');
+    await user.click(within(dialog).getByRole('button', { name: en.metrics.copySubmit }));
+
+    expect(writes()[0]?.[0]).toBe(`/api/teams/${TEAM_ID}/metrics/copies`);
+    expect(lastBody()).toEqual({ source_metric_id: 'metric-open-bugs' });
+  });
+
+  it('copies a metric under a new name', async () => {
+    // Scenario: A copy under a new name.
+    const user = userEvent.setup();
+    await renderSettings();
+
+    const { dialog, source } = await openCopy(user);
+    await user.selectOptions(source, 'metric-open-bugs');
+    await user.type(within(dialog).getByLabelText(en.metrics.copyNameLabel), 'Revenue (Poland)');
+    await user.click(within(dialog).getByRole('button', { name: en.metrics.copySubmit }));
+
+    expect(lastBody()).toEqual({
+      source_metric_id: 'metric-open-bugs',
+      name: 'Revenue (Poland)',
+    });
+  });
+
+  it('offers only the other board’s own metrics, retired ones marked', async () => {
+    const user = userEvent.setup();
+    await renderSettings();
+
+    const { source } = await openCopy(user);
+
+    expect(optionNames(source)).toEqual([
+      en.metrics.chooseMetric,
+      'Open bugs',
+      'Old sales (retired)',
+    ]);
+  });
+
+  it('shows a taken copied name against the name field', async () => {
+    // Scenario: The copied name is taken.
+    serveElsewhere(() => errorResponse(409, 'name', 'metric_name.duplicate'));
+    const user = userEvent.setup();
+    await renderSettings();
+
+    const { dialog, source } = await openCopy(user);
+    await user.selectOptions(source, 'metric-open-bugs');
+    await user.click(within(dialog).getByRole('button', { name: en.metrics.copySubmit }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      en.errors['metric_name.duplicate'],
+    );
+    expect(within(dialog).getByLabelText(en.metrics.copyNameLabel)).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+  });
+
+  it('says a global metric is not copied, should one reach the API', async () => {
+    // Scenario: A global metric is not copied.
+    serveElsewhere(() => errorResponse(409, 'source_metric_id', 'metric_copy.source_global'));
+    const user = userEvent.setup();
+    await renderSettings();
+
+    const { dialog, source } = await openCopy(user);
+    expect(optionNames(source)).not.toContain('Availability');
+    await user.selectOptions(source, 'metric-open-bugs');
+    await user.click(within(dialog).getByRole('button', { name: en.metrics.copySubmit }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      en.errors['metric_copy.source_global'],
+    );
+  });
+});
+
+describe('including a global metric', () => {
+  beforeEach(() => {
+    metrics = [metric(), UPTIME];
+    serveElsewhere();
+  });
+
+  it('includes an active global metric with its placement on the board', async () => {
+    // Scenario: A global metric is included.
+    const user = userEvent.setup();
+    await renderSettings();
+
+    const { dialog, source } = await openInclude(user);
+    // Security findings is retired and Uptime is on the board already.
+    expect(optionNames(source)).toEqual([en.metrics.chooseGlobal, 'Availability']);
+    await user.selectOptions(source, 'gm-availability');
+    await user.type(within(dialog).getByLabelText(en.metrics.groupLabel), 'Operations');
+    const position = within(dialog).getByLabelText(en.metrics.positionLabel);
+    await user.clear(position);
+    await user.type(position, '2');
+    await user.selectOptions(within(dialog).getByLabelText(en.metrics.ownerLabel), 'emp-bartek');
+    await user.click(within(dialog).getByRole('button', { name: en.metrics.includeSubmit }));
+
+    expect(writes()[0]?.[0]).toBe(`/api/teams/${TEAM_ID}/metrics/inclusions`);
+    expect(lastBody()).toEqual({
+      global_metric_id: 'gm-availability',
+      position: 2,
+      group_label: 'Operations',
+      owner_employee_id: 'emp-bartek',
+    });
+  });
+
+  it('says a global metric is already included, should that reach the API', async () => {
+    // Scenario: Included twice.
+    serveElsewhere(() => errorResponse(409, 'global_metric_id', 'global_metric.already_included'));
+    const user = userEvent.setup();
+    await renderSettings();
+
+    const { dialog, source } = await openInclude(user);
+    await user.selectOptions(source, 'gm-availability');
+    await user.click(within(dialog).getByRole('button', { name: en.metrics.includeSubmit }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      en.errors['global_metric.already_included'],
+    );
+  });
+
+  it('shows a name clash with the board’s own metric against the chosen metric', async () => {
+    // Scenario: Its name is taken on the board.
+    serveElsewhere(() => errorResponse(409, 'global_metric_id', 'metric_name.duplicate'));
+    const user = userEvent.setup();
+    await renderSettings();
+
+    const { dialog, source } = await openInclude(user);
+    await user.selectOptions(source, 'gm-availability');
+    await user.click(within(dialog).getByRole('button', { name: en.metrics.includeSubmit }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      en.errors['metric_name.duplicate'],
+    );
+    expect(source).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('says so when every active global metric is on the board already', async () => {
+    metrics = [metric(), UPTIME, metric({ id: 'gm-availability', scope: 'global' })];
+    const user = userEvent.setup();
+    await renderSettings();
+
+    await user.click(screen.getByRole('button', { name: en.metrics.include }));
+
+    expect(await screen.findByText(en.metrics.includeNone)).toBeInTheDocument();
+  });
+});
+
+describe('an included global metric on the settings page', () => {
+  beforeEach(() => {
+    metrics = [metric(), UPTIME];
+    serveElsewhere();
+  });
+
+  function uptimeRow() {
+    return screen.getAllByRole('listitem')[1]!;
+  }
+
+  it('shows a global metric read-only, offering its placement only', async () => {
+    // Scenario: The settings page shows a global metric read-only.
+    const user = userEvent.setup();
+    await renderSettings();
+
+    const row = uptimeRow();
+    expect(within(row).getByText(en.metrics.global)).toBeInTheDocument();
+    expect(row).toHaveTextContent(en.metrics.globalNote);
+    expect(within(row).getByRole('link', { name: en.nav.globalMetrics })).toHaveAttribute(
+      'href',
+      '/global-metrics',
+    );
+    expect(row).toHaveTextContent(`${en.direction.higher_is_better} · % · Decimals: 2`);
+    expect(
+      within(row).queryByRole('button', { name: 'Change threshold: Uptime' }),
+    ).not.toBeInTheDocument();
+    expect(within(row).queryByRole('button', { name: 'Edit: Uptime' })).not.toBeInTheDocument();
+
+    await user.click(within(row).getByRole('button', { name: 'Edit placement: Uptime' }));
+    for (const label of [
+      en.metrics.nameLabel,
+      en.metrics.unitLabel,
+      en.metrics.decimalsLabel,
+      en.metrics.directionLabel,
+    ]) {
+      expect(within(row).queryByLabelText(label)).not.toBeInTheDocument();
+    }
+    const group = within(row).getByLabelText(en.metrics.groupLabel);
+    await user.clear(group);
+    await user.type(group, 'Reliability');
+    await user.click(within(row).getByRole('button', { name: en.metrics.save }));
+
+    const [url, init] = writes()[0] ?? [];
+    expect([url, init?.method]).toEqual([`/api/teams/${TEAM_ID}/metrics/gm-uptime`, 'PATCH']);
+    expect(lastBody()).toEqual({
+      group_label: 'Reliability',
+      position: 2,
+      owner_employee_id: null,
+    });
+  });
+
+  it('offers no bring-back for a global metric retired in the catalogue', async () => {
+    metrics = [
+      metric(),
+      { ...UPTIME, retired: true, retired_in_catalogue: true },
+      metric({ id: 'gm-on-board', name: 'Latency', scope: 'global', retired: true }),
+    ];
+    await renderSettings();
+
+    const [, retiredInCatalogue, retiredHere] = screen.getAllByRole('listitem');
+    expect(retiredInCatalogue).toHaveTextContent(en.metrics.retiredInCatalogue);
+    expect(
+      within(retiredInCatalogue!).queryByRole('button', { name: 'Bring back: Uptime' }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(retiredHere!).getByRole('button', { name: 'Bring back: Latency' }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows a global metric’s threshold history from the board, without a way to add one', async () => {
+    const user = userEvent.setup();
+    await renderSettings();
+
+    await user.click(
+      within(uptimeRow()).getByRole('button', { name: 'Threshold history: Uptime' }),
+    );
+
+    expect(await within(uptimeRow()).findByText(/Plan for Q4/)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/teams/${TEAM_ID}/metrics/gm-uptime/thresholds`,
+      expect.anything(),
+    );
+    expect(
+      within(uptimeRow()).queryByRole('button', { name: 'Change threshold: Uptime' }),
+    ).toBeNull();
+  });
+
+  it('retires a global metric on this board, and removes it from the board', async () => {
+    // Scenario: A global metric is retired on one board; removal refused with values.
+    serveElsewhere((_url, init) =>
+      init.method === 'DELETE' ? errorResponse(409, null, 'metric.has_values') : undefined,
+    );
+    const user = userEvent.setup();
+    await renderSettings();
+
+    await user.click(within(uptimeRow()).getByRole('button', { name: 'Retire: Uptime' }));
+    expect(lastBody()).toEqual({ retired: true });
+
+    await user.click(
+      within(uptimeRow()).getByRole('button', { name: 'Remove from board: Uptime' }),
+    );
+    const [url, init] = writes().at(-1) ?? [];
+    expect([url, init?.method]).toEqual([`/api/teams/${TEAM_ID}/metrics/gm-uptime`, 'DELETE']);
+    expect(await within(uptimeRow()).findByRole('alert')).toHaveTextContent(
+      en.errors['metric.has_values'],
+    );
+  });
+
+  it('says why a definition change was refused, should one reach the API', async () => {
+    serveElsewhere(() => errorResponse(409, null, 'global_metric.read_only'));
+    const user = userEvent.setup();
+    await renderSettings();
+
+    await user.click(within(uptimeRow()).getByRole('button', { name: 'Edit placement: Uptime' }));
+    await user.click(within(uptimeRow()).getByRole('button', { name: en.metrics.save }));
+
+    expect(await within(uptimeRow()).findByRole('alert')).toHaveTextContent(
+      en.errors['global_metric.read_only'],
+    );
+  });
+
+  it('shows a member no control to copy, include or place a metric', async () => {
+    // Scenario: A member records values but does not configure metrics - the settings half.
+    await renderSettings('en', { email: MEMBER });
+
+    expect(within(uptimeRow()).getByText(en.metrics.global)).toBeInTheDocument();
+    for (const name of [
+      en.metrics.copy,
+      en.metrics.include,
+      /^Edit placement:/,
+      /^Remove from board:/,
+      /^Retire:/,
+    ]) {
+      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+    }
+  });
+
+  it('reads in Polish', async () => {
+    await renderSettings('pl');
+
+    expect(screen.getByRole('button', { name: pl.metrics.copy })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: pl.metrics.include })).toBeInTheDocument();
+    expect(within(uptimeRow()).getByText(pl.metrics.global)).toBeInTheDocument();
+    expect(uptimeRow()).toHaveTextContent(pl.metrics.globalNote);
   });
 });

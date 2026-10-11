@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from app.api import (
     auth_router,
+    global_metrics_router,
     health_router,
     hub_router,
     meetings_router,
@@ -66,6 +67,7 @@ app.include_router(hub_router)
 app.include_router(teams_router)
 app.include_router(meetings_router)
 app.include_router(metrics_router)
+app.include_router(global_metrics_router)
 app.include_router(metric_values_router)
 
 

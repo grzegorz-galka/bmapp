@@ -4,7 +4,7 @@ import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
 import type { MetricDefinition, Status, TrendPoint } from '../../api/metrics';
 import { describeFailure } from '../../i18n/apiErrors';
 import { useFormat } from '../../i18n/format';
-import { describeThreshold, StatusBadge, ThresholdList } from '../metrics/display';
+import { describeThreshold, GlobalMark, StatusBadge, ThresholdList } from '../metrics/display';
 import { useThresholds, useTrend } from '../metrics/useMetrics';
 import { StatusDot } from './Sparkline';
 import styles from './board.module.css';
@@ -90,9 +90,12 @@ export function MetricDetail({
         className={styles.detail}
       >
         <header className={styles.detailHeader}>
-          <h2 id={headingId} className={styles.detailHeading}>
-            {metric.name}
-          </h2>
+          <span className={styles.detailTitle}>
+            <h2 id={headingId} className={styles.detailHeading}>
+              {metric.name}
+            </h2>
+            {metric.scope === 'global' && <GlobalMark />}
+          </span>
           <button ref={close} type="button" className={styles.button} onClick={onClose}>
             {t('detail.close')}
           </button>

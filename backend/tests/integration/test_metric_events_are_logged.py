@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tests.conftest import ADMIN_EMAIL
+from tests.integration.global_metrics_api import add_global, add_global_threshold
 from tests.integration.meetings_api import open_meeting
 from tests.integration.metrics_api import add_metric, add_threshold, freeze_today, record
 from tests.integration.teams_api import add, member_id, register
@@ -95,3 +96,54 @@ def test_recording_inside_the_window_is_not_logged(
         record(client, team["id"], meeting["id"], metric["id"], value="1")
 
     assert not any("Value of metric" in message for message in _messages(caplog))
+
+
+def test_the_global_metric_catalogue_is_logged(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.INFO):
+        metric = add_global(client, "Availability")
+        url = f"/global-metrics/{metric['id']}"
+        client.patch(url, json={"name": "Uptime"})
+        client.patch(url, json={"retired": True})
+        client.patch(url, json={"retired": False})
+        version = add_global_threshold(client, metric["id"], reason="Secret", green="1", amber="0")
+        client.delete(url)
+
+    prefix = f"Global metric {metric['id']}"
+    assert _messages(caplog)[-8:] == [
+        f"{prefix} added by {ADMIN_EMAIL}",
+        f"{prefix} changed by {ADMIN_EMAIL}",
+        f"{prefix} changed by {ADMIN_EMAIL}",
+        f"{prefix} retired by {ADMIN_EMAIL}",
+        f"{prefix} changed by {ADMIN_EMAIL}",
+        f"{prefix} brought back by {ADMIN_EMAIL}",
+        f"Threshold {version['id']} of global metric {metric['id']} recorded by {ADMIN_EMAIL}",
+        f"{prefix} deleted by {ADMIN_EMAIL}",
+    ]
+    assert not any("Availability" in m or "Secret" in m for m in _messages(caplog))
+
+
+def test_including_removing_and_copying_are_logged(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    team = register(client)
+    other = register(client, "Other team", "other.lead@example.com")
+    source = add_metric(client, other["id"])
+    metric = add_global(client, "Availability")
+    with caplog.at_level(logging.INFO):
+        response = client.post(
+            f"/teams/{team['id']}/metrics/inclusions", json={"global_metric_id": metric["id"]}
+        )
+        assert response.status_code == 201
+        client.delete(f"/teams/{team['id']}/metrics/{metric['id']}")
+        copy = client.post(
+            f"/teams/{team['id']}/metrics/copies", json={"source_metric_id": source["id"]}
+        ).json()
+
+    assert _messages(caplog)[-3:] == [
+        f"Global metric {metric['id']} included in team {team['id']} by {ADMIN_EMAIL}",
+        f"Global metric {metric['id']} removed from team {team['id']} by {ADMIN_EMAIL}",
+        f"Metric {copy['id']} copied from metric {source['id']} onto team {team['id']}"
+        f" by {ADMIN_EMAIL}",
+    ]

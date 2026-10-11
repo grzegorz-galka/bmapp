@@ -11,6 +11,7 @@ from app.services.authz import (
     Relationship,
     may_change_the_leader,
     may_configure_the_board,
+    may_define_global_metrics,
     may_manage_membership,
     may_read,
     may_record_meeting_data,
@@ -131,3 +132,15 @@ def test_an_administrator_may_act_on_any_team(relationship: Relationship) -> Non
             may_record_meeting_data(is_admin=True, relationship=relationship),
         )
     )
+
+
+# --- The global metric catalogue -----------------------------------------------
+
+
+def test_an_administrator_defines_global_metrics() -> None:
+    assert may_define_global_metrics(is_admin=True) is True
+
+
+def test_no_one_else_defines_global_metrics() -> None:
+    """Not even a leader: a global metric is judged the same way on every board."""
+    assert may_define_global_metrics(is_admin=False) is False

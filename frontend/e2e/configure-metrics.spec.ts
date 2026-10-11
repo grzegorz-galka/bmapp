@@ -75,3 +75,43 @@ test('a leader adds three metrics, one per direction, with thresholds', async ({
   await dialog.getByRole('button', { name: en.metrics.recordThreshold }).click();
   await expect(dialog.getByRole('alert')).toHaveText(en.errors['threshold.order_invalid']);
 });
+
+test('a leader copies a metric with its threshold from another board', async ({
+  page,
+  request,
+}) => {
+  const suffix = uniqueSuffix();
+  const leader = `e2e.lead.${suffix}@example.com`;
+  const otherLeader = `e2e.other.${suffix}@example.com`;
+  const admin = await apiAs(request, ADMIN_EMAIL);
+  const source = await admin.registerTeam(`E2E Copy source ${suffix}`, otherLeader);
+  const team = await admin.registerTeam(`E2E Copy target ${suffix}`, leader);
+  const leadTime = await admin.addMetric(source.id, {
+    name: 'Lead time',
+    unit: 'd',
+    decimals: 1,
+    direction: 'lower_is_better',
+  });
+  await admin.addThreshold(source.id, leadTime.id, {
+    effective_from: '2026-01-01',
+    reason: 'Plan for the year',
+    green: '3',
+    amber: '5',
+  });
+
+  await signInAs(page, leader);
+  await page.goto(`/teams/${team.id}/metrics`);
+  await page.getByRole('button', { name: en.metrics.copy }).click();
+  const dialog = page.getByRole('dialog', { name: en.metrics.copy });
+  await dialog
+    .getByLabel(en.metrics.copyTeamLabel)
+    .selectOption({ label: `E2E Copy source ${suffix}` });
+  await dialog.getByLabel(en.metrics.copySourceLabel).selectOption({ label: 'Lead time' });
+  await dialog.getByRole('button', { name: en.metrics.copySubmit }).click();
+  await expect(dialog).toBeHidden();
+
+  const row = page.getByRole('listitem').filter({ hasText: 'Lead time' });
+  await expect(row).toBeVisible();
+  await expect(row).not.toContainText(en.metrics.global);
+  await expect(row).toContainText('Green up to 3.0 d, amber up to 5.0 d');
+});

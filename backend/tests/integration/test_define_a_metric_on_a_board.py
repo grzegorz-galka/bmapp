@@ -4,7 +4,10 @@ import uuid
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
+from app.core.metric_enums import Direction
+from app.models import BoardMetric, Metric
 from tests.integration.meetings_api import error_of
 from tests.integration.metrics_api import add_metric, metrics_of
 from tests.integration.teams_api import add, member_id, register
@@ -59,6 +62,34 @@ def test_name_is_blank_too_long_or_taken(
     assert response.status_code == status
     assert error_of(response) == ("name", code)
     assert len(metrics_of(client, team["id"])) == 1
+
+
+def _include_global_metric(session: Session, team_id: str, name: str) -> None:
+    """A global metric included in a board, set up directly in the database."""
+    metric = Metric(team_id=None, name=name, direction=Direction.HIGHER_IS_BETTER)
+    session.add(BoardMetric(team_id=uuid.UUID(team_id), metric=metric))
+    session.commit()
+
+
+def test_name_of_an_included_global_metric(client: TestClient, session: Session) -> None:
+    """Scenario: Name of an included global metric."""
+    team = register(client, "Alpha", "lead.alpha@example.com")
+    other = register(client, "Beta", "lead.beta@example.com")
+    _include_global_metric(session, team["id"], "Availability")
+    own = add_metric(client, team["id"], "Revenue")
+
+    added = client.post(
+        f"/teams/{team['id']}/metrics", json={"name": "AVAILABILITY", "direction": "within_band"}
+    )
+    renamed = client.patch(
+        f"/teams/{team['id']}/metrics/{own['id']}", json={"name": "availability"}
+    )
+
+    assert (added.status_code, error_of(added)) == (409, ("name", "metric_name.duplicate"))
+    assert (renamed.status_code, error_of(renamed)) == (409, ("name", "metric_name.duplicate"))
+    assert sorted(m["name"] for m in metrics_of(client, team["id"])) == ["Availability", "Revenue"]
+    # A board that does not include it may use the name for a metric of its own.
+    add_metric(client, other["id"], "Availability")
 
 
 def test_two_boards_use_the_same_metric_name(client: TestClient) -> None:

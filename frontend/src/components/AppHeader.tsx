@@ -40,6 +40,9 @@ export function AppHeader() {
         <NavLink to="/teams" className={linkClass}>
           {t('nav.teams')}
         </NavLink>
+        <NavLink to="/global-metrics" className={linkClass}>
+          {t('nav.globalMetrics')}
+        </NavLink>
         {/* The archive has no page yet. Named so the shape of the application
             is visible, but inert and announced as unavailable. */}
         <span className={styles.navItemDisabled} aria-disabled="true" role="link">
