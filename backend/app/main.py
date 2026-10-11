@@ -15,6 +15,7 @@ from app.api import (
     meetings_router,
     metric_values_router,
     metrics_router,
+    pulse_router,
     teams_router,
 )
 from app.core.config import Mode, get_settings
@@ -69,6 +70,7 @@ app.include_router(meetings_router)
 app.include_router(metrics_router)
 app.include_router(global_metrics_router)
 app.include_router(metric_values_router)
+app.include_router(pulse_router)
 
 
 def _error_body(

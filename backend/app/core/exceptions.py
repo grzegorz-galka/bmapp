@@ -232,6 +232,21 @@ class MeetingHasValuesError(DomainError):
         super().__init__(f"Meeting {meeting_id} has recorded metric values.")
 
 
+class MeetingHasPulseAnswersError(DomainError):
+    """Raised when a meeting with pulse answers is deleted.
+
+    The answers are people's own statements about that week, so they are not
+    discarded with the meeting. Moving it is allowed: no answer is judged
+    against anything in force on its date.
+    """
+
+    status_code = 409
+    code = "meeting.has_pulse_answers"
+
+    def __init__(self, meeting_id: object) -> None:
+        super().__init__(f"Meeting {meeting_id} has pulse answers.")
+
+
 class DuplicateMetricNameError(DomainError):
     """Raised when a board already has a metric of that name, ignoring case.
 
@@ -386,3 +401,17 @@ class CorrectionReasonBlankError(DomainError):
 
     def __init__(self) -> None:
         super().__init__("A correction to a frozen value needs a reason.")
+
+
+class PulseAnswerMeetingFrozenError(DomainError):
+    """Raised when a pulse answer is recorded at a meeting outside the answering window.
+
+    Unlike a metric value there is no correction past it, an administrator's
+    included: an answer is a person's own statement, not organizational data.
+    """
+
+    status_code = 409
+    code = "pulse_answer.meeting_frozen"
+
+    def __init__(self, meeting_id: object) -> None:
+        super().__init__(f"Meeting {meeting_id} no longer takes pulse answers.")

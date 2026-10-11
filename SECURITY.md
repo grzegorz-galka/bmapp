@@ -191,14 +191,17 @@ is the only answer.
   ADMIN   owns the org chart   -> teams exist, and who leads them
   LEADER  owns their board     -> metrics, min/max, targets, schedule,
                                   and who is on their team
-  MEMBER  owns the meeting     -> metric values, problems, tasks
-  ANYONE  reads everything
+  MEMBER  owns the meeting     -> metric values, problems, tasks,
+                                  and their own pulse answer
+  ANYONE  reads everything but who answered the pulse check what
 ```
 
 ## Permissions
 
 A valid token grants **read**. Every endpoint below that is not a read also
-requires the named relationship to the team concerned. An admin may do anything.
+requires the named relationship to the team concerned. An admin may do anything,
+with one exception: a pulse answer is a person's own statement, so only a member
+of the team records it, and only their own.
 
 | Action                                      | Endpoint                                        | Who                          |
 |---------------------------------------------|-------------------------------------------------|------------------------------|
@@ -209,6 +212,8 @@ requires the named relationship to the team concerned. An admin may do anything.
 | Remove a member                             | `DELETE /teams/{team_id}/members/{employee_id}` | admin, or that team's leader |
 | Configure the board                         | *not yet built*                                 | admin, or that team's leader |
 | Record metric values, problems, tasks       | *not yet built*                                 | admin, or a member of that team |
+| Read a meeting's individual pulse answers   | `GET /teams/{team_id}/meetings/{meeting_id}/pulse` | admin, or a member of that team; anyone else gets the aggregates only |
+| Answer the pulse check (one's own answer)   | `PUT /teams/{team_id}/meetings/{meeting_id}/pulse/me` | a member of that team - not an admin who is not one |
 
 The split inside membership is deliberate: an admin decides that a team exists and
 who runs it, while the routine churn of people joining and leaving a team belongs

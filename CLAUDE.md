@@ -46,6 +46,7 @@ board. BMAPP provides that board online and lets a team:
 | Metric            | board (none if global), name, unit, decimals, direction, thresholds (many), values (many) |
 | Threshold         | metric, effective from, green and amber boundaries, reason, who recorded it        |
 | Metric value      | metric, meeting, the number recorded, comment, colour set by hand (optional)       |
+| Pulse answer      | meeting, respondent (a member), rating 1–5, what helped, what hurt, what could be better |
 | Problem           | team, summary, reason, solution proposal, responsible employee, due date, progress |
 | Task              | team, summary, details, responsible employee, due date, progress                   |
 
@@ -66,6 +67,7 @@ Glossary (use these exact terms in code, UI and tests):
 - **Target** — a declaration in prose, *not* a numeric range: what the company or the team is aiming at. Company-wide targets appear on every board; a team may add **custom targets**. A colour never comes from a target — only from the metric's threshold.
 - **Problem** — an obstacle identified at the board meeting; has a root cause ("reason") and a proposed solution.
 - **Task** — an action item. Problems and tasks are **archived**, never deleted, once closed/done.
+- **Pulse check** — the weekly survey each member answers for a meeting: a rating 1–5 and three optional texts (what had a positive effect, a negative one, what could be better). The four questions are fixed. A rating's colour comes from fixed bands (4–5 green, 3 amber, 1–2 red), not from a threshold: the pulse check is not a metric. Answers are open at the same meetings as metric values; only the team's members and administrators see who answered what. Kept as "Pulse check" in Polish too.
 
 **Indicator** is deliberately *not* a concept here. An earlier draft had metrics
 grouped under indicators (KPIs); teams track metrics directly instead. Do not
@@ -242,6 +244,13 @@ position, group, owner and retirement on a board live on its placement
 (`board_metrics`), not on the metric, so one global metric can sit on many
 boards; `metrics.team_id` is null for a global one.
 
+`pulse-check` is implemented: each member answers the weekly pulse check for a
+meeting (`PUT …/meetings/:meetingId/pulse/me`, only ever one's own answer), and
+the board at `/teams/:teamId?view=pulse` shows the meeting's results laid out as
+in the legacy board - answers received, the average on a gauge, the
+distribution, the trend and the answers table, with names hideable for screen
+sharing. A meeting with answers can no longer be deleted.
+
 Everything else in the domain model above — targets, problems, tasks and archiving — is agreed but
 not built. Each is a capability of its own;
 propose it through `/opsx:propose` rather than adding it inline.
@@ -355,7 +364,8 @@ backend and meaningful coverage of every user-facing flow on the frontend.
   fixtures for test data; each test starts from a clean state.
 - **GUI tests** (Playwright) for the main flows: view board, record a meeting's
   metric values, add/close problem, add/complete task, configure metrics (copy
-  one, include a global one), define global metrics, view archive.
+  one, include a global one), define global metrics, answer and review the pulse
+  check, view archive.
 - **BDD tests** (pytest-bdd) only for business rules worth stating in plain
   language, e.g. the status of a metric value against its threshold (the one
   that exists), archiving. Do not write BDD for CRUD plumbing. Target inheritance is not one
@@ -423,7 +433,10 @@ A task is done when:
   do X to *this team*", never "what role is this user". Admins register teams and
   assign their leaders; a team's leader configures that team's board and manages
   its members; members edit the meeting data of their own teams; a valid token
-  reads everything. Reading is not gated on an Employee record.
+  reads everything - except individual pulse answers, which only the team's
+  members and administrators read; others get the aggregates. Only a member
+  answers the pulse check, for themselves - not even an administrator for them.
+  Reading is not gated on an Employee record.
 - Validate all input at the API boundary with Pydantic. Never build SQL strings.
 - Log at INFO for business events, DEBUG for details. No personal data in logs
   beyond the employee email where needed for auditing.

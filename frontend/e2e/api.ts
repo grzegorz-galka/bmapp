@@ -46,6 +46,12 @@ export async function apiAs(request: APIRequestContext, email: string) {
         comment: null,
         reason,
       }),
+    /** The signed-in member's own pulse answer; texts left out are blank. */
+    answerPulse: (
+      teamId: string,
+      meetingId: string,
+      answer: { rating: number; positive?: string; negative?: string; better?: string },
+    ) => call('put', `/teams/${teamId}/meetings/${meetingId}/pulse/me`, answer),
   };
 }
 

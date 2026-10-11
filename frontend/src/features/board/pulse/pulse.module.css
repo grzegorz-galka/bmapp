@@ -1,0 +1,245 @@
+/*
+ * The pulse check view, after the sample's .pc-* layout: three cards in a row
+ * that stack below 900px, the trend card, then the answers table.
+ */
+
+.top {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: var(--sp-3);
+}
+
+@media (max-width: 900px) {
+  .top {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card {
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  min-width: 0;
+}
+
+.top + .card {
+  margin: var(--sp-3) 0 var(--sp-5);
+}
+
+.centred {
+  text-align: center;
+}
+
+.cardLabel {
+  margin: 0;
+  font: 600 var(--fs-xs) var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.big {
+  margin: var(--sp-2) 0 var(--sp-1);
+  font: 700 var(--fs-3xl) var(--font-sans);
+  line-height: 1.1;
+}
+
+.muted {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.gaugeBox {
+  max-width: 220px;
+  margin: var(--sp-2) auto 0;
+}
+
+.gauge {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.gaugeValue {
+  font: 700 34px var(--font-sans);
+  fill: var(--ink);
+}
+
+.gaugeScale {
+  font-size: 10px;
+  fill: var(--ink-2);
+}
+
+.word {
+  margin: 0;
+  font-weight: 600;
+}
+
+.change {
+  margin: var(--sp-1) 0 0;
+  font: 500 var(--fs-sm) var(--font-mono);
+  color: var(--ink-2);
+}
+
+.bars {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bar {
+  display: grid;
+  grid-template-columns: minmax(0, 8.5rem) 1fr 1.5rem;
+  gap: var(--sp-2);
+  align-items: center;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-sm);
+}
+
+.bar b {
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+.track {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--line-2);
+  overflow: hidden;
+}
+
+.track i {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+}
+
+.chart {
+  width: 100%;
+  min-height: 220px;
+  margin-top: var(--sp-2);
+}
+
+.heading {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.table thead th {
+  font-weight: 600;
+  color: var(--ink-2);
+  background: var(--panel-2);
+}
+
+.person {
+  font-weight: 600;
+}
+
+.rating {
+  white-space: nowrap;
+}
+
+.dot {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-right: var(--sp-1);
+  border: 1px solid var(--line-control);
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.check input {
+  accent-color: var(--accent-solid);
+}
+
+.empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: var(--sp-4);
+  border: 1px dashed var(--line-control);
+  border-radius: var(--r-md);
+  color: var(--ink-2);
+}
+
+/* The answer form. */
+
+.form {
+  max-width: 56rem;
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.formFields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.ratings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ratings legend {
+  margin-bottom: var(--sp-2);
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  cursor: pointer;
+}
+
+.option input {
+  accent-color: var(--accent-solid);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: 0;
+}

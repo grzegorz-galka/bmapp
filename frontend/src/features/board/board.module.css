@@ -247,3 +247,35 @@
   padding: 0;
   list-style: none;
 }
+
+/* Two or more choices as one control: the metrics or the pulse check, results or the form. */
+
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.segmented button {
+  padding: 6px var(--sp-3);
+  border: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font: 500 var(--fs-sm) var(--font-sans);
+  cursor: pointer;
+}
+
+.segmented button + button {
+  border-left: 1px solid var(--line-control);
+}
+
+.segmented button[aria-pressed='true'] {
+  background: var(--accent-solid);
+  color: var(--on-accent-solid);
+}
+
+.viewSwitch {
+  margin-bottom: var(--sp-4);
+}

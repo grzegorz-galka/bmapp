@@ -9,11 +9,13 @@ import pytest
 
 from app.services.authz import (
     Relationship,
+    may_answer_the_pulse_check,
     may_change_the_leader,
     may_configure_the_board,
     may_define_global_metrics,
     may_manage_membership,
     may_read,
+    may_read_pulse_answers,
     may_record_meeting_data,
     may_register_a_team,
 )
@@ -144,3 +146,39 @@ def test_an_administrator_defines_global_metrics() -> None:
 def test_no_one_else_defines_global_metrics() -> None:
     """Not even a leader: a global metric is judged the same way on every board."""
     assert may_define_global_metrics(is_admin=False) is False
+
+
+# --- The pulse check -----------------------------------------------------------
+
+
+@pytest.mark.parametrize("relationship", [Relationship.MEMBER, Relationship.LEADER])
+def test_anyone_on_the_team_reads_its_pulse_answers(relationship: Relationship) -> None:
+    assert may_read_pulse_answers(is_admin=False, relationship=relationship) is True
+
+
+def test_a_stranger_does_not_read_a_teams_pulse_answers() -> None:
+    assert may_read_pulse_answers(is_admin=False, relationship=Relationship.STRANGER) is False
+
+
+@pytest.mark.parametrize("relationship", EVERY_RELATIONSHIP)
+def test_an_administrator_reads_any_teams_pulse_answers(relationship: Relationship) -> None:
+    assert may_read_pulse_answers(is_admin=True, relationship=relationship) is True
+
+
+@pytest.mark.parametrize("relationship", [Relationship.MEMBER, Relationship.LEADER])
+def test_anyone_on_the_team_answers_the_pulse_check(relationship: Relationship) -> None:
+    assert may_answer_the_pulse_check(relationship=relationship) is True
+
+
+def test_a_stranger_does_not_answer_the_pulse_check() -> None:
+    assert may_answer_the_pulse_check(relationship=Relationship.STRANGER) is False
+
+
+def test_an_administrator_who_is_a_stranger_reads_but_does_not_answer() -> None:
+    """An answer is a person's own statement, not something done on a team's behalf.
+
+    So the one write an administrator cannot make: the rule takes no `is_admin`.
+    """
+    reads = may_read_pulse_answers(is_admin=True, relationship=Relationship.STRANGER)
+    answers = may_answer_the_pulse_check(relationship=Relationship.STRANGER)
+    assert (reads, answers) == (True, False)

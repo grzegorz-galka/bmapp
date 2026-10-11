@@ -17,13 +17,22 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import (
     MeetingDateTakenError,
+    MeetingHasPulseAnswersError,
     MeetingHasValuesError,
     MeetingHostNotMemberError,
     MeetingNotFoundError,
     TeamNotFoundError,
 )
 from app.core.time import ORGANIZATION_TZ
-from app.models import BoardDefinition, Meeting, MetricValue, Team, TeamMember, WeeklySchedule
+from app.models import (
+    BoardDefinition,
+    Meeting,
+    MetricValue,
+    PulseAnswer,
+    Team,
+    TeamMember,
+    WeeklySchedule,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -164,10 +173,12 @@ def change_meeting(
 def delete_meeting(
     session: Session, team_id: uuid.UUID, meeting_id: uuid.UUID, actor_email: str
 ) -> None:
-    """Delete a meeting, freeing its date - unless values are recorded at it."""
+    """Delete a meeting, freeing its date - unless values or pulse answers are recorded at it."""
     meeting = get_meeting(session, team_id, meeting_id)
     if _has_values(session, meeting_id):
         raise MeetingHasValuesError(meeting_id)
+    if _has_pulse_answers(session, meeting_id):
+        raise MeetingHasPulseAnswersError(meeting_id)
     session.delete(meeting)
     session.commit()
     logger.info("Meeting %s of team %s deleted by %s", meeting_id, team_id, actor_email)
@@ -189,6 +200,15 @@ def _has_values(session: Session, meeting_id: uuid.UUID) -> bool:
     database rule to fall back on.
     """
     return bool(session.scalar(select(exists().where(MetricValue.meeting_id == meeting_id))))
+
+
+def _has_pulse_answers(session: Session, meeting_id: uuid.UUID) -> bool:
+    """Whether anyone has answered the pulse check at this meeting.
+
+    Deletion only: an answer is not judged against anything dated, so a
+    meeting with answers can still be moved.
+    """
+    return bool(session.scalar(select(exists().where(PulseAnswer.meeting_id == meeting_id))))
 
 
 def _commit(session: Session, date: datetime.date) -> None:

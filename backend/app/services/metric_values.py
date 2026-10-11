@@ -55,7 +55,7 @@ class Actor:
 
 
 @dataclass(frozen=True, slots=True)
-class _MeetingDate:
+class MeetingDate:
     id: uuid.UUID
     date: datetime.date
 
@@ -165,7 +165,7 @@ def build_board(
     their values over the sparkline's meetings.
     """
     meeting = get_meeting(session, team_id, meeting_id)
-    meetings = _meeting_dates(session, team_id)
+    meetings = team_meeting_dates(session, team_id)
     position = next(i for i, m in enumerate(meetings) if m.id == meeting_id)
     window = meetings[max(0, position - SPARKLINE_LENGTH + 1) : position + 1]
     previous = meetings[position - 1] if position > 0 else None
@@ -240,7 +240,7 @@ def build_trend(session: Session, team_id: uuid.UUID, metric_id: uuid.UUID) -> M
     """
     placement = get_board_metric(session, team_id, metric_id)
     metric = placement.metric
-    meetings = _meeting_dates(session, team_id)
+    meetings = team_meeting_dates(session, team_id)
     versions = versions_by_metric(session, [metric_id])[metric_id]
     values = _values(session, [metric_id], [m.id for m in meetings])
     # A global metric's corrections at other teams' meetings are theirs.
@@ -297,10 +297,10 @@ def _upsert(
 
 
 def _dates(session: Session, team_id: uuid.UUID) -> list[datetime.date]:
-    return [meeting.date for meeting in _meeting_dates(session, team_id)]
+    return [meeting.date for meeting in team_meeting_dates(session, team_id)]
 
 
-def _meeting_dates(session: Session, team_id: uuid.UUID) -> list[_MeetingDate]:
+def team_meeting_dates(session: Session, team_id: uuid.UUID) -> list[MeetingDate]:
     """The team's meetings as identifiers and local dates, earliest first."""
     rows = session.execute(
         select(Meeting.id, Meeting.starts_at)
@@ -308,7 +308,7 @@ def _meeting_dates(session: Session, team_id: uuid.UUID) -> list[_MeetingDate]:
         .order_by(Meeting.starts_at)
     )
     return [
-        _MeetingDate(meeting_id, starts_at.astimezone(ORGANIZATION_TZ).date())
+        MeetingDate(meeting_id, starts_at.astimezone(ORGANIZATION_TZ).date())
         for meeting_id, starts_at in rows
     ]
 
@@ -337,7 +337,7 @@ def _status(metric: Metric, entry: MetricValue | None, threshold: MetricThreshol
 
 def _sparkline_point(
     metric: Metric,
-    meeting: _MeetingDate,
+    meeting: MeetingDate,
     entry: MetricValue | None,
     versions: list[MetricThreshold],
 ) -> SparklinePoint:

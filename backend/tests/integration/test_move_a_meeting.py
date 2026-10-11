@@ -1,14 +1,16 @@
 """One test per scenario of "Move a meeting" in specs/meetings/spec.md."""
 
 import uuid
+from collections.abc import Callable
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.integration import pulse_api
 from tests.integration.meetings_api import error_of, meetings_of, open_meeting
 from tests.integration.metrics_api import add_metric, freeze_today, record
-from tests.integration.teams_api import add, member_id, register
+from tests.integration.teams_api import LEADER_EMAIL, add, member_id, register
 
 MEMBER = "member@example.com"
 
@@ -141,3 +143,21 @@ def test_a_meeting_with_values_can_change_its_start_time(
 
     assert response.status_code == 200
     assert (response.json()["date"], response.json()["time"]) == ("2026-10-14", "15:00")
+
+
+def test_a_meeting_with_pulse_answers_can_be_moved(
+    client: TestClient, client_as: Callable[[str], TestClient], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scenario: A meeting with pulse answers can be moved."""
+    pulse_api.freeze_today(monkeypatch)
+    team = register(client)
+    meeting = open_meeting(client, team["id"], "2026-10-14")
+    recorded = pulse_api.answer(client_as(LEADER_EMAIL), team["id"], meeting["id"], 4)
+
+    response = client.patch(
+        f"/teams/{team['id']}/meetings/{meeting['id']}", json={"date": "2026-10-15"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["date"] == "2026-10-15"
+    assert pulse_api.results_of(client, team["id"], meeting["id"])["answers"] == [recorded]

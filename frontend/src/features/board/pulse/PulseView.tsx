@@ -1,0 +1,117 @@
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { Meeting } from '../../../api/meetings';
+import { describeFailure } from '../../../i18n/apiErrors';
+import { PulseAnswers } from './PulseAnswers';
+import { PulseCards } from './PulseCards';
+import { PulseForm } from './PulseForm';
+import { PulseTrend } from './PulseTrend';
+import { usePulse } from './usePulse';
+import teamStyles from '../../teams/teams.module.css';
+import boardStyles from '../board.module.css';
+import styles from './pulse.module.css';
+
+type Mode = 'results' | 'form';
+
+/**
+ * The pulse check of one meeting: its results, and for a member at a meeting
+ * that takes answers, the form for their own answer.
+ *
+ * `mayAnswer` is membership, as the API decides it; an administrator who is
+ * not on the team reads the answers but never answers. Who may read names is
+ * decided by the server alone: `answers` is null when the viewer may not.
+ */
+export function PulseView({
+  teamId,
+  meeting,
+  mayAnswer,
+}: {
+  teamId: string;
+  meeting: Meeting;
+  mayAnswer: boolean;
+}) {
+  const { t } = useTranslation();
+  const pulse = usePulse(teamId, meeting.id);
+  const [mode, setMode] = useState<Mode>('results');
+  // About the screen right now, not a preference to remember.
+  const [hideNames, setHideNames] = useState(false);
+
+  if (pulse.isPending) return <p>{t('pulse.loading')}</p>;
+  if (pulse.isError) {
+    return <p role="alert">{describeFailure(t, pulse.error) ?? t('pulse.loadFailed')}</p>;
+  }
+
+  const results = pulse.data;
+  const offered = mayAnswer && results.editable;
+  const shownMode: Mode = offered ? mode : 'results';
+  const answers = results.answers;
+
+  return (
+    <section aria-label={t('pulse.view')}>
+      <div className={boardStyles.toolbar}>
+        {!results.editable && <span className={boardStyles.muted}>{t('pulse.frozen')}</span>}
+        {offered && (
+          <div role="group" aria-label={t('pulse.modesLabel')} className={boardStyles.segmented}>
+            {(
+              [
+                ['results', 'pulse.results'],
+                ['form', 'pulse.yourAnswer'],
+              ] as const
+            ).map(([value, caption]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={shownMode === value}
+                onClick={() => setMode(value)}
+              >
+                {t(caption)}
+              </button>
+            ))}
+          </div>
+        )}
+        {shownMode === 'results' && answers !== null && (
+          <label className={styles.check}>
+            <input
+              type="checkbox"
+              checked={hideNames}
+              onChange={(event) => setHideNames(event.target.checked)}
+            />
+            {t('pulse.hideNames')}
+          </label>
+        )}
+      </div>
+
+      {shownMode === 'form' ? (
+        <PulseForm
+          teamId={teamId}
+          meetingId={meeting.id}
+          meetingDate={meeting.date}
+          own={results.own}
+          onSaved={() => setMode('results')}
+        />
+      ) : (
+        <>
+          <PulseCards results={results} hideNames={hideNames} />
+          <section className={styles.card} aria-labelledby="pulse-trend-heading">
+            <h2 id="pulse-trend-heading" className={styles.cardLabel}>
+              {t('pulse.trendTitle')}
+            </h2>
+            <PulseTrend points={results.trend} />
+          </section>
+          {results.answered === 0 ? (
+            <p className={styles.empty}>
+              {t('pulse.empty')}{' '}
+              {offered && (
+                <button type="button" className={teamStyles.button} onClick={() => setMode('form')}>
+                  {t('pulse.answerFirst')}
+                </button>
+              )}
+            </p>
+          ) : (
+            answers !== null && <PulseAnswers answers={answers} hideNames={hideNames} />
+          )}
+        </>
+      )}
+    </section>
+  );
+}
