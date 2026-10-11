@@ -41,9 +41,9 @@ board. BMAPP provides that board online and lets a team:
 |-------------------|------------------------------------------------------------------------------      |
 | Employee          | email, teams (many)                                                                |
 | Team              | name, team leader, members (many), board definition                                |
-| Board definition  | name, metrics (many), custom targets (optional), schedule (weekday and time)       |
+| Board definition  | name, metrics (many) each placed with position, group, owner; custom targets (optional), schedule |
 | Meeting           | team, date and time, the metric values recorded at it                              |
-| Metric            | name, unit, decimals, direction, group, owner, thresholds (many), values (many)    |
+| Metric            | board (none if global), name, unit, decimals, direction, thresholds (many), values (many) |
 | Threshold         | metric, effective from, green and amber boundaries, reason, who recorded it        |
 | Metric value      | metric, meeting, the number recorded, comment, colour set by hand (optional)       |
 | Problem           | team, summary, reason, solution proposal, responsible employee, due date, progress |
@@ -59,6 +59,7 @@ Glossary (use these exact terms in code, UI and tests):
 - **Schedule** — the weekday and start time a board's team meets, on the organization's clock (Europe/Warsaw). It proposes the next meeting's date; it never creates meetings.
 - **Host** — the member who runs one meeting (*prowadzący*). Rotates from meeting to meeting; not the team leader.
 - **Metric** — a named thing the team measures (e.g. "Open bugs"), with a unit and a fixed **direction**: higher is better, lower is better, or within a band. Teams track metrics directly. A metric with values is **retired**, never deleted.
+- **Global metric** (*wskaźnik globalny*) — a metric defined once by an administrator in the company-wide catalogue at `/global-metrics`, with its thresholds, and **included** in any number of boards. A board sets only its placement (position, group, owner) and may remove or retire it there; its definition and thresholds are read-only on the board. Each team still records its own values for it. A board's own metric can be **copied** onto another board with its thresholds; the copy is independent.
 - **Threshold** (*próg*) — one version of what green and amber mean for a metric, from an effective date on, with a reason. Versions are append-only and may be back-dated; a value is judged against the version in force on its meeting's date.
 - **Metric value** — one number, recorded at one meeting, for one metric. Its date is the meeting's date; it has none of its own. It may carry a comment and a **colour set by hand**, which needs the comment.
 - **Status** — green, amber, red, no data or no threshold. Computed when read by `status_of`, never stored; boundaries count as the better zone.
@@ -234,6 +235,13 @@ corrects a frozen value with a reason, and the correction is logged. Numbers
 are exact decimals (`NUMERIC(21, 6)`) and travel as strings. A meeting with
 values can no longer be deleted or moved to another date.
 
+Global metrics and copying are implemented too: administrators keep the
+catalogue of global metrics at `/global-metrics`, and a leader includes them in
+a board or copies another board's metric from the settings page. A metric's
+position, group, owner and retirement on a board live on its placement
+(`board_metrics`), not on the metric, so one global metric can sit on many
+boards; `metrics.team_id` is null for a global one.
+
 Everything else in the domain model above — targets, problems, tasks and archiving — is agreed but
 not built. Each is a capability of its own;
 propose it through `/opsx:propose` rather than adding it inline.
@@ -346,8 +354,8 @@ backend and meaningful coverage of every user-facing flow on the frontend.
 - **Integration tests** for API endpoints against a real Postgres. Use
   fixtures for test data; each test starts from a clean state.
 - **GUI tests** (Playwright) for the main flows: view board, record a meeting's
-  metric values, add/close problem, add/complete task, configure metrics, view
-  archive.
+  metric values, add/close problem, add/complete task, configure metrics (copy
+  one, include a global one), define global metrics, view archive.
 - **BDD tests** (pytest-bdd) only for business rules worth stating in plain
   language, e.g. the status of a metric value against its threshold (the one
   that exists), archiving. Do not write BDD for CRUD plumbing. Target inheritance is not one
