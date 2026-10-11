@@ -2,10 +2,11 @@
 
 from fastapi import APIRouter, status
 
-from app.api.dependencies import CurrentUserDependency
+from app.api.dependencies import CurrentUserDependency, SessionDependency
 from app.core.config import Mode, get_settings
 from app.core.security import issue_dev_token
 from app.schemas.auth import CurrentUserRead, DevLogin, DevToken
+from app.services.dev_login import authenticate_dev_login
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -35,13 +36,19 @@ def _register_dev_login(router: APIRouter) -> None:
         status_code=status.HTTP_200_OK,
         summary="Obtain a local token (development mode only)",
         description=(
-            "Mints a token for a test identity without the identity broker. This "
+            "Mints a token for a recorded employee or an administrator without the "
+            "identity broker. The password is not a secret: it is the email's first "
+            "character followed by the first character after each run of characters "
+            "that are not letters or digits (grzegorz.galka@pse.pl -> ggpp). This "
             "route exists only while BMAPP_MODE=dev, and the token it returns is "
             "signed with an algorithm a broker-mode server never accepts."
         ),
     )
-    def dev_login(payload: DevLogin) -> DevToken:
-        return DevToken(access_token=issue_dev_token(payload.email))
+    def dev_login(payload: DevLogin, session: SessionDependency) -> DevToken:
+        email = authenticate_dev_login(
+            session, payload.email, payload.password, get_settings().admin_emails
+        )
+        return DevToken(access_token=issue_dev_token(email))
 
 
 if get_settings().mode is Mode.DEV:

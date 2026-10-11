@@ -92,6 +92,33 @@ class NotAnEmployeeError(ForbiddenError):
         super().__init__(f"{email} is not a member of any team, so may not write.")
 
 
+class IncorrectDevPasswordError(DomainError):
+    """Raised when a development login gives a password not derived from its email.
+
+    401 like the token refusals, but not one of them: no token was presented,
+    and the field at fault is named. The password is derivable by anyone, so
+    saying which part was wrong conceals nothing.
+    """
+
+    status_code = 401
+    field = "password"
+    code = "auth.password_incorrect"
+
+    def __init__(self) -> None:
+        super().__init__("The password is not the development password for this email.")
+
+
+class UnknownEmployeeError(DomainError):
+    """Raised when a development login names neither an employee nor an administrator."""
+
+    status_code = 401
+    field = "email"
+    code = "auth.employee_unknown"
+
+    def __init__(self, email: str) -> None:
+        super().__init__(f"{email} is neither a recorded employee nor an administrator.")
+
+
 class DuplicateTeamNameError(DomainError):
     """Raised when a team name is already in use, ignoring case."""
 

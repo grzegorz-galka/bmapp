@@ -11,9 +11,11 @@ from app.core.exceptions import (
     DomainError,
     ExpiredTokenError,
     ForbiddenError,
+    IncorrectDevPasswordError,
     MissingTokenError,
     NotAnEmployeeError,
     UnauthenticatedError,
+    UnknownEmployeeError,
 )
 
 
@@ -25,6 +27,8 @@ from app.core.exceptions import (
         (ExpiredTokenError(), 401, "auth.token_expired"),
         (ForbiddenError(), 403, "auth.forbidden"),
         (NotAnEmployeeError("nobody@pse.pl"), 403, "auth.not_an_employee"),
+        (IncorrectDevPasswordError(), 401, "auth.password_incorrect"),
+        (UnknownEmployeeError("nobody@pse.pl"), 401, "auth.employee_unknown"),
     ],
 )
 def test_each_refusal_carries_its_status_and_code(

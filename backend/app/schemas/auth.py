@@ -21,13 +21,14 @@ class CurrentUserRead(BaseModel):
 class DevLogin(BaseModel):
     """A request for a local token in development mode.
 
-    An email and nothing else. There is deliberately no password field: one
-    that is sent, named `password` and never checked reads as authentication
-    to anyone reviewing the code, while protecting nothing the mode toggle
-    does not already protect.
+    `password` is checked, but it is not a secret: it is derived from the
+    email by a published rule (`app.services.dev_login.dev_password`), so it
+    keeps a developer deliberate about who they sign in as and protects
+    nothing the mode toggle does not already protect.
     """
 
     email: EmployeeEmail
+    password: str
 
 
 class DevToken(BaseModel):

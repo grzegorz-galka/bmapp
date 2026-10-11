@@ -10,6 +10,7 @@ from app.core.exceptions import (
     DomainError,
     DuplicateMemberError,
     DuplicateMetricNameError,
+    IncorrectDevPasswordError,
     LeaderNotMemberError,
     LeaderRemovalError,
     MeetingDateTakenError,
@@ -26,6 +27,7 @@ from app.core.exceptions import (
     TeamNotFoundError,
     ThresholdOrderError,
     ThresholdShapeError,
+    UnknownEmployeeError,
 )
 from app.main import handle_domain_error
 
@@ -54,6 +56,8 @@ SOME_ID = uuid.uuid4()
         (ThresholdShapeError("green_hi", "x"), 422, "green_hi", "request.invalid_field"),
         (MeetingFrozenError(SOME_ID), 409, None, "metric_value.meeting_frozen"),
         (CorrectionReasonBlankError(), 422, "reason", "metric_value_reason.blank"),
+        (IncorrectDevPasswordError(), 401, "password", "auth.password_incorrect"),
+        (UnknownEmployeeError("a@b.c"), 401, "email", "auth.employee_unknown"),
     ],
 )
 def test_maps_to_its_status_and_body(
