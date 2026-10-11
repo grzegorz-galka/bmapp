@@ -198,7 +198,10 @@ offer setting the schedule only to a viewer permitted to set it, and opening,
 moving, re-hosting and deleting meetings only to a viewer permitted to manage
 that team's meetings. The board SHALL offer recording values only to a viewer
 permitted to record them at the meeting shown, and the metric settings SHALL offer
-changing metrics and thresholds only to a viewer permitted to configure the board.
+changing metrics and thresholds, copying a metric and including a global metric
+only to a viewer permitted to configure the board. The global metrics page SHALL
+offer adding and changing global metrics and their thresholds only to an
+administrator.
 
 A viewer who may perform nothing on a page SHALL still see the page and everything
 it reads, since reading is open to everyone signed in.
@@ -245,13 +248,21 @@ it reads, since reading is open to everyone signed in.
 - **WHEN** a member of a team who does not lead it opens the board at a meeting that
   can be edited, and then the metric settings
 - **THEN** recording values is offered on the board, and the settings show the metrics
-  and thresholds without controls to change them
+  and thresholds without controls to change them, to copy a metric or to include a
+  global metric
 
 #### Scenario: A frozen meeting offers recording only to an administrator
 
 - **WHEN** a leader and then an administrator open the board at a frozen meeting
 - **THEN** recording is offered to the administrator only, as a correction asking for a
   reason
+
+#### Scenario: A leader sees the global metrics without controls
+
+- **WHEN** the leader of a team, who is not an administrator, opens the global metrics
+  page, and then an administrator opens it
+- **THEN** the leader sees the catalogue with no control to add or change a global metric
+  or its thresholds, and the administrator is offered all of them
 
 ### Requirement: A team's leader sets its meeting schedule
 
@@ -307,9 +318,9 @@ Holding the meeting is the team's shared work, and it does not wait on the leade
 
 ### Requirement: A team's leader configures its metrics and thresholds
 
-The system SHALL permit the leader of a team, as well as an administrator, to add, change, retire, bring back and delete the metrics of that team's board, and to record threshold versions for them. It SHALL refuse those writes to anyone else, including a member who does not lead the team.
+The system SHALL permit the leader of a team, as well as an administrator, to add, change, retire, bring back and delete the metrics of that team's board, to record threshold versions for them, to copy a metric of any board onto it, and to include, place and remove global metrics on it. It SHALL refuse those writes to anyone else, including a member who does not lead the team.
 
-What the team measures, and what counts as green, is part of configuring its board.
+What the team measures, and what counts as green, is part of configuring its board. Copying needs no permission on the source board, since anyone signed in may read it.
 
 #### Scenario: A leader adds a metric and its threshold
 
@@ -318,13 +329,23 @@ What the team measures, and what counts as green, is part of configuring its boa
 
 #### Scenario: An ordinary member cannot configure metrics
 
-- **WHEN** a member of a team who does not lead it adds a metric, changes one, or records a threshold version
+- **WHEN** a member of a team who does not lead it adds a metric, changes one, records a threshold version, copies a metric onto the board or includes a global metric in it
 - **THEN** each request is refused with `auth.forbidden`, and nothing is changed
 
 #### Scenario: An administrator configures any team's metrics
 
 - **WHEN** an administrator who does not belong to a team records a threshold version for one of its metrics
 - **THEN** the version is recorded
+
+#### Scenario: A leader copies from a board they do not belong to
+
+- **WHEN** the leader of a team copies a metric of another team's board, of which they are not a member, onto their own board
+- **THEN** the copy is added, and copying the same metric onto a board they do not lead is refused with `auth.forbidden`
+
+#### Scenario: A leader includes a global metric
+
+- **WHEN** the leader of a team, who is not an administrator, includes a global metric in its board and changes its placement there
+- **THEN** both are done as the `global-metrics` capability requires
 
 ### Requirement: A team's members record its metric values
 
@@ -355,3 +376,19 @@ Once a meeting is past its editing window, its record belongs to the organizatio
 
 - **WHEN** an administrator records a value with a reason at a frozen meeting
 - **THEN** the value is changed and the correction is logged
+
+### Requirement: Only an administrator defines global metrics
+
+The system SHALL permit only an administrator to add, change, retire, bring back and delete a global metric, and to record its threshold versions. It SHALL refuse those writes to anyone else, a team's leader included, with `auth.forbidden`.
+
+A metric measured the same way across the organization is the organization's decision, not one team's.
+
+#### Scenario: An administrator defines a global metric and its threshold
+
+- **WHEN** an administrator adds a global metric and records a threshold version for it
+- **THEN** both are recorded as the `global-metrics` capability requires
+
+#### Scenario: A leader cannot define a global metric
+
+- **WHEN** the leader of a team, who is not an administrator, adds a global metric, changes or retires one, or records a threshold version for one
+- **THEN** each request is refused with `auth.forbidden`, and nothing is changed

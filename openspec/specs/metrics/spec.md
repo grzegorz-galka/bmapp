@@ -6,17 +6,22 @@ Defines what a team measures on its board: its metrics, the thresholds that say 
 
 ### Requirement: Define a metric on a board
 
-The system SHALL allow a metric to be added to a board with a name, a unit, 0–6 decimals to show, a direction (`higher_is_better`, `lower_is_better` or `within_band`), an optional group label, a position and an optional owner. The name SHALL be trimmed, at most 200 characters and unique on the board regardless of case. The unit SHALL be at most 20 characters and MAY be empty. An owner SHALL be a team member when named.
+The system SHALL allow a metric to be added to a board with a name, a unit, 0–6 decimals to show, a direction (`higher_is_better`, `lower_is_better` or `within_band`), an optional group label, a position and an optional owner. The name SHALL be trimmed, at most 200 characters and unique on the board regardless of case, among the board's own metrics and the global metrics it includes. The unit SHALL be at most 20 characters and MAY be empty. An owner SHALL be a team member when named.
 
 #### Scenario: A metric is added
 
 - **WHEN** a metric is added with the name "Revenue", the unit "mln zł", 1 decimal, the direction `higher_is_better` and the group "Finance"
-- **THEN** it is returned with a unique identifier and those properties, with no threshold and not retired
+- **THEN** it is returned with a unique identifier and those properties, with no threshold, not retired and not global
 
 #### Scenario: Name is blank, too long or taken
 
 - **WHEN** a metric is added with a blank name, a name over 200 characters, or a name another metric of the same board uses in different letter case
 - **THEN** it is rejected against the field `name` with `metric_name.blank`, `metric_name.too_long` or `metric_name.duplicate` respectively, and no metric is added
+
+#### Scenario: Name of an included global metric
+
+- **WHEN** a metric is added, or a board's own metric renamed, with the name of a global metric the board includes, in any letter case
+- **THEN** it is rejected against `name` with `metric_name.duplicate`
 
 #### Scenario: Two boards use the same metric name
 
@@ -40,7 +45,7 @@ The system SHALL allow a metric to be added to a board with a name, a unit, 0–
 
 ### Requirement: List a board's metrics
 
-The system SHALL return a board's metrics ordered by display position, then by name. Each metric SHALL carry its properties, whether it is retired, and its threshold in force today, or none. Retired metrics SHALL be included and marked as such.
+The system SHALL return a board's metrics — its own and the global metrics it includes — ordered by display position, then by name. Each metric SHALL carry its properties, whether it is global, whether it is retired, and its threshold in force today, or none. A metric is retired on a board when it is retired there or, for a global metric, retired in the catalogue. Retired metrics SHALL be included and marked as such.
 
 #### Scenario: Metrics are returned in display order
 
@@ -52,9 +57,14 @@ The system SHALL return a board's metrics ordered by display position, then by n
 - **WHEN** a board has an active and a retired metric and its metrics are requested
 - **THEN** both are returned, and only the retired one is marked retired
 
+#### Scenario: Own and global metrics are listed together
+
+- **WHEN** a board with an own metric at position 2 and an included global metric at position 1 is requested
+- **THEN** the global metric is returned first, marked global, with its placement on this board and the catalogue's threshold in force today, and the own metric second, not marked global
+
 ### Requirement: Change a metric
 
-The system SHALL allow a metric's name, unit, decimals, group label, display position and owner to be changed, subject to the rules for defining one. A metric's direction SHALL NOT change after the metric is added: a request to change it SHALL be rejected with `metric_direction.immutable`, and the metric SHALL be unchanged.
+The system SHALL allow a board's own metric's name, unit, decimals, group label, display position and owner to be changed, subject to the rules for defining one. For a global metric the board includes, only what the `global-metrics` capability allows SHALL change. A metric's direction SHALL NOT change after the metric is added: a request to change it SHALL be rejected with `metric_direction.immutable`, and the metric SHALL be unchanged.
 
 #### Scenario: A metric is renamed and regrouped
 
@@ -68,7 +78,7 @@ The system SHALL allow a metric's name, unit, decimals, group label, display pos
 
 ### Requirement: Retire or delete a metric
 
-The system SHALL allow a metric to be retired and brought back. A retired metric SHALL keep its values and threshold history, SHALL NOT be shown on the board, and SHALL accept no new values. A metric SHALL be deletable only while no value is recorded for it. Otherwise deletion SHALL be rejected with `metric.has_values`.
+The system SHALL allow a metric to be retired and brought back. A retired metric SHALL keep its values and threshold history, SHALL NOT be shown on the board, and SHALL accept no new values. A board's own metric SHALL be deletable only while no value is recorded for it. Otherwise deletion SHALL be rejected with `metric.has_values`. Retiring or removing a global metric on a board SHALL follow the `global-metrics` capability.
 
 #### Scenario: A metric is retired
 
@@ -92,7 +102,7 @@ The system SHALL allow a metric to be retired and brought back. A retired metric
 
 ### Requirement: Record a threshold version
 
-The system SHALL allow a threshold version to be added to a metric with the date it takes effect from, a green boundary and an amber boundary, and a reason. A `within_band` metric has a lower and an upper boundary for each. Effective dates MAY be in the past. Versions SHALL be kept, never edited or deleted, each with who recorded it and when.
+The system SHALL allow a threshold version to be added to a board's own metric with the date it takes effect from, a green boundary and an amber boundary, and a reason. A `within_band` metric has a lower and an upper boundary for each. Effective dates MAY be in the past. Versions SHALL be kept, never edited or deleted, each with who recorded it and when. A global metric's versions SHALL be recorded in the catalogue, as the `global-metrics` capability requires, and never through a board.
 
 #### Scenario: A threshold version is recorded
 
@@ -190,3 +200,42 @@ The system SHALL compute a value's status when it is read. The status is `no_dat
 
 - **WHEN** a value was amber, and a version is then added effective from before its meeting under which it is green
 - **THEN** the value's status is green
+
+### Requirement: Copy a metric from another board
+
+The system SHALL allow a board's own metric, of any board, to be copied onto a board as a new metric of that board's own, optionally under a new name and at a given position. The copy SHALL take the source's unit, decimals, direction, group label and every threshold version, and SHALL NOT take its owner or its values. A global metric SHALL NOT be copied: that is rejected with `metric_copy.source_global`.
+
+#### Scenario: A metric is copied with its thresholds
+
+- **WHEN** a leader copies another team's metric "Open bugs" (unit "", `lower_is_better`, group "Quality") with versions effective from 2026-07-01 and 2026-09-01, onto their board
+- **THEN** their board has a new, active metric "Open bugs" with that unit, direction and group, no owner, no values, and two versions with the same effective dates, boundaries and reasons, each recorded by the leader at the time of copying
+
+#### Scenario: The same version is in force on every date
+
+- **WHEN** a metric with two versions effective from the same date is copied
+- **THEN** on that date and after, the copy's version in force has the boundaries of the source's version in force
+
+#### Scenario: A copy under a new name
+
+- **WHEN** a metric named "Revenue" is copied onto a board that has its own "Revenue", under the name "Revenue (Poland)"
+- **THEN** it is added as "Revenue (Poland)"
+
+#### Scenario: The copied name is taken
+
+- **WHEN** a metric is copied without a new name onto a board that already has a metric, its own or an included global one, of that name in any letter case
+- **THEN** it is rejected against `name` with `metric_name.duplicate`, and nothing is added
+
+#### Scenario: The copy is independent of its source
+
+- **WHEN** a copy is renamed and given a new threshold version, and its source is later changed and given another version
+- **THEN** neither change appears on the other metric
+
+#### Scenario: A global metric is not copied
+
+- **WHEN** a leader copies a global metric
+- **THEN** it is rejected against `source_metric_id` with `metric_copy.source_global` and HTTP 409, and nothing is added
+
+#### Scenario: The source does not exist
+
+- **WHEN** a leader copies a metric identifier that matches no metric
+- **THEN** it is rejected with `metric.not_found` and HTTP 404

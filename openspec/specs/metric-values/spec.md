@@ -6,7 +6,7 @@ Records the value of each of a board's metrics at each meeting, decides which me
 
 ### Requirement: Record a metric value at a meeting
 
-The system SHALL allow a value to be recorded for an active metric at a meeting of the same team. A value is an optional number, an optional comment, and an optional colour set by hand (green, amber or red). Recording again SHALL replace the value. The value SHALL carry who last recorded it and when, and SHALL be returned with its status.
+The system SHALL allow a value to be recorded for an active metric at a meeting of the same team. For a global metric, the same team is a team whose board includes it, and active means retired neither on that board nor in the catalogue. A value is an optional number, an optional comment, and an optional colour set by hand (green, amber or red). Recording again SHALL replace the value. The value SHALL carry who last recorded it and when, and SHALL be returned with its status.
 
 #### Scenario: A value is recorded
 
@@ -32,6 +32,16 @@ The system SHALL allow a value to be recorded for an active metric at a meeting 
 
 - **WHEN** a value is recorded for a retired metric
 - **THEN** it is rejected with `metric.retired` and HTTP 409
+
+#### Scenario: A global metric retired in the catalogue
+
+- **WHEN** a value is recorded for an included global metric that an administrator has retired in the catalogue
+- **THEN** it is rejected with `metric.retired` and HTTP 409
+
+#### Scenario: A global metric the board does not include
+
+- **WHEN** a value is recorded at a team's meeting for a global metric that team's board does not include
+- **THEN** it is rejected with `metric.not_found` and HTTP 404
 
 #### Scenario: Metric and meeting of different teams
 
@@ -189,3 +199,17 @@ The system SHALL present, for a metric, a trend chart over the team's meetings. 
 
 - **WHEN** the detail of a metric whose threshold changed between two meetings is opened
 - **THEN** the threshold line steps at the meeting from which the new version applies
+
+### Requirement: A global metric's values belong to each team
+
+The system SHALL keep the values of a global metric per team: a value belongs to the team whose meeting it was recorded at. A board, its completeness and a metric's trend SHALL show only the values recorded at that team's meetings, judged against the global metric's thresholds and placed as that board places it.
+
+#### Scenario: Two teams record the same global metric
+
+- **WHEN** two teams that include the same global metric record 99.1 and 99.8 for it at their own meetings
+- **THEN** each team's board shows only its own number, and each team's trend runs along its own meetings only
+
+#### Scenario: A global metric counts towards a board's completeness
+
+- **WHEN** a board with three own metrics and one included global metric has numbers for its own three at a meeting
+- **THEN** the board reports 3 of 4 recorded, with the global metric listed as missing, with the owner this board gave it
