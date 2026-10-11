@@ -241,6 +241,28 @@ uv run alembic revision --autogenerate -m "describe change"
 uv run alembic upgrade head
 ```
 
+## Loading a legacy Boardmeeting board
+
+`backend/scripts/import_legacy_board.py` loads the legacy single-file
+Boardmeeting tool into BMAPP as one team: its participants as employees (named
+`firstname.lastname@pse.pl`), the team, board and schedule, a meeting per week,
+its KPIs as metrics with threshold versions derived from the tool's own colour
+rule, and every recorded value with its comment. It needs both the backup
+(`boardmeeting-backup` JSON) and the tool's HTML, which holds the KPI
+definitions. Problems, tasks, pulse answers and projects are counted and
+skipped until BMAPP has them.
+
+```bash
+cd backend
+uv run python -m scripts.import_legacy_board BACKUP.json TOOL.html \
+    --team "Zarząd" --board "Board Zarządu" --actor you@pse.pl --dry-run
+```
+
+Drop `--dry-run` to commit; `--replace` deletes a team of that name first. It
+writes to `BMAPP_DATABASE_URL`, or `--database-url`. The backup is real board
+material: load it on-premise only, never into the Railway demo
+(see `SECURITY.md`).
+
 ## Configuration
 
 All configuration comes from environment variables — see `.env.example` for
