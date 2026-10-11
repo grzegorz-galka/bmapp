@@ -1,9 +1,11 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router';
 import { AppHeader } from './components/AppHeader';
 import { AuthCallbackPage } from './features/auth/AuthCallbackPage';
+import { BoardPage } from './features/board/BoardPage';
 import { CALLBACK_PATH } from './features/auth/config';
 import { HubPage } from './features/hub/HubPage';
 import { TeamMeetingsPage } from './features/meetings/TeamMeetingsPage';
+import { MetricSettingsPage } from './features/metrics/MetricSettingsPage';
 import { TeamMembersPage } from './features/teams/TeamMembersPage';
 import { TeamsPage } from './features/teams/TeamsPage';
 
@@ -32,10 +34,11 @@ export function AppRoutes({ completeSignIn }: { completeSignIn: () => Promise<bo
           element={<AuthCallbackPage complete={completeSignIn} />}
         />
         <Route path="teams" element={<TeamsPage />} />
-        {/* The bare /teams/:teamId is left free on purpose: a team's page is
-            its board, and the board capability will want that address. */}
+        {/* A team's own address is its board. */}
+        <Route path="teams/:teamId" element={<BoardPage />} />
         <Route path="teams/:teamId/members" element={<TeamMembersPage />} />
         <Route path="teams/:teamId/meetings" element={<TeamMeetingsPage />} />
+        <Route path="teams/:teamId/metrics" element={<MetricSettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

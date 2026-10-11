@@ -39,6 +39,14 @@ html[data-theme='dark'] {
   --warn: oklch(0.79 0.14 70);
   --bad: oklch(0.72 0.15 25);
 
+  /* A metric's status: a dot, a line or a badge's fill. Colour is never the
+     only signal - the status is always in words too - but a mark still has to
+     be seen at 3:1, and the ink on a badge read at 4.5:1. */
+  --status-green: oklch(0.75 0.14 150);
+  --status-amber: oklch(0.79 0.14 70);
+  --status-red: oklch(0.72 0.15 25);
+  --on-status: #0a0e13;
+
   --tile-configure: oklch(0.62 0.14 255);
   --tile-prepare: oklch(0.65 0.14 170);
   --tile-conduct: oklch(0.65 0.15 40);
@@ -74,6 +82,11 @@ html[data-theme='light'] {
   --good: oklch(0.46 0.13 150);
   --warn: oklch(0.45 0.12 60);
   --bad: oklch(0.5 0.18 25);
+
+  --status-green: oklch(0.46 0.13 150);
+  --status-amber: oklch(0.45 0.12 60);
+  --status-red: oklch(0.5 0.18 25);
+  --on-status: #ffffff;
 
   --tile-configure: oklch(0.62 0.14 255);
   --tile-prepare: oklch(0.65 0.14 170);

@@ -164,6 +164,74 @@ export function formatNumber(value: number, language: Language, unavailable: str
     : unavailable;
 }
 
+/*
+ * Metric values travel as decimal strings ("95.3"), never as floats, so a
+ * boundary comparison on the server is exact. They are parsed from and shown
+ * in the reader's own convention - "95,3" in Polish - without passing through
+ * a JavaScript number on the way, which could not hold 15 digits and 6 places.
+ */
+
+/** The decimal and grouping separators a language writes numbers with. */
+function separators(language: Language): { decimal: string; groups: string[] } {
+  const parts = new Intl.NumberFormat(LOCALES[language]).formatToParts(12345.6);
+  const decimal = parts.find((part) => part.type === 'decimal')?.value ?? '.';
+  const group = parts.find((part) => part.type === 'group')?.value ?? ',';
+  // Polish groups with a no-break space; people type an ordinary one.
+  const groups = /\s/.test(group) ? [group, ' ', '\u202f'] : [group];
+  return { decimal, groups };
+}
+
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * A number as typed in the active language, as the canonical string the API
+ * reads ("1 234,5" in Polish is "1234.5"), or null if it is not one.
+ *
+ * Thousands separators are accepted only in groups of three, so "95,3" in
+ * English is refused rather than read as 953.
+ */
+export function parseLocalizedDecimal(text: string, language: Language): string | null {
+  const { decimal, groups } = separators(language);
+  const group = `(?:${groups.map(escape).join('|')})`;
+  const pattern = new RegExp(
+    `^([-\u2212]?)(\\d{1,3}(?:${group}\\d{3})+|\\d+)(?:${escape(decimal)}(\\d+))?$`,
+  );
+  const match = pattern.exec(text.trim());
+  if (!match) return null;
+  const [, sign, whole = '', fraction] = match;
+  const digits = whole.replace(new RegExp(group, 'g'), '');
+  return `${sign ? '-' : ''}${digits}${fraction ? `.${fraction}` : ''}`;
+}
+
+/**
+ * A stored value as the reader would type it back: "95,3" in Polish, with no
+ * grouping and no unit, so it parses unchanged when the field loses focus.
+ */
+export function editableDecimal(value: string | null, language: Language): string {
+  if (value === null) return '';
+  return value.replace('.', separators(language).decimal);
+}
+
+/**
+ * "95,3 %" - a metric value at the metric's decimals, followed by its unit.
+ * A dash for a meeting with no number.
+ */
+export function formatMetricValue(
+  value: string | null,
+  decimals: number,
+  unit: string,
+  language: Language,
+): string {
+  if (value === null) return '—';
+  const number = new Intl.NumberFormat(LOCALES[language], {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+    // A decimal string is formatted exactly, digit for digit; the cast is
+    // only because the ES2022 library types predate that overload.
+  }).format(value as unknown as number);
+  return unit ? `${number}\u00a0${unit}` : number;
+}
+
 /** The language i18next is currently on, as one this module can format for. */
 export function activeLanguage(language: string): Language {
   return isSupported(language) ? language : FALLBACK_LANGUAGE;
@@ -189,6 +257,10 @@ export function useFormat() {
       meetingDate: (date: string) => formatMeetingDate(date, language, unavailable),
       meetingTime: (time: string) => formatMeetingTime(time, language, unavailable),
       scheduleWeekday: (weekday: number) => formatScheduleWeekday(weekday, language, unavailable),
+      metricValue: (value: string | null, decimals: number, unit: string) =>
+        formatMetricValue(value, decimals, unit, language),
+      parseDecimal: (text: string) => parseLocalizedDecimal(text, language),
+      editableDecimal: (value: string | null) => editableDecimal(value, language),
     }),
     [language, unavailable],
   );

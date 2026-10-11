@@ -125,6 +125,12 @@ export function TeamsPage() {
                 </span>
                 <span className={styles.actions}>
                   <Link
+                    to={`/teams/${encodeURIComponent(team.id)}`}
+                    aria-label={t('teams.boardLinkLabel', { name: team.name })}
+                  >
+                    {t('teams.boardLink')}
+                  </Link>
+                  <Link
                     to={`/teams/${encodeURIComponent(team.id)}/meetings`}
                     aria-label={t('teams.meetingsLinkLabel', { name: team.name })}
                   >

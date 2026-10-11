@@ -105,6 +105,7 @@ function contrast(foreground: Rgb, background: Rgb): number {
 
 const INKS = ['--ink', '--ink-2', '--ink-3', '--good', '--warn', '--bad', '--accent'];
 const SURFACES = ['--bg', '--panel', '--panel-2'];
+const STATUSES = ['--status-green', '--status-amber', '--status-red'];
 const PAIRINGS = SURFACES.flatMap((surface) => INKS.map((ink) => [ink, surface] as const));
 
 describe.each(['dark', 'light'] as const)('the %s theme', (theme) => {
@@ -127,6 +128,25 @@ describe.each(['dark', 'light'] as const)('the %s theme', (theme) => {
     );
 
     expect(ratio).toBeGreaterThanOrEqual(3);
+  });
+
+  it.each(STATUSES)('shows the %s status mark on every surface at 3:1 or better', (status) => {
+    for (const surface of SURFACES) {
+      const background = token(tokens, surface);
+
+      const ratio = contrast(composite(token(tokens, status), background), parse(background).rgb);
+
+      expect(ratio, surface).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it.each(STATUSES)('keeps text on the %s status fill readable', (status) => {
+    const ratio = contrast(
+      parse(token(tokens, '--on-status')).rgb,
+      parse(token(tokens, status)).rgb,
+    );
+
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
   });
 
   it('keeps text on the solid accent readable', () => {

@@ -1,0 +1,50 @@
+/* A status as a word with a coloured dot - never colour alone. */
+
+.badge {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--line-control);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.byHand {
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-pill);
+  font: 500 var(--fs-2xs) var(--font-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Threshold versions, the most recent first. */
+
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.historyWhen {
+  font-weight: 600;
+}
+
+.historyWhy {
+  display: block;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
