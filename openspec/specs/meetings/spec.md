@@ -150,7 +150,7 @@ The system SHALL allow the host of a meeting to be set to a member of its team, 
 
 ### Requirement: Delete a meeting
 
-The system SHALL allow a meeting to be deleted, after which it SHALL no longer be returned and its date SHALL be free for another meeting of the team. A meeting identifier that names no meeting of that team SHALL be rejected with the code `meeting.not_found`. A meeting at which any metric value is recorded SHALL NOT be deleted: the request SHALL be rejected with the code `meeting.has_values`.
+The system SHALL allow a meeting to be deleted, after which it SHALL no longer be returned and its date SHALL be free for another meeting of the team. A meeting identifier that names no meeting of that team SHALL be rejected with the code `meeting.not_found`. A meeting at which any metric value is recorded SHALL NOT be deleted: the request SHALL be rejected with the code `meeting.has_values`. A meeting at which any pulse answer is recorded SHALL NOT be deleted either: the request SHALL be rejected with the code `meeting.has_pulse_answers`.
 
 #### Scenario: A meeting opened by mistake is deleted
 
@@ -166,6 +166,16 @@ The system SHALL allow a meeting to be deleted, after which it SHALL no longer b
 
 - **WHEN** a meeting at which a metric value is recorded is deleted
 - **THEN** the request is rejected with the code `meeting.has_values` and HTTP 409, and the meeting and its values remain
+
+#### Scenario: A meeting with pulse answers cannot be deleted
+
+- **WHEN** a meeting at which a pulse answer is recorded, and no metric value, is deleted
+- **THEN** the request is rejected with the code `meeting.has_pulse_answers` and HTTP 409, and the meeting and its answers remain
+
+#### Scenario: A meeting with pulse answers can be moved
+
+- **WHEN** a meeting at which a pulse answer is recorded, and no metric value, is moved to another free date
+- **THEN** the meeting is returned on the new date, and its answers remain with it
 
 ### Requirement: Meetings are managed from the meetings page
 
