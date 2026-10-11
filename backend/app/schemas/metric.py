@@ -10,7 +10,7 @@ import uuid
 from dataclasses import dataclass
 from decimal import Decimal
 from itertools import pairwise
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import (
     BaseModel,
@@ -23,7 +23,7 @@ from pydantic import (
 from pydantic_core import PydanticCustomError
 
 from app.core.exceptions import GENERIC_ERROR_CODE, ThresholdOrderError, ThresholdShapeError
-from app.core.metric_enums import Colour, Direction, Status
+from app.core.metric_enums import Colour, Direction, Scope, Status
 from app.models import (
     METRIC_DECIMALS_MAX,
     METRIC_GROUP_MAX_LENGTH,
@@ -162,6 +162,59 @@ class MetricChange(_MetricFields):
         if value is None:
             raise PydanticCustomError(GENERIC_ERROR_CODE, "This property cannot be cleared.")
         return value
+
+
+class GlobalMetricCreate(_MetricFields):
+    """A request to add a metric to the company-wide catalogue.
+
+    Only the definition: where a board shows it and who owns it there are
+    each including board's own business.
+    """
+
+    name: str
+    unit: str = ""
+    decimals: int = 0
+    direction: Direction
+
+
+class GlobalMetricChange(_MetricFields):
+    """A partial change to a global metric. A key that is absent is left alone.
+
+    `direction` is accepted only so that changing it can be refused by name.
+    """
+
+    name: str | None = None
+    unit: str | None = None
+    decimals: int | None = None
+    direction: Direction | None = None
+    retired: bool | None = None
+
+    @field_validator("name", "unit", "decimals", "direction", "retired")
+    @classmethod
+    def not_null(cls, value: object) -> object:
+        if value is None:
+            raise PydanticCustomError(GENERIC_ERROR_CODE, "This property cannot be cleared.")
+        return value
+
+
+class MetricCopy(_MetricFields):
+    """A request to copy another board's own metric onto this board.
+
+    `name` renames the copy on the way in; absent, the source's name is kept.
+    """
+
+    source_metric_id: uuid.UUID
+    name: str | None = None
+    position: int = 0
+
+
+class GlobalMetricInclusion(_MetricFields):
+    """A request to include a global metric in a board: its placement there."""
+
+    global_metric_id: uuid.UUID
+    position: int = 0
+    group_label: str | None = None
+    owner_employee_id: uuid.UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -312,12 +365,19 @@ class ThresholdRead(BaseModel):
 
 
 class MetricDefinitionRead(BaseModel):
-    """A metric's properties, without any threshold."""
+    """A metric as one board has it, without any threshold.
+
+    Read from the metric's placement on that board: `team_id` is the board
+    read, for a global metric too, and `retired` says whether that board
+    shows it - retired there, or retired in the catalogue.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     team_id: uuid.UUID
+    #: Whether the metric is the board's own or a global one it includes.
+    scope: Scope
     name: str
     unit: str
     decimals: int
@@ -326,12 +386,31 @@ class MetricDefinitionRead(BaseModel):
     position: int
     owner: OwnerRead | None
     retired: bool
+    #: Retired by an administrator in the catalogue; always false for a
+    #: board's own metric. Bringing it back on the board would not show it.
+    retired_in_catalogue: bool
 
 
 class MetricRead(MetricDefinitionRead):
     """A metric as the settings list it, with the threshold in force today."""
 
     threshold: ThresholdRead | None
+
+
+class GlobalMetricRead(BaseModel):
+    """A global metric as the catalogue lists it, with no board's placement."""
+
+    id: uuid.UUID
+    scope: Literal[Scope.GLOBAL] = Scope.GLOBAL
+    name: str
+    unit: str
+    decimals: int
+    direction: Direction
+    retired: bool
+    #: The version in force today, or none.
+    threshold: ThresholdRead | None
+    #: How many boards include it.
+    boards: int
 
 
 class MetricValueRead(BaseModel):

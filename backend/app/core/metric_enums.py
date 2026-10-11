@@ -1,4 +1,4 @@
-"""The fixed vocabularies of metrics: direction, colour and status.
+"""The fixed vocabularies of metrics: direction, colour, status and scope.
 
 Here rather than beside the models or the status rule because both use them,
 and the status rule must not import SQLAlchemy - through the models package
@@ -32,3 +32,10 @@ class Status(StrEnum):
     RED = auto()
     NO_DATA = auto()
     NO_THRESHOLD = auto()
+
+
+class Scope(StrEnum):
+    """Whose a metric on a board is: the board's own, or the company-wide catalogue's."""
+
+    BOARD = auto()
+    GLOBAL = auto()

@@ -4,8 +4,14 @@ import datetime
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from tests.conftest import ADMIN_EMAIL
+from tests.integration.global_metrics_seed import (
+    include,
+    retire_in_catalogue,
+    seed_global_metric,
+)
 from tests.integration.meetings_api import error_of, open_meeting
 from tests.integration.metrics_api import (
     add_metric,
@@ -90,6 +96,36 @@ def test_a_retired_metric(client: TestClient, board: tuple[str, str, str]) -> No
 
     assert response.status_code == 409
     assert error_of(response) == (None, "metric.retired")
+
+
+def test_a_global_metric_retired_in_the_catalogue(
+    client: TestClient, session: Session, board: tuple[str, str, str]
+) -> None:
+    """Scenario: A global metric retired in the catalogue."""
+    team_id, meeting_id, _ = board
+    availability = seed_global_metric(session)
+    include(client, team_id, availability)
+    retire_in_catalogue(session, availability)
+
+    response = put_value(client, team_id, meeting_id, availability, value="99")
+
+    assert response.status_code == 409
+    assert error_of(response) == (None, "metric.retired")
+
+
+def test_a_global_metric_the_board_does_not_include(
+    client: TestClient, session: Session, board: tuple[str, str, str]
+) -> None:
+    """Scenario: A global metric the board does not include."""
+    team_id, meeting_id, _ = board
+    other = register(client, "Other", "lead.other@example.com")
+    availability = seed_global_metric(session)
+    include(client, other["id"], availability)
+
+    response = put_value(client, team_id, meeting_id, availability, value="99")
+
+    assert response.status_code == 404
+    assert error_of(response) == (None, "metric.not_found")
 
 
 def test_metric_and_meeting_of_different_teams(

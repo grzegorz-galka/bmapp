@@ -233,14 +233,18 @@ class MeetingHasValuesError(DomainError):
 
 
 class DuplicateMetricNameError(DomainError):
-    """Raised when a board already has a metric of that name, ignoring case."""
+    """Raised when a board already has a metric of that name, ignoring case.
+
+    Its own or an included global one. Reported against `name`, or against
+    whichever field brought the name in - `global_metric_id` when including.
+    """
 
     status_code = 409
     field = "name"
     code = "metric_name.duplicate"
 
-    def __init__(self, name: str) -> None:
-        super().__init__(f"This board already has a metric named {name!r}.")
+    def __init__(self, name: str, field: str = "name") -> None:
+        super().__init__(f"This board already has a metric named {name!r}.", field)
 
 
 class MetricOwnerNotMemberError(DomainError):
@@ -297,6 +301,43 @@ class MetricHasValuesError(DomainError):
 
     def __init__(self, metric_id: object) -> None:
         super().__init__(f"Metric {metric_id} has recorded values; retire it instead.")
+
+
+class GlobalMetricReadOnlyError(DomainError):
+    """Raised when a board changes a global metric's definition or records its threshold.
+
+    A rule about the metric, not about the person - an administrator is
+    refused too - so 409 rather than `auth.forbidden`: a global metric is
+    changed in the catalogue, never through a board.
+    """
+
+    status_code = 409
+    code = "global_metric.read_only"
+
+    def __init__(self, field: str | None = None) -> None:
+        super().__init__("A global metric's definition is changed in the catalogue.", field)
+
+
+class GlobalMetricAlreadyIncludedError(DomainError):
+    """Raised when a board includes a global metric it already includes."""
+
+    status_code = 409
+    field = "global_metric_id"
+    code = "global_metric.already_included"
+
+    def __init__(self, metric_id: object) -> None:
+        super().__init__(f"This board already includes the global metric {metric_id}.")
+
+
+class MetricCopySourceGlobalError(DomainError):
+    """Raised when a global metric is copied; a board includes it instead."""
+
+    status_code = 409
+    field = "source_metric_id"
+    code = "metric_copy.source_global"
+
+    def __init__(self, metric_id: object) -> None:
+        super().__init__(f"Metric {metric_id} is global; include it instead of copying it.")
 
 
 class ThresholdOrderError(DomainError):

@@ -24,7 +24,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
-from app.core.metric_enums import Colour, Direction
+from app.core.metric_enums import Colour, Direction, Scope
 from app.models.employee import EMAIL_MAX_LENGTH, Employee
 
 METRIC_NAME_MAX_LENGTH = 200
@@ -59,23 +59,38 @@ def _enum(enum: type[Direction] | type[Colour], name: str) -> Enum:
 
 
 class Metric(Base):
-    """A named thing a team measures on its board."""
+    """A named thing teams measure: the definition, without where a board shows it.
+
+    A board's own metric has `team_id` set to that board's team, and exactly
+    one placement, on that team. A global metric has no `team_id` and a
+    placement on every board that includes it. Where a board shows a metric,
+    who owns it there and whether it is retired there live on the placement.
+    """
 
     __tablename__ = "metrics"
     __table_args__ = (
         # The same pattern as team names: the index decides a duplicate, so
         # two concurrent additions cannot both pass a read-then-write check.
+        # PostgreSQL treats NULLs as distinct, so global metrics never meet here.
         Index("uq_metrics_team_name_lower", "team_id", text("lower(name)"), unique=True),
+        Index(
+            "uq_metrics_global_name_lower",
+            text("lower(name)"),
+            unique=True,
+            postgresql_where=text("team_id IS NULL"),
+        ),
         CheckConstraint("btrim(name) <> ''", name="ck_metrics_name_not_blank"),
         CheckConstraint(
             f"decimals BETWEEN 0 AND {METRIC_DECIMALS_MAX}", name="ck_metrics_decimals"
         ),
-        Index("ix_metrics_owner_employee_id", "owner_employee_id"),
+        # An own metric is retired on its placement; only the catalogue
+        # retires a definition, so there is one place each kind is retired.
+        CheckConstraint("team_id IS NULL OR NOT retired", name="ck_metrics_global_only_retired"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    team_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=False
+    team_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=True
     )
     name: Mapped[str] = mapped_column(String(METRIC_NAME_MAX_LENGTH), nullable=False)
     unit: Mapped[str] = mapped_column(String(METRIC_UNIT_MAX_LENGTH), nullable=False, default="")
@@ -83,18 +98,91 @@ class Metric(Base):
     direction: Mapped[Direction] = mapped_column(
         _enum(Direction, "metric_direction"), nullable=False
     )
-    group_label: Mapped[str | None] = mapped_column(String(METRIC_GROUP_MAX_LENGTH), nullable=True)
-    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    # RESTRICT, as for hosts: an owner keeps resolving after leaving the team.
-    owner_employee_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=True
-    )
+    #: Retired in the catalogue. Always false for a board's own metric.
     retired: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
+    # The database removes the placements with the metric; the ORM need not
+    # load them first.
+    placements: Mapped[list[BoardMetric]] = relationship(
+        back_populates="metric", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+    @property
+    def scope(self) -> Scope:
+        return Scope.GLOBAL if self.team_id is None else Scope.BOARD
+
+
+class BoardMetric(Base):
+    """A metric's placement on one board: where it is shown, who owns it, and retirement.
+
+    Read through the definition, so it answers to the same names a metric
+    read model expects: `id` is the metric's, `team_id` the board's, and
+    `retired` whether the board shows it at all.
+    """
+
+    __tablename__ = "board_metrics"
+    __table_args__ = (Index("ix_board_metrics_owner_employee_id", "owner_employee_id"),)
+
+    team_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), primary_key=True
+    )
+    metric_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("metrics.id", ondelete="CASCADE"), primary_key=True
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    group_label: Mapped[str | None] = mapped_column(String(METRIC_GROUP_MAX_LENGTH), nullable=True)
+    # RESTRICT, as for hosts: an owner keeps resolving after leaving the team.
+    owner_employee_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=True
+    )
+    #: Retired on this board. The column is `retired`; the attribute says
+    #: where, because `retired` below is the answer a reader wants.
+    retired_on_board: Mapped[bool] = mapped_column(
+        "retired", Boolean, nullable=False, default=False
+    )
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    metric: Mapped[Metric] = relationship(lazy="joined", back_populates="placements")
     owner: Mapped[Employee | None] = relationship(lazy="joined")
+
+    @property
+    def id(self) -> uuid.UUID:
+        return self.metric_id
+
+    @property
+    def name(self) -> str:
+        return self.metric.name
+
+    @property
+    def unit(self) -> str:
+        return self.metric.unit
+
+    @property
+    def decimals(self) -> int:
+        return self.metric.decimals
+
+    @property
+    def direction(self) -> Direction:
+        return self.metric.direction
+
+    @property
+    def scope(self) -> Scope:
+        return self.metric.scope
+
+    @property
+    def retired(self) -> bool:
+        """Retired on this board, or for a global metric, in the catalogue."""
+        return self.retired_on_board or self.metric.retired
+
+    @property
+    def retired_in_catalogue(self) -> bool:
+        """Only an administrator brings this back; the board's own switch cannot."""
+        return self.metric.retired
 
 
 class MetricThreshold(Base):

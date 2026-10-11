@@ -60,6 +60,16 @@ def may_configure_the_board(*, is_admin: bool, relationship: Relationship) -> bo
     return is_admin or relationship is Relationship.LEADER
 
 
+def may_define_global_metrics(*, is_admin: bool) -> bool:
+    """The company-wide catalogue: its metrics and their thresholds.
+
+    The organization's, like registering a team. No team's leader may: a
+    global metric is judged the same way on every board, so no one board
+    decides how.
+    """
+    return is_admin
+
+
 def may_record_meeting_data(*, is_admin: bool, relationship: Relationship) -> bool:
     """Meetings, metric values, problems and tasks: anyone on the team.
 

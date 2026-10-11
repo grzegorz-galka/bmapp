@@ -9,7 +9,9 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import CurrentUser, CurrentUserDependency, relationship_to, require
 from app.core.db import get_session
 from app.schemas import (
+    GlobalMetricInclusion,
     MetricChange,
+    MetricCopy,
     MetricCreate,
     MetricDefinitionRead,
     MetricRead,
@@ -24,7 +26,9 @@ from app.services.metrics import (
     MetricWithThreshold,
     add_metric,
     change_metric,
+    copy_metric,
     delete_metric,
+    include_global_metric,
     list_metrics,
     list_thresholds,
     record_threshold,
@@ -48,7 +52,7 @@ def _require_configurer(session: Session, current_user: CurrentUser, team_id: uu
 
 def _read(entry: MetricWithThreshold) -> MetricRead:
     return MetricRead(
-        **dict(MetricDefinitionRead.model_validate(entry.metric)),
+        **dict(MetricDefinitionRead.model_validate(entry.placement)),
         threshold=ThresholdRead.model_validate(entry.threshold) if entry.threshold else None,
     )
 
@@ -70,8 +74,37 @@ def create_metric(
 ) -> MetricRead:
     """Add a metric to the board."""
     _require_configurer(session, current_user, team_id)
-    metric = add_metric(session, team_id, payload, current_user.email)
-    return _read(MetricWithThreshold(metric, None))
+    placement = add_metric(session, team_id, payload, current_user.email)
+    return _read(MetricWithThreshold(placement, None))
+
+
+@router.post("/inclusions", response_model=MetricRead, status_code=status.HTTP_201_CREATED)
+def create_inclusion(
+    team_id: uuid.UUID,
+    payload: GlobalMetricInclusion,
+    session: SessionDependency,
+    current_user: CurrentUserDependency,
+) -> MetricRead:
+    """Include a global metric in the board, placed as the board chooses."""
+    _require_configurer(session, current_user, team_id)
+    placement = include_global_metric(session, team_id, payload, current_user.email)
+    return _read(with_threshold(session, placement, today()))
+
+
+@router.post("/copies", response_model=MetricRead, status_code=status.HTTP_201_CREATED)
+def create_copy(
+    team_id: uuid.UUID,
+    payload: MetricCopy,
+    session: SessionDependency,
+    current_user: CurrentUserDependency,
+) -> MetricRead:
+    """Copy a metric of any board onto this one, with its thresholds.
+
+    Only the target board is guarded: anyone signed in may read the source.
+    """
+    _require_configurer(session, current_user, team_id)
+    placement = copy_metric(session, team_id, payload, current_user.email)
+    return _read(with_threshold(session, placement, today()))
 
 
 @router.patch("/{metric_id}", response_model=MetricRead)
@@ -84,8 +117,8 @@ def update_metric(
 ) -> MetricRead:
     """Change a metric, retire it or bring it back. A key left out is left alone."""
     _require_configurer(session, current_user, team_id)
-    metric = change_metric(session, team_id, metric_id, payload, current_user.email)
-    return _read(with_threshold(session, metric, today()))
+    placement = change_metric(session, team_id, metric_id, payload, current_user.email)
+    return _read(with_threshold(session, placement, today()))
 
 
 @router.delete("/{metric_id}", status_code=status.HTTP_204_NO_CONTENT)
