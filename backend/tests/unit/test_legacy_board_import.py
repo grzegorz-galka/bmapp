@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import pytest
 
+from app.core.item_enums import Stage
 from app.core.metric_enums import Colour, Direction
 from scripts.import_legacy_board import (
     Bounds,
@@ -14,8 +15,10 @@ from scripts.import_legacy_board import (
     bounds_for,
     email_of,
     hand_colour,
+    owners_of,
     read_definitions,
     scaled,
+    stage_of,
     threshold_versions,
 )
 from tests.legacy_board_fixture import TOOL_HTML
@@ -135,3 +138,25 @@ def test_the_tools_configuration_is_read_and_its_embedded_backup_ignored() -> No
 def test_a_tool_without_configuration_is_refused() -> None:
     with pytest.raises(LegacyImportError, match="kpis"):
         read_definitions("<html></html>")
+
+
+def test_a_legacy_status_is_its_pdca_stage() -> None:
+    assert [stage_of({"status": n}) for n in range(5)] == [
+        Stage.NOT_STARTED,
+        Stage.PLAN,
+        Stage.DO,
+        Stage.CHECK,
+        Stage.ACT,
+    ]
+    assert stage_of({}) is Stage.NOT_STARTED
+
+
+def test_an_unknown_status_is_refused() -> None:
+    with pytest.raises(LegacyImportError, match="status 7"):
+        stage_of({"status": 7, "title": "X"})
+
+
+def test_the_owners_of_an_item_are_split_in_the_order_named() -> None:
+    assert owners_of({"owner": "Anna Nowak/ Jan Kowalski"}) == ["Anna Nowak", "Jan Kowalski"]
+    assert owners_of({"owner": ""}) == []
+    assert owners_of({}) == []

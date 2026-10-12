@@ -31,7 +31,9 @@ const CFG = {
 
 
 def backup() -> dict[str, Any]:
-    """A backup with three weeks: a target change, unit values and an override."""
+    """A backup with three weeks: a target change, unit values, an override,
+    problems and tasks at several stages, and pulse answers.
+    """
     return {
         "format": "boardmeeting-backup",
         "version": 1,
@@ -60,7 +62,92 @@ def backup() -> dict[str, Any]:
                     "u_otif__north": {"color": "y", "comment": "Late supplier", "value": 0.9},
                 },
             },
-            "problems": {"pr1": {"title": "Something"}},
-            "tasks": {"t1": {"title": "Do it"}, "t2": {"title": "Do more"}},
+            "problems": {
+                "pr1": {
+                    "title": "Builds break on Mondays",
+                    "cause": "A shared test database",
+                    "idea": "",
+                    "comment": "",
+                    "owner": "Jan Kowalski",
+                    "kpi": "backlog",
+                    "status": 4,
+                    "due": "2026-09-30",
+                    "createdWeek": "2026-09-23",
+                    "closedWeek": "2026-10-07",
+                },
+                "pr2": {
+                    "title": "Too little focus at the board",
+                    "cause": "",
+                    "idea": "Keep the routines on one tab",
+                    "comment": "Discussed twice",
+                    "owner": "Ewa Nowak/Jan Kowalski",
+                    "kpi": "",
+                    "status": 1,
+                    "due": "2026-10-21",
+                    "createdWeek": "2026-09-30",
+                    "closedWeek": None,
+                },
+            },
+            "tasks": {
+                "t1": {
+                    "title": "Give each pipeline its own database",
+                    "comment": "Ask the platform team first",
+                    "owner": "Jan Kowalski",
+                    "kpi": "revenue",
+                    "problemId": "pr2",
+                    "status": 2,
+                    "due": "2026-10-14",
+                    "createdWeek": "2026-09-30",
+                    "closedWeek": None,
+                },
+                "t2": {
+                    "title": "Decide how often the pulse is answered",
+                    "comment": "",
+                    "owner": "Adam Nowy",
+                    "kpi": "pulse",
+                    "problemId": None,
+                    "status": 0,
+                    "due": "",
+                    "createdAt": 1791380812256,
+                    "createdWeek": "2026-10-07",
+                    "closedWeek": None,
+                },
+                "t3": {
+                    "title": "Update the agenda",
+                    "comment": "",
+                    "owner": "Zofia Łęcka",
+                    "kpi": "",
+                    "problemId": None,
+                    "status": 4,
+                    "due": "2026-10-07",
+                    "createdWeek": "2026-10-07",
+                    "closedWeek": "2026-10-07",
+                },
+            },
+            "pulse": {
+                "2026-10-07__jan-kowalski": {
+                    "week": "2026-10-07",
+                    "person": "Jan Kowalski",
+                    "mood": 4,
+                    "pos": "A good release",
+                    "neg": "Too many meetings",
+                    "better": "",
+                    "at": 1791363000000,
+                },
+                "2026-10-07__ewa-nowak": {
+                    "week": "2026-10-07",
+                    "person": "Ewa Nowak",
+                    "mood": 2,
+                    "pos": "",
+                    "neg": "Illness in the team",
+                    "better": "Fewer meetings",
+                },
+                "2026-10-14__ewa-nowak": {
+                    "week": "2026-10-14",
+                    "person": "Ewa Nowak",
+                    "mood": 5,
+                },
+            },
+            "projects": {"pj1": {"name": "Migration", "weight": 1, "history": {}}},
         },
     }

@@ -248,10 +248,13 @@ uv run alembic upgrade head
 Boardmeeting tool into BMAPP as one team: its participants as employees (named
 `firstname.lastname@pse.pl`), the team, board and schedule, a meeting per week,
 its KPIs as metrics with threshold versions derived from the tool's own colour
-rule, and every recorded value with its comment. It needs both the backup
-(`boardmeeting-backup` JSON) and the tool's HTML, which holds the KPI
-definitions. Problems, tasks, pulse answers and projects are counted and
-skipped: BMAPP now has problems and tasks, but the importer does not load them yet.
+rule, every recorded value with its comment, every problem and task at its
+PDCA stage (archived where the tool closed it, with the meetings it was raised
+and closed at), and every pulse answer at its week's meeting. It needs both the
+backup (`boardmeeting-backup` JSON) and the tool's HTML, which holds the KPI
+definitions. The KPI projects are counted and skipped. An item with several
+owners gets the first as its responsible person and names the others in its
+text.
 
 ```bash
 cd backend
