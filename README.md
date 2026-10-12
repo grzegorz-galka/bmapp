@@ -15,18 +15,19 @@ another board or includes global metrics; a global metrics page at
 `/global-metrics`, where administrators define metrics shared by every board
 that includes them; and its board at
 `/teams/:teamId`, where members record each meeting's values and read their
-trends, and answer and review the weekly pulse check. On top of it sits
+trends, answer and review the weekly pulse check, and keep the team's
+problems and tasks from raising to the archive. On top of it sits
 the **hub** at `/`, the landing page built from the mockup in `mockups/` — the
 company declarations, your teams and the countdown to the next board meeting,
 what happens at a board meeting, and the problem and task funnel. See
 `openspec/` for what is specified and `CLAUDE.md` for the conventions.
 
-> **The hub's figures are placeholder data.** They come from one read-only
-> endpoint, `GET /hub`, built from constants: no tables, no migration, nothing
-> recorded. The response says so in a `provisional` field and the page says so
-> at the foot. It exists so the shell is real while the capabilities behind it
-> — problems, tasks, and the meetings and metric values now recorded — are wired in;
-> each will replace a slice of it.
+> **The hub's figures are mostly placeholder data.** They come from one
+> read-only endpoint, `GET /hub`. The problem and task funnel and the items
+> assigned to you are recorded data; the declarations, teams and preparation
+> counts are still constants. The response says so in a `provisional` field and
+> the page says so at the foot. Each capability still to be wired in will
+> replace a slice of it.
 
 > **Not deployable, except as a demo.** Every service in the Compose stack
 > binds to `127.0.0.1`. The only deployment is a public demonstration on
@@ -250,7 +251,7 @@ its KPIs as metrics with threshold versions derived from the tool's own colour
 rule, and every recorded value with its comment. It needs both the backup
 (`boardmeeting-backup` JSON) and the tool's HTML, which holds the KPI
 definitions. Problems, tasks, pulse answers and projects are counted and
-skipped until BMAPP has them.
+skipped: BMAPP now has problems and tasks, but the importer does not load them yet.
 
 ```bash
 cd backend
