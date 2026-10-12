@@ -3,9 +3,9 @@
  * specs/metric-values/spec.md, then what each tile and the navigator show.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Route, Routes } from 'react-router';
+import { Route, Routes, useLocation } from 'react-router';
 import { BoardPage, defaultMeeting } from './BoardPage';
 import { renderWithLanguage } from '../../test/render';
 import { en } from '../../i18n/en';
@@ -302,5 +302,104 @@ describe('the board page', () => {
     await renderBoard();
 
     expect(await screen.findByRole('alert')).toHaveTextContent(en.errors['meeting.not_found']);
+  });
+});
+
+function Address() {
+  const location = useLocation();
+  return <output data-testid="address">{location.search}</output>;
+}
+
+async function renderWithAddress(query: string) {
+  await renderWithLanguage(
+    <Routes>
+      <Route
+        path="/teams/:teamId"
+        element={
+          <>
+            <BoardPage />
+            <Address />
+          </>
+        }
+      />
+    </Routes>,
+    'en',
+    { route: `/teams/${TEAM_ID}${query}`, auth: { email: MEMBER } },
+  );
+  await screen.findByRole('heading', { name: en.board.heading.replace('{{name}}', 'Platform') });
+}
+
+function address(): URLSearchParams {
+  return new URLSearchParams(screen.getByTestId('address').textContent ?? '');
+}
+
+describe('the recording view has its own address', () => {
+  it('The recording view survives a reload', async () => {
+    const user = userEvent.setup();
+    await renderWithAddress('?meeting=m-2026-10-07');
+    await user.click(await screen.findByRole('button', { name: en.board.record }));
+
+    expect(address().get('mode')).toBe('record');
+    expect(address().get('meeting')).toBe('m-2026-10-07');
+
+    const reloaded = `?${address().toString()}`;
+    cleanup();
+    await renderWithLanguage(
+      <Routes>
+        <Route path="/teams/:teamId" element={<BoardPage />} />
+      </Routes>,
+      'en',
+      { route: `/teams/${TEAM_ID}${reloaded}`, auth: { email: MEMBER } },
+    );
+
+    expect(
+      await screen.findByRole('region', { name: /Values at the meeting on/ }),
+    ).toBeInTheDocument();
+    expect(meetingShown()).toBe('m-2026-10-07');
+    expect(screen.getByRole('button', { name: en.board.showTiles })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('Closing the recording view updates the address', async () => {
+    const user = userEvent.setup();
+    await renderWithAddress('?meeting=m-2026-10-14&mode=record');
+    await screen.findByRole('region', { name: /Values at the meeting on/ });
+
+    await user.click(screen.getByRole('button', { name: en.board.showTiles }));
+
+    await waitFor(() => expect(address().get('mode')).toBeNull());
+    expect(address().get('meeting')).toBe('m-2026-10-14');
+    expect(
+      screen.queryByRole('region', { name: /Values at the meeting on/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: en.board.record })).toBeInTheDocument();
+  });
+
+  it('keeps the recording view open when moving between meetings', async () => {
+    const user = userEvent.setup();
+    await renderWithAddress('?meeting=m-2026-10-14&mode=record');
+    await screen.findByRole('region', { name: /Values at the meeting on/ });
+
+    await user.click(screen.getByRole('button', { name: `← ${en.board.previousMeeting}` }));
+
+    expect(address().get('meeting')).toBe('m-2026-10-07');
+    expect(address().get('mode')).toBe('record');
+  });
+
+  it('ignores a recording mode asked of another view', async () => {
+    await renderWithLanguage(
+      <Routes>
+        <Route path="/teams/:teamId" element={<BoardPage />} />
+      </Routes>,
+      'en',
+      { route: `/teams/${TEAM_ID}?view=archived&mode=record`, auth: { email: MEMBER } },
+    );
+
+    await screen.findByRole('button', { name: en.archive.view, pressed: true });
+    expect(
+      screen.queryByRole('region', { name: /Values at the meeting on/ }),
+    ).not.toBeInTheDocument();
   });
 });
