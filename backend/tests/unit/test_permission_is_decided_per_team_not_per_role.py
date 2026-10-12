@@ -109,6 +109,24 @@ def test_a_stranger_does_not_record_meeting_data() -> None:
     assert may_record_meeting_data(is_admin=False, relationship=Relationship.STRANGER) is False
 
 
+# --- Problems and tasks --------------------------------------------------------
+#
+# The same rule as the rest of the meeting's data: no permission of their own.
+
+
+@pytest.mark.parametrize("relationship", [Relationship.MEMBER, Relationship.LEADER])
+def test_anyone_on_the_team_keeps_its_problems_and_tasks(relationship: Relationship) -> None:
+    assert may_record_meeting_data(is_admin=False, relationship=relationship) is True
+
+
+def test_an_administrator_who_is_a_stranger_keeps_a_teams_problems_and_tasks() -> None:
+    assert may_record_meeting_data(is_admin=True, relationship=Relationship.STRANGER) is True
+
+
+def test_a_stranger_does_not_keep_a_teams_problems_and_tasks() -> None:
+    assert may_record_meeting_data(is_admin=False, relationship=Relationship.STRANGER) is False
+
+
 # --- Reading -------------------------------------------------------------------
 
 

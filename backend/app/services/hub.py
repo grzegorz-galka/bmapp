@@ -1,25 +1,30 @@
 """The hub summary.
 
-Placeholder data, and the small amount of arithmetic that keeps it honest.
-Everything the hub shows belongs to capabilities that are agreed but not yet
-built - employees, meetings, metrics, problems, tasks - so until those exist
-the figures below are constants, shaped the way the real capabilities will
-eventually fill them.
+Partly placeholder data, and the small amount of arithmetic that keeps it
+honest. The funnel and the items assigned to the caller are read from the
+recorded problems and tasks. The declarations, teams, preparation counts and
+in-session flag still belong to capabilities not yet built, so they remain
+constants, shaped the way the real capabilities will eventually fill them -
+which is why the response still declares itself provisional.
 
-Two things are computed rather than written down. Each team's next meeting is
-the next occurrence of its weekly slot, and each assigned item's due date is
-an offset from today. Hard-coded dates would rot within the week into a
-countdown running backwards, and this page has to stay reviewable for as long
-as the rest of BMAPP takes to build.
+Each team's next meeting is computed rather than written down: it is the next
+occurrence of its weekly slot. A hard-coded date would rot within the week
+into a countdown running backwards.
 
-The weekly slot is interpreted as UTC. An organisation-wide time zone is a
-decision the meetings capability should make, not this one; a duration is
-time-zone independent either way, so the countdown is right regardless.
+The weekly slot is interpreted as UTC. A duration is time-zone independent,
+so the countdown is right regardless.
 """
 
 import datetime
 from dataclasses import dataclass
+from typing import Any
 
+from sqlalchemy import ColumnElement, Select, case, func, literal, select, union_all
+from sqlalchemy.orm import Session
+
+from app.core.item_enums import Stage
+from app.core.time import ORGANIZATION_TZ
+from app.models import Employee, Problem, Task, Team, TeamMember
 from app.schemas.hub import (
     AssignedItem,
     BoardReadiness,
@@ -27,6 +32,7 @@ from app.schemas.hub import (
     Declarations,
     Funnel,
     FunnelStage,
+    FunnelStageCode,
     HubSummary,
     HubTeam,
     ItemKind,
@@ -35,6 +41,7 @@ from app.schemas.hub import (
     ReadinessCode,
     TeamRole,
 )
+from app.services.item_lifecycle import is_overdue
 
 
 @dataclass(frozen=True)
@@ -50,22 +57,6 @@ class _TeamSeed:
     time_of_day: datetime.time
     readiness: ReadinessCode
     missing_metrics: int | None = None
-
-
-@dataclass(frozen=True)
-class _ItemSeed:
-    """An assigned item, with its due date held relative to today.
-
-    The offsets are chosen so that one item is always overdue and the rest are
-    not, whenever the summary happens to be requested.
-    """
-
-    id: str
-    kind: ItemKind
-    summary: LocalizedText
-    team: str
-    progress: int
-    due_in_days: int
 
 
 def _identify(email: str) -> CurrentUser:
@@ -153,62 +144,6 @@ _PREPARATION = PreparationCounts(metrics_due=7, problems_to_review=4, open_tasks
 
 _MEETING_IN_SESSION = True
 
-_FUNNEL = Funnel(
-    scope_meetings=12,
-    stages=[
-        FunnelStage(stage="open", problems=11, tasks=7),
-        FunnelStage(stage="in_progress", problems=4, tasks=7),
-        FunnelStage(stage="archived", problems=23, tasks=41),
-    ],
-)
-
-_ITEMS = (
-    _ItemSeed(
-        id="item-1",
-        kind="problem",
-        summary=LocalizedText(
-            en="Deploy pipeline flaky on release branch",
-            pl="Niestabilny pipeline wdrożeniowy na gałęzi release",
-        ),
-        team="Platform Core",
-        progress=60,
-        due_in_days=4,
-    ),
-    _ItemSeed(
-        id="item-2",
-        kind="task",
-        summary=LocalizedText(
-            en="Add min/max to “Open bugs” metric",
-            pl="Dodać min/maks do wskaźnika „Otwarte błędy”",
-        ),
-        team="Platform Core",
-        progress=25,
-        due_in_days=2,
-    ),
-    _ItemSeed(
-        id="item-3",
-        kind="problem",
-        summary=LocalizedText(
-            en="Lead time for payment fixes above 5 days",
-            pl="Czas realizacji poprawek płatności powyżej 5 dni",
-        ),
-        team="Payments",
-        progress=10,
-        due_in_days=-3,
-    ),
-    _ItemSeed(
-        id="item-4",
-        kind="task",
-        summary=LocalizedText(
-            en="Write up root cause for incident 214",
-            pl="Opisać przyczynę źródłową incydentu 214",
-        ),
-        team="Data Plane",
-        progress=80,
-        due_in_days=8,
-    ),
-)
-
 
 def next_occurrence(
     weekday: int, time_of_day: datetime.time, now: datetime.datetime
@@ -226,18 +161,13 @@ def next_occurrence(
     return candidate
 
 
-def build_hub_summary(now: datetime.datetime, email: str) -> HubSummary:
-    """Assemble the hub summary as of `now`, for the person signed in.
+def hub_teams(now: datetime.datetime) -> list[HubTeam]:
+    """The caller's teams as the hub shows them, soonest next meeting first.
 
-    Teams come back ordered by their next meeting, soonest first, because that
-    is the order the hub displays them in and the first of them is the one the
-    countdown counts down to.
-
-    The identity is the caller's and is the one real thing in here; the teams,
-    counts and items remain placeholder data, which is why the response still
-    declares itself provisional.
+    That is the order the hub displays them in, and the first of them is the
+    one the countdown counts down to. Placeholder data still.
     """
-    teams = sorted(
+    return sorted(
         (
             HubTeam(
                 id=seed.id,
@@ -252,25 +182,116 @@ def build_hub_summary(now: datetime.datetime, email: str) -> HubSummary:
         key=lambda team: team.next_meeting_at,
     )
 
-    today = now.date()
-    items = [
-        AssignedItem(
-            id=seed.id,
-            kind=seed.kind,
-            summary=seed.summary,
-            team=seed.team,
-            progress=seed.progress,
-            due_on=today + datetime.timedelta(days=seed.due_in_days),
+
+#: The order the funnel's stages are shown in.
+_FUNNEL_STAGES: tuple[FunnelStageCode, ...] = ("open", "in_progress", "archived")
+
+
+def _bucket(model: type[Problem] | type[Task]) -> ColumnElement[str]:
+    """Which funnel stage an item stands at: archived once closed, open before plan."""
+    return case(
+        (model.closed_at.is_not(None), literal("archived")),
+        (model.stage == Stage.NOT_STARTED, literal("open")),
+        else_=literal("in_progress"),
+    )
+
+
+def _funnel(session: Session, email: str) -> Funnel:
+    """The items of every team `email` is a member of, counted by kind and stage.
+
+    Two statements whatever the number of teams or items: the scope, and one
+    grouped count over both tables.
+    """
+    my_teams = (
+        select(TeamMember.team_id)
+        .join(Employee, Employee.id == TeamMember.employee_id)
+        .where(Employee.email == email)
+    )
+    scope = session.scalar(select(func.count()).select_from(my_teams.subquery())) or 0
+
+    def counted(model: type[Problem] | type[Task], kind: ItemKind) -> Select[tuple[ItemKind, str]]:
+        return select(literal(kind).label("kind"), _bucket(model).label("bucket")).where(
+            model.team_id.in_(my_teams)
         )
-        for seed in _ITEMS
+
+    items = union_all(counted(Problem, "problem"), counted(Task, "task")).subquery()
+    rows = session.execute(
+        select(items.c.kind, items.c.bucket, func.count()).group_by(items.c.kind, items.c.bucket)
+    ).all()
+    counts = {(kind, bucket): count for kind, bucket, count in rows}
+
+    return Funnel(
+        scope_teams=scope,
+        stages=[
+            FunnelStage(
+                stage=stage,
+                problems=counts.get(("problem", stage), 0),
+                tasks=counts.get(("task", stage), 0),
+            )
+            for stage in _FUNNEL_STAGES
+        ],
+    )
+
+
+def _assigned_items(session: Session, email: str, today: datetime.date) -> list[AssignedItem]:
+    """The active items `email` is responsible for, on any team, by due date, none last.
+
+    Not limited to the caller's teams: a person who leaves a team stays
+    responsible for its items until someone changes it, and should still see
+    them. One statement over both tables.
+    """
+
+    def assigned(model: type[Problem] | type[Task], kind: ItemKind) -> Select[Any]:
+        return (
+            select(
+                literal(kind).label("kind"),
+                model.id.label("id"),
+                model.summary.label("summary"),
+                model.team_id.label("team_id"),
+                Team.name.label("team"),
+                model.stage.label("stage"),
+                model.due_on.label("due_on"),
+                model.raised_at.label("raised_at"),
+            )
+            .join(Team, Team.id == model.team_id)
+            .join(Employee, Employee.id == model.responsible_employee_id)
+            .where(Employee.email == email, model.closed_at.is_(None))
+        )
+
+    items = union_all(assigned(Problem, "problem"), assigned(Task, "task")).subquery()
+    rows = session.execute(
+        select(items).order_by(items.c.due_on.asc().nulls_last(), items.c.raised_at, items.c.id)
+    ).all()
+    return [
+        AssignedItem(
+            id=row.id,
+            kind=row.kind,
+            summary=row.summary,
+            team_id=row.team_id,
+            team=row.team,
+            stage=row.stage,
+            due_on=row.due_on,
+            overdue=is_overdue(row.due_on, None, today),
+        )
+        for row in rows
     ]
 
+
+def build_hub_summary(session: Session, now: datetime.datetime, email: str) -> HubSummary:
+    """Assemble the hub summary as of `now`, for the person signed in.
+
+    The identity, the funnel and the assigned items are real; the
+    declarations, teams, preparation counts and in-session flag remain
+    placeholder data, which is why the response still declares itself
+    provisional. A caller with no employee record has no teams and no items,
+    so gets zeros and an empty list without a special case.
+    """
     return HubSummary(
         current_user=_identify(email),
         declarations=_DECLARATIONS,
-        teams=teams,
+        teams=hub_teams(now),
         preparation=_PREPARATION,
         meeting_in_session=_MEETING_IN_SESSION,
-        funnel=_FUNNEL,
-        assigned_items=items,
+        funnel=_funnel(session, email),
+        assigned_items=_assigned_items(session, email, now.astimezone(ORGANIZATION_TZ).date()),
     )
