@@ -33,7 +33,7 @@ export function TeamMeetingsPage() {
   const team = useTeam(teamId);
   const meetings = useMeetings(teamId);
   // Upcoming and past split at the moment the page was opened, by the
-  // instant each meeting starts - read once, as the hub's countdown does.
+  // instant each meeting starts - read once, as the dashboard's countdown does.
   const [now] = useState(() => Date.now());
 
   const back = (

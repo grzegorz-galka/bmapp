@@ -1,0 +1,292 @@
+.tile {
+  padding: 22px var(--sp-6);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font: 500 var(--fs-2xs) var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.subheading {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.scope {
+  font: 500 var(--fs-2xs) var(--font-mono);
+  color: var(--ink-2);
+}
+
+.rule {
+  height: 1px;
+  border: 0;
+  background: var(--line);
+  margin: 22px 0 18px;
+}
+
+/* The funnel. */
+
+.stages {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: var(--sp-4) 18px var(--sp-4) var(--sp-6);
+  /* The chevron from the mockup. Decorative: the order is in the markup. */
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%, 16px 50%);
+}
+
+.stage:last-child {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 16px 50%);
+}
+
+.open {
+  background: color-mix(in oklch, var(--stage-open) var(--tint-2), var(--panel-2));
+}
+
+.inProgress {
+  background: color-mix(in oklch, var(--stage-progress) var(--tint-2), var(--panel-2));
+}
+
+.archived {
+  background: color-mix(in oklch, var(--stage-archived) var(--tint-2), var(--panel-2));
+}
+
+.stageName {
+  font: 500 var(--fs-2xs) var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.total {
+  font: 500 1.875rem/1 var(--font-mono);
+  letter-spacing: -0.03em;
+}
+
+.split {
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+}
+
+.foot {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+  font: 500 var(--fs-2xs) var(--font-mono);
+  color: var(--ink-2);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* The lists of each team. */
+
+.teamLinks {
+  margin-top: var(--sp-5);
+}
+
+.teamList {
+  margin: var(--sp-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.teamRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-4);
+  padding: var(--sp-2) 0;
+  border-top: 1px solid var(--line);
+}
+
+.teamName {
+  font-size: var(--fs-base);
+  font-weight: 500;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.link:hover,
+.link:focus-visible {
+  background: color-mix(in oklch, var(--accent) var(--tint), var(--panel));
+}
+
+/* The items assigned to the viewer. */
+
+.empty {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--raise);
+}
+
+.kind {
+  font: 500 var(--fs-2xs) var(--font-mono);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.identity {
+  min-width: 0;
+}
+
+.summary {
+  display: block;
+  font-size: var(--fs-base);
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.summary:hover,
+.summary:focus-visible {
+  text-decoration: underline;
+}
+
+.context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--sp-3);
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+}
+
+.itemStage {
+  display: flex;
+}
+
+.due,
+.overdue {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) 9px;
+  border-radius: 6px;
+  font: 500 var(--fs-2xs) var(--font-mono);
+  white-space: nowrap;
+}
+
+.due {
+  background: var(--panel-2);
+  color: var(--ink-2);
+}
+
+.overdue {
+  background: color-mix(in oklch, var(--stage-open) 22%, var(--panel));
+  color: var(--ink);
+}
+
+/* Colour is never the only signal that an item is late. */
+.overdueWord {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--bad);
+}
+
+@media (max-width: 760px) {
+  .stages {
+    flex-direction: column;
+  }
+
+  .stage,
+  .stage:last-child {
+    clip-path: none;
+    border-radius: var(--r-md);
+    padding: var(--sp-4);
+  }
+
+  .foot {
+    flex-direction: column;
+    gap: var(--sp-1);
+  }
+
+  .item {
+    grid-template-columns: 62px minmax(0, 1fr);
+  }
+
+  .itemStage,
+  .due,
+  .overdue {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 620px) {
+  .tile {
+    padding: var(--sp-4);
+  }
+}

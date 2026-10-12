@@ -33,7 +33,7 @@ const DAY = 24 * HOUR;
  * Break a duration in milliseconds into whole units, clamped at zero.
  *
  * Clamped rather than signed: a meeting that has started is not "minus four
- * minutes away", it is under way, and the hub reads zero for it.
+ * minutes away", it is under way, and the dashboard reads zero for it.
  */
 export function countdownFrom(milliseconds: number): Countdown {
   const remaining = Math.max(0, milliseconds);

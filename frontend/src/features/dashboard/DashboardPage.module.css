@@ -77,26 +77,10 @@
   color: var(--ink-2);
 }
 
-.panel {
-  margin-top: 14px;
-  padding: 22px var(--sp-6);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--panel);
-  box-shadow: var(--shadow);
-}
-
-.rule {
-  height: 1px;
-  border: 0;
-  background: var(--line);
-  margin: 22px 0 18px;
-}
-
-.provisional {
-  margin: var(--sp-3) 0 0;
-  font: 500 var(--fs-2xs) var(--font-mono);
-  color: var(--ink-3);
+.tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .footer {
@@ -124,9 +108,5 @@
 
   .title {
     font-size: 2rem;
-  }
-
-  .panel {
-    padding: var(--sp-4);
   }
 }

@@ -1,7 +1,7 @@
 /**
  * The identity in the header, and the way out of the session.
  *
- * Replaces the plain text the hub used to show: there is a session behind it
+ * Replaces the plain text the landing page used to show: there is a session behind it
  * now, so offering a sign-out is no longer a lie.
  */
 import { useTranslation } from 'react-i18next';

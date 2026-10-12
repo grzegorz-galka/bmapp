@@ -28,8 +28,8 @@ export function itemListQueryKey(teamId: string, kind: ItemKind, state: ItemStat
   return [...itemsQueryKey(teamId, kind), state] as const;
 }
 
-/** The hub's funnel and assigned items are counted from these same items. */
-const HUB_QUERY_KEY = ['hub'] as const;
+/** The dashboard's funnel and assigned items are counted from these same items. */
+const DASHBOARD_QUERY_KEY = ['dashboard'] as const;
 
 export function useProblems(teamId: string, state: ItemState) {
   return useQuery<ProblemRead[]>({
@@ -45,7 +45,7 @@ export function useTasks(teamId: string, state: ItemState) {
   });
 }
 
-/** Refetch both states of every kind named, and the hub. */
+/** Refetch both states of every kind named, and the dashboard. */
 function useItemMutation<Variables, Result>(
   teamId: string,
   kinds: readonly ItemKind[],
@@ -59,7 +59,7 @@ function useItemMutation<Variables, Result>(
         ...kinds.map((kind) =>
           queryClient.invalidateQueries({ queryKey: itemsQueryKey(teamId, kind) }),
         ),
-        queryClient.invalidateQueries({ queryKey: HUB_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: DASHBOARD_QUERY_KEY }),
       ]),
   });
 }

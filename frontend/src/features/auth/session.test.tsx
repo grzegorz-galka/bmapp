@@ -172,7 +172,7 @@ describe('what signing out leaves behind', () => {
   it('leaves nothing fetched for the person who has gone', async () => {
     const { manager } = fakeManager({ signinSilent: vi.fn(async () => signedInUser()) });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    queryClient.setQueryData(['hub'], { current_user: { email: 'jan.kowalski@pse.pl' } });
+    queryClient.setQueryData(['dashboard'], { current_user: { email: 'jan.kowalski@pse.pl' } });
     await i18n.changeLanguage('en');
 
     render(
@@ -190,6 +190,6 @@ describe('what signing out leaves behind', () => {
 
     // Otherwise the next person to sign in on this browser would see the
     // previous one's board before their own arrived.
-    await waitFor(() => expect(queryClient.getQueryData(['hub'])).toBeUndefined());
+    await waitFor(() => expect(queryClient.getQueryData(['dashboard'])).toBeUndefined());
   });
 });

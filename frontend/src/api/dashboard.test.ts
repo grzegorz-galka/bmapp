@@ -1,6 +1,6 @@
-/** The hub client: picking a language out of the payload, and fetching it. */
+/** The dashboard client: picking a language out of the payload, and fetching it. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchHubSummary, localized } from './hub';
+import { fetchDashboardSummary, localized } from './dashboard';
 import { ApiError } from './client';
 
 afterEach(() => {
@@ -19,20 +19,20 @@ describe('localized', () => {
   });
 });
 
-describe('fetchHubSummary', () => {
-  it('requests the hub endpoint and returns the body', async () => {
-    const body = { provisional: true, teams: [] };
+describe('fetchDashboardSummary', () => {
+  it('requests the dashboard endpoint and returns the body', async () => {
+    const body = { teams: [], meetings: [] };
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }));
 
-    await expect(fetchHubSummary()).resolves.toMatchObject(body);
-    expect(fetchSpy).toHaveBeenCalledWith('/api/hub', expect.anything());
+    await expect(fetchDashboardSummary()).resolves.toMatchObject(body);
+    expect(fetchSpy).toHaveBeenCalledWith('/api/dashboard', expect.anything());
   });
 
   it('raises an ApiError when the request fails', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 500 }));
 
-    await expect(fetchHubSummary()).rejects.toBeInstanceOf(ApiError);
+    await expect(fetchDashboardSummary()).rejects.toBeInstanceOf(ApiError);
   });
 });

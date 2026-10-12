@@ -4,7 +4,7 @@
  * See "A user can change the language" in specs/localization/spec.md.
  *
  * Rendered at /teams, which is where the form these scenarios need lives now
- * that the hub is what the application opens at.
+ * that the dashboard is what the application opens at.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { screen } from '@testing-library/react';

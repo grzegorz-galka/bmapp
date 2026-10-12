@@ -23,23 +23,22 @@ export const en = {
   },
   nav: {
     label: 'Sections',
-    hub: 'Hub',
+    dashboard: 'Dashboard',
     teams: 'Teams',
     globalMetrics: 'Global metrics',
     archive: 'Archive',
     notYetAvailable: 'Not yet available',
     brandSub: 'Board meetings',
   },
-  hub: {
-    loading: 'Loading the hub…',
-    loadFailed: 'Could not load the hub.',
+  dashboard: {
+    loading: 'Loading the dashboard…',
+    loadFailed: 'Could not load the dashboard.',
     eyebrow: 'Weekly team briefing · Kaizen board',
     heroTitle: 'The team board, online.',
     heroBody:
       'Record this meeting’s metric values, work the problems, agree the tasks. Every value belongs to the meeting it was recorded at, so the trend follows the sequence of meetings — not the calendar.',
     footerNote: 'on-premise · board meetings application',
     footerEnv: 'v0.1.0 · walking skeleton',
-    provisional: 'The figures on this page are placeholder data, not anything recorded.',
   },
   declarations: {
     band: 'Company declarations',
@@ -50,50 +49,40 @@ export const en = {
     values: 'Values',
   },
   myTeams: {
-    heading: 'My teams · next board meetings',
-    // The count renders as a bare figure, as the mockup has it; this is
-    // what names it for a screen reader.
+    heading: 'My teams',
+    // The count renders as a bare figure; this is what names it for a screen
+    // reader. Colon form on purpose: Polish declines the noun after a numeral
+    // in ways English does not, and the two catalogues must hold the same keys.
     count: 'Teams: {{count}}',
     role_leader: 'Team leader',
     role_member: 'Member',
-    ready: 'Board ready',
-    // Colon form on purpose: Polish declines the noun after a numeral in
-    // ways English does not, and the two catalogues must hold the same keys.
-    metricsMissing: 'Metrics missing: {{count}}',
+    schedule: 'Meets {{weekday}} at {{time}}',
+    noSchedule: 'No schedule',
+    noNextMeeting: 'No next meeting',
+    noTeams: 'You do not belong to any team yet.',
     days: 'days',
     hours: 'hrs',
     minutes: 'min',
     countdownLabel: 'Time until the next board meeting',
-    nextMeeting: 'Next board meeting',
-    weeklySlot: 'Meets',
   },
-  tiles: {
-    heading: 'What happens at the board',
-    inSession: 'In session',
-    metricsDue: 'metrics due',
-    problemsReview: 'to review',
-    openTasks: 'open tasks',
-    configureTitle: 'Configure BM',
-    configureBody: 'Metrics, thresholds, custom targets.',
-    prepareTitle: 'Prepare BM',
-    prepareBody: 'Draft the agenda, enter metric values, flag what needs the team’s attention.',
-    conductTitle: 'Conduct BM',
-    conductBody:
-      'Run the meeting at the board: read the trends, work the problems, agree the tasks — all recorded against this meeting.',
-    conductStep1: 'Metrics',
-    conductStep2: 'Problems',
-    conductStep3: 'Tasks',
-    browseTitle: 'Browse BM',
-    browseBody: 'Past meetings, trends and the archive.',
-    accessTitle: 'Manage access',
-    accessBody:
-      'Team membership, leaders and who may configure a board — identities keyed on employee email.',
-    adminSection: 'Administration',
-    adminNote: 'Set up once per team',
+  meetingsTile: {
+    heading: 'My board meetings',
+    empty: 'No board meeting is coming up.',
+    today: 'Today',
+    notOpened: 'not yet opened',
+    host: 'Host: {{email}}',
+    noHost: 'No host',
+    recorded: '{{recorded}} of {{total}} recorded',
+    pulseAnswered: 'Pulse check answered',
+    pulseNotAnswered: 'Pulse check not answered',
+    prepare: 'Prepare data',
+    fillPulse: 'Fill pulse check',
+    start: 'Start meeting',
+    opening: 'Opening the meeting…',
   },
-  funnel: {
-    heading: 'Problem & task funnel',
-    // Colon form, as myTeams.metricsMissing: one string reads right for any count.
+  itemsTile: {
+    heading: 'My teams’ problems and tasks',
+    // Colon form, as myTeams.count: one string reads right for any count.
     scope: 'Across my teams: {{count}}',
     stage_open: 'Open',
     stage_in_progress: 'In progress',
@@ -101,11 +90,15 @@ export const en = {
     split: '{{problems}} problems · {{tasks}} tasks',
     footLeft: 'Raised at the board',
     footRight: 'Closed → archived, never deleted',
-  },
-  items: {
-    heading: 'Assigned to me',
+    teamLinksHeading: 'Lists by team',
+    problemsLink: 'Problems',
+    tasksLink: 'Tasks',
+    archiveLink: 'Archive',
+    assignedHeading: 'Assigned to me',
     assignedTo: 'Assigned to {{email}}',
     empty: 'Nothing is assigned to you right now.',
+  },
+  items: {
     kind_problem: 'Problem',
     kind_task: 'Task',
     due: 'Due {{date}}',
@@ -209,7 +202,7 @@ export const en = {
     boardSuffix: 'board: {{name}}',
     leaderEmailLabel: 'Team leader’s email',
     leaderSuffix: 'leader: {{email}}',
-    // Colon form for the same reason as myTeams.metricsMissing.
+    // Colon form for the same reason as myTeams.count.
     memberCount: 'Members: {{count}}',
     membersLink: 'Members',
     membersLinkLabel: 'Members of {{name}}',
@@ -471,7 +464,7 @@ export const en = {
     answeredLabel: 'Answers received',
     answeredOf: '{{answered}} of {{members}}',
     missing: 'Missing: {{names}}',
-    // Colon form, as myTeams.metricsMissing: one string reads right for any count.
+    // Colon form, as myTeams.count: one string reads right for any count.
     missingCount: 'Answers missing: {{count}}',
     everyone: 'Everyone has answered',
     gaugeLabel: 'Average rating: {{average}} of 5',

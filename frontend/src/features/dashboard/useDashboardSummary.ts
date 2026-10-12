@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchHubSummary, type HubSummary } from '../../api/hub';
+import { fetchDashboardSummary, type DashboardSummary } from '../../api/dashboard';
 import { useAuth } from '../auth/AuthProvider';
 
-const HUB_QUERY_KEY = ['hub'] as const;
+export const DASHBOARD_QUERY_KEY = ['dashboard'] as const;
 
 /**
- * The hub summary.
+ * The dashboard summary.
  *
  * One key, so the header and the page share a single request rather than each
  * fetching the identity for itself.
@@ -15,11 +15,11 @@ const HUB_QUERY_KEY = ['hub'] as const;
  * holding on to the last one would leave one person's board on the screen for
  * whoever signs in next.
  */
-export function useHubSummary() {
+export function useDashboardSummary() {
   const { status } = useAuth();
-  return useQuery<HubSummary>({
-    queryKey: HUB_QUERY_KEY,
-    queryFn: fetchHubSummary,
+  return useQuery<DashboardSummary>({
+    queryKey: DASHBOARD_QUERY_KEY,
+    queryFn: fetchDashboardSummary,
     enabled: status === 'signedIn',
   });
 }

@@ -1,21 +1,21 @@
-/** The hub query: loading, loaded, and failed. */
+/** The dashboard query: loading, loaded, and failed. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderWithLanguage } from '../../test/render';
-import { useHubSummary } from './useHubSummary';
+import { useDashboardSummary } from './useDashboardSummary';
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
 function Probe() {
-  const summary = useHubSummary();
+  const summary = useDashboardSummary();
   if (summary.isPending) return <p>pending</p>;
   if (summary.isError) return <p>failed</p>;
   return <p>{summary.data?.current_user.email}</p>;
 }
 
-describe('useHubSummary', () => {
+describe('useDashboardSummary', () => {
   it('reports that it is loading before the summary arrives', async () => {
     vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(() => {}));
 
