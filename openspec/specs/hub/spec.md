@@ -162,10 +162,13 @@ conducting entry point SHALL indicate whether a board meeting is in session.
 ### Requirement: The hub shows the problem and task funnel
 
 The system SHALL display on the hub, across the current user's teams, how many problems
-and how many tasks stand at each stage: open, in progress, and archived. Each stage
-SHALL be shown with its name in the active language, the total number of items at that
-stage, and the split between problems and tasks. The system SHALL state the scope the
-figures cover.
+and how many tasks stand at each stage: open, in progress, and archived. The figures
+SHALL be counted from the recorded problems and tasks of every team the current user is
+a member of: open are those at `not_started`; in progress those at `plan`, `do` or
+`check`; archived those closed, of all time. Each stage SHALL be shown with its name in
+the active language, the total number of items at that stage, and the split between
+problems and tasks. The system SHALL state the scope the figures cover, as the number
+of the current user's teams.
 
 The archived stage SHALL be presented as the end state items reach by being closed, not
 by being deleted.
@@ -181,13 +184,27 @@ by being deleted.
 - **WHEN** the funnel is displayed
 - **THEN** the scope of the figures is stated in the active language
 
+#### Scenario: The funnel counts the recorded items of the user's teams
+
+- **WHEN** the current user is a member of two teams, which have between them one
+  problem at `not_started`, two tasks at `do`, one task at `check` and three closed
+  problems, and another team they do not belong to has open items
+- **THEN** the funnel shows open: 1 problem and 0 tasks; in progress: 0 problems and 3
+  tasks; archived: 3 problems and 0 tasks; and a scope of two teams
+
+#### Scenario: A user on no team
+
+- **WHEN** the hub is requested by a person who is a member of no team
+- **THEN** every stage shows zero problems and zero tasks, and the scope is no teams
+
 ### Requirement: The hub shows the items assigned to the current user
 
-The system SHALL display on the hub the problems and tasks assigned to the current user
-across all their teams. Each item SHALL be shown with whether it is a problem or a task,
-its summary, the team it belongs to, its progress as a percentage, and its due date. An
-item whose due date has passed SHALL be distinguished from one whose has not, by more
-than colour alone.
+The system SHALL display on the hub the active problems and tasks whose responsible
+person is the current user, across all teams, in order of due date with those without
+one last. Each item SHALL be shown with whether it is a problem or a task, its summary
+as it was typed, the team it belongs to, its PDCA stage named in the active language,
+and its due date. An item whose due date has passed SHALL be distinguished from one
+whose has not, by more than colour alone. Archived items SHALL NOT be shown.
 
 The heading of the list SHALL identify whose items they are.
 
@@ -197,8 +214,8 @@ language rather than showing an empty area.
 #### Scenario: Assigned items are displayed
 
 - **WHEN** the hub is displayed and the current user has items assigned
-- **THEN** each item is shown with its kind, summary, team, progress percentage and due
-  date, and the heading identifies the user the items belong to
+- **THEN** each item is shown with its kind, summary, team, stage and due date, and the
+  heading identifies the user the items belong to
 
 #### Scenario: An overdue item is distinguished
 
@@ -210,6 +227,17 @@ language rather than showing an empty area.
 
 - **WHEN** the hub is displayed and the current user has no items assigned
 - **THEN** a message in the active language says so, and no empty list is shown
+
+#### Scenario: Only the user's active items are assigned
+
+- **WHEN** the current user is responsible for an active task and a closed problem, and
+  another member is responsible for an active problem of the same team
+- **THEN** only the active task is shown
+
+#### Scenario: An assigned item leads to its board
+
+- **WHEN** the current user chooses an assigned item
+- **THEN** the board of that item's team is opened
 
 ### Requirement: The hub is supplied by a single authenticated summary
 
@@ -224,22 +252,24 @@ current user.
 The response SHALL follow these rules, so that the interface can present it in either
 language and can be changed to the real data later without changing its own code:
 
-- Authored prose published in both languages — the declarations, and the summary of an
-  assigned item — SHALL be returned carrying both the English and the Polish text, so
-  that changing the language needs no further request.
+- Authored prose published in both languages — the declarations — SHALL be returned
+  carrying both the English and the Polish text, so that changing the language needs no
+  further request. Text a person typed — the summary of an assigned item — SHALL be
+  returned once, as it was typed.
 - Anything naming a state drawn from a fixed set — a user's role on a team, a team's
-  board readiness, whether an item is a problem or a task — SHALL be returned as a
-  stable code that the interface translates, in the same way it translates the codes
-  carried by field errors. A code SHALL NOT change once published.
+  board readiness, whether an item is a problem or a task, an item's stage — SHALL be
+  returned as a stable code that the interface translates, in the same way it
+  translates the codes carried by field errors. A code SHALL NOT change once published.
 - Any point in time SHALL be returned as an ISO 8601 instant in UTC. Any date without a
   time SHALL be returned as an ISO 8601 calendar date. No text formatted for display
   SHALL be returned in place of either.
 
 The identity the summary carries SHALL be the authenticated caller's, so that two
 people signed in as different employees receive different identities from the same
-request. While the hub summary is placeholder data, its declarations, counts and items
-are fixed rather than recorded anywhere, and the response SHALL declare itself
-provisional so that no caller mistakes it for recorded data.
+request. The funnel and the assigned items SHALL be the recorded ones. While the rest
+of the hub summary is placeholder data, its declarations, teams, preparation counts and
+in-session indicator are fixed rather than recorded anywhere, and the response SHALL
+declare itself provisional so that no caller mistakes them for recorded data.
 
 #### Scenario: The summary is returned
 
@@ -263,15 +293,20 @@ provisional so that no caller mistakes it for recorded data.
 #### Scenario: Prose carries both languages
 
 - **WHEN** the hub summary is returned
-- **THEN** the mission, the vision, every strategic goal, every value and every
-  assigned item's summary each carry both an English and a Polish text, and neither is
-  empty
+- **THEN** the mission, the vision, every strategic goal and every value each carry
+  both an English and a Polish text, and neither is empty
+
+#### Scenario: An assigned item's summary is returned as typed
+
+- **WHEN** the hub summary is returned to a person responsible for a task whose summary
+  was typed in Polish
+- **THEN** that item's summary is the Polish text as typed, once
 
 #### Scenario: States are returned as codes
 
 - **WHEN** the hub summary is returned
-- **THEN** each team's role and board readiness and each item's kind are stable codes
-  drawn from a fixed set, and no text intended for display accompanies them
+- **THEN** each team's role and board readiness and each item's kind and stage are
+  stable codes drawn from a fixed set, and no text intended for display accompanies them
 
 #### Scenario: Times are returned as ISO 8601 in UTC
 
@@ -283,32 +318,6 @@ provisional so that no caller mistakes it for recorded data.
 
 - **WHEN** the hub summary is returned
 - **THEN** it states that its data is placeholder data rather than recorded data
-### Requirement: The hub summary stays current
-
-The system SHALL return a hub summary whose dates are meaningful at the moment it is
-requested, for as long as the summary is placeholder data. Every team's next board
-meeting SHALL be the next occurrence, strictly after the moment of the request, of that
-team's weekly slot. The assigned items SHALL include at least one whose due date has
-passed and at least one whose has not.
-
-#### Scenario: Next meetings are always ahead of the request
-
-- **WHEN** the hub summary is requested at any moment
-- **THEN** every team's next board meeting is strictly later than that moment and is
-  the next occurrence of that team's weekly day and time
-
-#### Scenario: A meeting later today has not already passed
-
-- **WHEN** the hub summary is requested on the weekday of a team's board meeting, after
-  that meeting's time of day
-- **THEN** that team's next board meeting is the occurrence a week later, not the one
-  earlier the same day
-
-#### Scenario: Both the overdue and the on-time case are present
-
-- **WHEN** the hub summary is requested at any moment
-- **THEN** at least one assigned item has a due date before that day and at least one
-  has a due date on or after it
 
 ### Requirement: The hub identifies the signed-in person
 
@@ -354,3 +363,17 @@ that need no data SHALL still be shown.
 - **WHEN** the hub summary cannot be fetched
 - **THEN** a failure message in the active language is shown, and the navigation,
   language and theme controls remain usable
+
+### Requirement: The hub's next meetings stay ahead of the request
+
+The system SHALL return a hub summary whose next meetings are meaningful at the moment it is requested, for as long as the teams in it are placeholder data. Every team's next board meeting SHALL be the next occurrence, strictly after the moment of the request, of that team's weekly slot.
+
+#### Scenario: Next meetings are always ahead of the request
+
+- **WHEN** the hub summary is requested at any moment
+- **THEN** every team's next board meeting is strictly later than that moment and is the next occurrence of that team's weekly day and time
+
+#### Scenario: A meeting later today has not already passed
+
+- **WHEN** the hub summary is requested on the weekday of a team's board meeting, after that meeting's time of day
+- **THEN** that team's next board meeting is the occurrence a week later, not the one earlier the same day
