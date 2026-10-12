@@ -1,0 +1,47 @@
+## 1. Prerequisite
+
+- [x] 1.1 Confirm that `add-problems-and-tasks` is synced and archived on `main`, so that `openspec/specs/hub/` holds its version of the requirements and `openspec/specs/problems-and-tasks/` exists. Rebase `feature/landing-page` onto that `main`. Verify that `openspec validate rework-hub-into-dashboard --strict` passes and that every requirement named under `REMOVED` in `specs/hub/spec.md` exists in `openspec/specs/hub/spec.md`.
+
+## 2. Backend: rename and declarations
+
+- [ ] 2.1 `git mv` `app/api/hub.py`, `app/schemas/hub.py` and `app/services/hub.py` to `dashboard.py`. Rename the route to `GET /dashboard`, the models to `Dashboard*`, `build_hub_summary` to `build_dashboard_summary`, and their exports in the `__init__` modules. Rename `tests/integration/hub_api.py` and the hub test modules after the dashboard requirements. Verify that `uv run mypy app` is clean, that `grep -rni '\bhub\b' app tests` finds nothing, and that the moved tests pass under their new names.
+- [ ] 2.2 Replace the invented declarations with the company's, in `Statement`/`Value` form, with the `icon` code per value (design.md, *Declarations stay in the API*). Polish is the legacy board's text without markup. English is the translation agreed in review. Verify with integration tests *The declarations are the company's* and *Prose carries both languages* on the new shape.
+
+## 3. Backend: teams and board meetings
+
+- [ ] 3.1 Replace `_TEAMS`, `next_occurrence`, `_PREPARATION` and `_MEETING_IN_SESSION` with statements 1–2 of design.md: the viewer's teams with role and schedule, and their meetings dated today or later with host. Select rows through `editable_meetings` and proposals through `propose_next`. Compute `next_meeting_at` and the team order. Remove `preparation`, `meeting_in_session`, `provisional` and `readiness` from the schema. Delete `test_the_hubs_next_meetings_stay_ahead_of_the_request.py` and the readiness and entry-point tests. Verify that `tests/integration/test_the_dashboard_shows_the_viewers_teams.py` holds one test per scenario of that requirement (today pinned as `pulse_api.freeze_today` does) and that *The summary changes nothing* passes.
+- [ ] 3.2 Add statements 3–5: active placements per team, values per listed meeting among active placements, and the viewer's pulse answers among the listed meetings. Fill in `recorded`, `total` and `pulse_answered`, and compute `today` on the Europe/Warsaw calendar. Verify that `test_the_dashboard_lists_the_viewers_board_meetings.py` holds one test per scenario, and that it asserts the dashboard's `recorded`/`total` equal `build_board(...).completeness` for the same meeting with a retired metric and a global metric on the board.
+- [ ] 3.3 Assert the statement budget. Verify with a test counting statements (SQLAlchemy `before_cursor_execute`) that a viewer on one team and a viewer on three teams with two meetings each cost the same number of statements.
+
+## 4. Backend: problems and tasks, and the gates
+
+- [ ] 4.1 Extend assigned items with `metric` and `problem` through outer joins. Verify that `test_the_items_assigned_to_the_viewer.py` holds *Assigned items are shown in detail* (API half), *Only the viewer's active items are listed* and *An assigned item's summary is returned as typed*, and that `test_the_problems_and_tasks_of_the_viewers_teams.py` holds that requirement's three scenarios.
+- [ ] 4.2 Verify that `test_the_dashboard_is_supplied_by_a_single_authenticated_summary.py` holds that requirement's scenarios and `test_the_summary_is_language_neutral.py` holds its scenarios (codes, ISO 8601 instants, dates and times). Verify that `test_anyone_signed_in_may_read.py` reads `GET /dashboard`.
+- [ ] 4.3 Run `uv run ruff check . && uv run ruff format --check . && uv run mypy app` and `uv run pytest --cov=app --cov-report=term-missing`. Verify that everything passes and coverage stays at or above 85% without dropping.
+
+## 5. Frontend: rename, icons and the board's addresses
+
+- [ ] 5.1 `git mv` `src/api/hub.ts` → `dashboard.ts` and `src/features/hub/` → `src/features/dashboard/`, with types, hooks and the fixture renamed and pointed at `/dashboard`. Rename the i18n keys as design.md lists them (`nav.dashboard`: Dashboard / Pulpit). Verify that `npm run typecheck` and `npm run lint` pass, that `grep -rni 'hub' src e2e` finds nothing, and that `routes.test.tsx` holds *The root address shows the dashboard*, *An unknown address falls back to the dashboard*, *The dashboard is named in the active language* and the navigation scenarios.
+- [ ] 5.2 Add `src/components/icons.tsx` with the glyphs of design.md: `aria-hidden`, `focusable="false"`, drawn in `currentColor`. Verify with `icons.test.tsx` that every exported icon renders an `svg` hidden from the accessibility tree, and that the four value pictograms are distinct.
+- [ ] 5.3 Make `BoardPage`'s recording toggle read and write `mode=record`, and `PulseView`'s form toggle read and write `mode=answer`, ignoring an inapplicable mode as design.md says. Verify that `BoardPage.test.tsx` and `RecordingView.test.tsx` hold the three scenarios of *The recording view has its own address*, and that `PulseView.test.tsx` holds the three of *The answer form has its own address*.
+- [ ] 5.4 Give the problems and tasks sections `id="problems"` and `id="tasks"`, and scroll the section named by the address's fragment into view once the lists render. Verify that `ItemLists.test.tsx` holds the two scenarios of *The board's lists can be reached from an address*, with the list data arriving after the first render.
+
+## 6. Frontend: the dashboard
+
+- [ ] 6.1 Rework `DeclarationsBand` for headline and body, goals, and values with their pictograms, and give mission, vision and goals their pictograms. Verify that `DashboardPage.test.tsx` holds *The declarations are displayed*, *The declarations follow a language change*, *Each value has its pictogram* and *Pictograms are hidden from assistive technology*.
+- [ ] 6.2 Rework `TeamsPanel` for the schedule, a missing next meeting and the no-team message, with the title pictogram. Keep `Countdown`. Verify that the dashboard tests hold the UI halves of *Teams are listed in order of their next meeting*, *A team with no meeting and no schedule* and *A viewer on no team*, and that the countdown tests (*counts down*, *advances*, *A meeting that has started reads zero*) pass.
+- [ ] 6.3 Add `MeetingsTile`: rows, today and not-yet-opened marks, host, `recorded of total`, pulse answered, the three actions with icons, *Start meeting* only today, and the empty state. Delete `Tiles.tsx`, `Tiles.module.css` and the admin section. Verify that `MeetingsTile.test.tsx` holds the UI halves of *The dashboard lists the viewer's board meetings* and one test per scenario of *Prepare data*, *Fill in the pulse check* and *Start a meeting from a meeting row*, each asserting the address navigated to.
+- [ ] 6.4 Open a proposed meeting before the action: a mutation on `POST /teams/:id/meetings` with the row's date and time, navigation with the returned id, and on rejection the translated code on the row plus an invalidated dashboard query. Verify that `MeetingsTile.test.tsx` holds *Preparing a proposed meeting opens it* and *Someone else opened it meanwhile*.
+- [ ] 6.5 Merge `FunnelPanel` and `AssignedItems` into the tile "My teams' problems and tasks": the funnel, per-team links to `#problems`, `#tasks` and `?view=archived` with icons, and assigned items with metric and problem, each linking to its list. Verify that `ItemsTile.test.tsx` holds *Each stage shows its figures*, *Links lead to the board's lists*, *Assigned items are shown in detail* (UI half), *An overdue item is distinguished*, *An assigned item leads to its list* and *The viewer has no assigned items*.
+- [ ] 6.6 Add the tile-title pictograms and check the action icons across the page. Remove the provisional notice. Verify that the dashboard tests hold *Every action has an icon and keeps its caption* and *Every tile title has a pictogram*, that *The identity is displayed* and the loading and failure scenarios pass under their new names, and that `contrast.test.ts` still passes.
+- [ ] 6.7 Run `npm run lint && npm run typecheck && npm run test`. Verify that everything passes.
+
+## 7. End to end and documentation
+
+- [ ] 7.1 Rename `e2e/hub-landing.spec.ts` to `dashboard.spec.ts` and update the other specs that visit the hub. Cover: the declarations, a proposed meeting opened through *Prepare data* landing in the recording view, *Fill pulse check* landing on the form, and an assigned task's link landing on the tasks list. Verify that `npm run test:e2e` passes against `docker compose up` in the worktree (ports from its `.env`).
+- [ ] 7.2 Update CLAUDE.md (the glossary *Hub* → *Dashboard (Pulpit)*, the *Current state* paragraph on the hub's placeholder data, the GUI test list, the repository layout's `features/` note) and README. Verify that `grep -ni '\bhub\b' CLAUDE.md README.md SECURITY.md` finds only historical references, if any.
+- [ ] 7.3 Check the page by hand in both themes and both languages at desktop and phone width. Verify that no tile overflows, the icons read in both palettes, and the countdown, meeting rows and links behave as specified.
+
+## Workflow follow-up
+
+- Archive with `/opsx:archive`. Delete the then-empty `openspec/specs/hub/` in the same commit, and check that `openspec/specs/dashboard/spec.md` carries the Purpose.
