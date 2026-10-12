@@ -25,7 +25,7 @@ export function FunnelPanel({ funnel }: { funnel: Funnel }) {
         <h2 id="funnel-heading" className={styles.heading}>
           {t('funnel.heading')}
         </h2>
-        <span className={styles.scope}>{t('funnel.scope', { count: funnel.scope_meetings })}</span>
+        <span className={styles.scope}>{t('funnel.scope', { count: funnel.scope_teams })}</span>
       </div>
 
       <ol className={styles.stages}>

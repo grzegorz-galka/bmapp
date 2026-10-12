@@ -106,6 +106,7 @@ function contrast(foreground: Rgb, background: Rgb): number {
 const INKS = ['--ink', '--ink-2', '--ink-3', '--good', '--warn', '--bad', '--accent'];
 const SURFACES = ['--bg', '--panel', '--panel-2'];
 const STATUSES = ['--status-green', '--status-amber', '--status-red'];
+const PDCA_MARKS = ['--pdca-ring', '--pdca-done'];
 const PAIRINGS = SURFACES.flatMap((surface) => INKS.map((ink) => [ink, surface] as const));
 
 describe.each(['dark', 'light'] as const)('the %s theme', (theme) => {
@@ -135,6 +136,16 @@ describe.each(['dark', 'light'] as const)('the %s theme', (theme) => {
       const background = token(tokens, surface);
 
       const ratio = contrast(composite(token(tokens, status), background), parse(background).rgb);
+
+      expect(ratio, surface).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it.each(PDCA_MARKS)('draws the %s PDCA mark on every surface at 3:1 or better', (mark) => {
+    for (const surface of SURFACES) {
+      const background = token(tokens, surface);
+
+      const ratio = contrast(composite(token(tokens, mark), background), parse(background).rgb);
 
       expect(ratio, surface).toBeGreaterThanOrEqual(3);
     }

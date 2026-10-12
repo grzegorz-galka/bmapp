@@ -1,21 +1,21 @@
 /**
  * Typed client for the hub summary.
  *
- * The endpoint is provisional: its figures are placeholder data, and each will
- * be replaced by the real capability - meetings, metrics, problems, tasks - as
- * that capability is built. The types here mirror the API exactly so that when
+ * The endpoint is provisional: most of its figures are placeholder data, each
+ * to be replaced by the real capability as that capability is built. The
+ * funnel and the assigned items already are the recorded problems and tasks. The types here mirror the API exactly so that when
  * it happens, this file changes and the components do not.
  */
 import { request } from './client';
+import type { Stage } from './items';
 import type { Language } from '../i18n/languages';
 
 /**
  * Authored prose, carried in every language.
  *
- * Both languages travel together so a language change costs no request. For
- * the declarations that is permanent - they are published in both. For an
- * item summary it is not: a real problem summary is free text someone types
- * once, in one language, and the problems capability will send exactly that.
+ * Both languages travel together so a language change costs no request. Only
+ * the declarations are published in both; an item's summary is free text
+ * someone typed once, in one language, and arrives as that one string.
  */
 export interface LocalizedText {
   en: string;
@@ -68,18 +68,23 @@ export interface FunnelStage {
 }
 
 export interface Funnel {
-  scope_meetings: number;
+  /** How many of the user's teams the figures are counted across. */
+  scope_teams: number;
   stages: FunnelStage[];
 }
 
 export interface AssignedItem {
   id: string;
   kind: ItemKind;
-  summary: LocalizedText;
+  /** As it was typed, in whichever language that was. */
+  summary: string;
+  team_id: string;
   team: string;
-  progress: number;
-  /** ISO 8601 calendar date. A due date has no time of its own. */
-  due_on: string;
+  stage: Stage;
+  /** ISO 8601 calendar date, or none. A due date has no time of its own. */
+  due_on: string | null;
+  /** Decided by the server on the organization's calendar, as the board's lists are. */
+  overdue: boolean;
 }
 
 export interface HubSummary {

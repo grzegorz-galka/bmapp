@@ -36,7 +36,7 @@
 
 .item {
   display: grid;
-  grid-template-columns: 62px minmax(0, 1fr) 120px auto;
+  grid-template-columns: 62px minmax(0, 1fr) auto auto;
   gap: 14px;
   align-items: center;
   padding: 11px 14px;
@@ -57,11 +57,19 @@
 }
 
 .summary {
+  display: block;
   font-size: var(--fs-base);
   font-weight: 500;
+  color: var(--ink);
+  text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.summary:hover,
+.summary:focus-visible {
+  text-decoration: underline;
 }
 
 .team {
@@ -70,38 +78,8 @@
   margin-top: 2px;
 }
 
-.progress {
+.stage {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.percent {
-  font: 500 var(--fs-2xs) var(--font-mono);
-  color: var(--ink-2);
-}
-
-.track {
-  height: 4px;
-  border-radius: 3px;
-  background: var(--line-2);
-  display: block;
-  overflow: hidden;
-}
-
-.bar,
-.barDone {
-  display: block;
-  height: 100%;
-  border-radius: 3px;
-}
-
-.bar {
-  background: var(--accent);
-}
-
-.barDone {
-  background: var(--good);
 }
 
 .due,
@@ -138,7 +116,7 @@
     grid-template-columns: 62px minmax(0, 1fr);
   }
 
-  .progress,
+  .stage,
   .due,
   .overdue {
     grid-column: 2;
