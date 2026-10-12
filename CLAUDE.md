@@ -52,9 +52,12 @@ board. BMAPP provides that board online and lets a team:
 
 Glossary (use these exact terms in code, UI and tests):
 
-- **Hub** — the landing page at `/`: the company declarations, the user's teams
-  and the countdown to their next meeting, what can be done at a board meeting,
-  and the problem/task funnel. Not a board; the way in to them.
+- **Dashboard** (*Pulpit*) — the landing page at `/`: the company declarations,
+  the viewer's teams and the countdown to their next meeting, their board
+  meetings with the actions to prepare data, fill the pulse check and start
+  one, and their teams' problems and tasks with those assigned to them. Not a
+  board; the way in to them. It was called the hub until
+  `rework-hub-into-dashboard`; do not bring that name back.
 - **Board** — a team's page: metrics + problems + tasks.
 - **Meeting** — one occurrence of a team's board meeting. Metric values are recorded at a meeting and belong to it. Opened explicitly by a member; a skipped week simply has none.
 - **Schedule** — the weekday and start time a board's team meets, on the organization's clock (Europe/Warsaw). It proposes the next meeting's date; it never creates meetings.
@@ -201,8 +204,8 @@ the API and the web app, and the one slice that exists end to end is the
 and list the registered teams. `localization` is implemented on top of it: the
 interface reads in English or Polish, and API rejections arrive as codes the
 frontend translates, and dates, times and numbers are formatted for the active
-language. `hub` and `appearance` are implemented too: the application opens on
-the hub at `/` with the team page at `/teams`, and the interface has a dark and
+language. `dashboard` and `appearance` are implemented too: the application opens on
+the dashboard at `/` with the team page at `/teams`, and the interface has a dark and
 a light theme with dark the default. `team-membership` is implemented as well:
 employees are identified by a lower-cased email and recorded the first time
 they are assigned to a team; a team has members and exactly one leader, who is
@@ -215,17 +218,23 @@ at most, with the next date proposed from the schedule. Dates and times are
 wall-clock values on the organization's clock, Europe/Warsaw, fixed in
 `app/core/time.py`; instants are stored in UTC.
 
-**The hub is still mostly placeholder data.** `GET /hub` returns one read-only
-payload. The identity comes from the caller's token, and the problem/task
-funnel and the items assigned to the caller are read from the recorded
-problems and tasks; the declarations, teams, preparation counts and
-in-session flag are still constants in `app/services/hub.py`. It exists so the shell is real while the
-capabilities behind it are built, and it marks itself `provisional` so nothing
-mistakes its figures for recorded data. Each future capability replaces a slice
-of it; the shape it returns is the shape they should return.
+**The dashboard reads recorded data, except the declarations.** `GET /dashboard`
+returns one read-only payload in a fixed number of statements: the caller's
+identity from the token, their teams with role, schedule and next meeting, their
+board meetings dated today or later (or the schedule's proposal, marked as not
+yet opened) with host, recording progress and whether they answered the pulse
+check, the problem/task funnel and the items assigned to them. "Editable",
+"proposed" and "today" come from the functions the board and the meetings page
+use, so the pages cannot disagree. The company declarations are still constants
+in `app/services/dashboard.py`, in English and Polish, until the targets
+capability makes them editable. An action on a proposed row opens the meeting
+through `POST /teams/:id/meetings` first; the summary itself never writes. The
+board's address opens the recording view (`?meeting=…&mode=record`), the pulse
+answer form (`?meeting=…&view=pulse&mode=answer`) and a list (`#problems`,
+`#tasks`) directly.
 
 `authentication` and `authorization` are implemented too: every endpoint needs a
-verified token, the hub reports the caller rather than a placeholder, and writes
+verified token, the dashboard reports the caller rather than a placeholder, and writes
 are decided per team — administrators from `BMAPP_ADMIN_EMAILS` register teams and
 name leaders, a team's leader manages its members, and anyone signed in may read
 everything.
@@ -285,7 +294,7 @@ propose it through `/opsx:propose` rather than adding it inline.
 │   ├── src/
 │   │   ├── api/          # typed fetch wrappers; client.ts is the shared one
 │   │   ├── components/   # the app shell: header, nav, language, theme
-│   │   ├── features/     # hub, teams - board, problems, tasks, admin to come
+│   │   ├── features/     # dashboard, teams, board (problems, tasks), meetings, metrics, auth
 │   │   ├── i18n/         # catalogues, detection, Intl formatting
 │   │   ├── styles/       # theme.css: the palettes and the design tokens
 │   │   ├── theme/        # theme resolution, persistence and provider
@@ -373,10 +382,11 @@ backend and meaningful coverage of every user-facing flow on the frontend.
 - **Unit tests** for services and pure functions. Fast, no I/O.
 - **Integration tests** for API endpoints against a real Postgres. Use
   fixtures for test data; each test starts from a clean state.
-- **GUI tests** (Playwright) for the main flows: view board, record a meeting's
-  metric values, add/close problem, add/complete task, configure metrics (copy
-  one, include a global one), define global metrics, answer and review the pulse
-  check, view archive.
+- **GUI tests** (Playwright) for the main flows: the dashboard and its actions
+  (prepare data, fill the pulse check, reach an assigned item's list), view
+  board, record a meeting's metric values, add/close problem, add/complete task,
+  configure metrics (copy one, include a global one), define global metrics,
+  answer and review the pulse check, view archive.
 - **BDD tests** (pytest-bdd) only for business rules worth stating in plain
   language, e.g. the status of a metric value against its threshold
   (`metric_status.feature`) and archiving (`item_lifecycle.feature`). Do not write BDD for CRUD plumbing. Target inheritance is not one
