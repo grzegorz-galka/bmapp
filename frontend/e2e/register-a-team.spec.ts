@@ -5,7 +5,7 @@ import { LANGUAGE_STORAGE_KEY } from '../src/i18n/languages';
 import { signInAs } from './auth';
 
 /*
- * The team page moved to /teams when the hub took the root address; these
+ * The team page moved to /teams when the dashboard (then called the hub) took the root address; these
  * flows are otherwise unchanged.
  */
 

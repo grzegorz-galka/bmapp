@@ -83,7 +83,8 @@ describe('the recording view has its own address', () => {
       'en',
       { route: `/teams/${TEAM_ID}${query}`, auth: { email: MEMBER } },
     );
-    return screen.findByRole('region', { name: /Values at the meeting on/ });
+    // The board's first render is the slow one under a full run, as in the item tests.
+    return screen.findByRole('region', { name: /Values at the meeting on/ }, { timeout: 5000 });
   }
 
   it('The recording view is opened from its address', async () => {

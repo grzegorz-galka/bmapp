@@ -26,6 +26,11 @@ export async function apiAs(request: APIRequestContext, email: string) {
       call<{ id: string }>('post', '/teams', { name, leader_email: leaderEmail }),
     addMember: (teamId: string, memberEmail: string) =>
       call('post', `/teams/${teamId}/members`, { email: memberEmail }),
+    team: (teamId: string) =>
+      call<{ members: { employee_id: string; email: string }[] }>('get', `/teams/${teamId}`),
+    /** The leader's call: the ISO weekday (Monday 1) and start time a team meets. */
+    setSchedule: (teamId: string, weekday: number, time: string) =>
+      call('put', `/teams/${teamId}/schedule`, { weekday, time }),
     openMeeting: (teamId: string, date: string) =>
       call<{ id: string }>('post', `/teams/${teamId}/meetings`, { date, time: '13:00' }),
     addMetric: (teamId: string, metric: Record<string, unknown>) =>
@@ -46,6 +51,8 @@ export async function apiAs(request: APIRequestContext, email: string) {
         comment: null,
         reason,
       }),
+    raiseTask: (teamId: string, task: Record<string, unknown>) =>
+      call<{ id: string }>('post', `/teams/${teamId}/tasks`, task),
     /** The signed-in member's own pulse answer; texts left out are blank. */
     answerPulse: (
       teamId: string,
@@ -60,6 +67,11 @@ export function addDays(date: string, days: number): string {
   const day = new Date(`${date}T00:00:00Z`);
   day.setUTCDate(day.getUTCDate() + days);
   return day.toISOString().slice(0, 10);
+}
+
+/** The ISO weekday of a date, Monday 1 through Sunday 7, as a schedule takes it. */
+export function isoWeekday(date: string): number {
+  return new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
 }
 
 export function uniqueSuffix() {

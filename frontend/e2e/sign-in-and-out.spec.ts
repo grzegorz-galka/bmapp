@@ -27,14 +27,14 @@ test('the signed-in person is named in the header, with a way out', async ({ pag
   );
 });
 
-test('the hub loads its summary for the signed-in person', async ({ page }) => {
+test('the dashboard loads its summary for the signed-in person', async ({ page }) => {
   await signInAs(page, ADMIN_EMAIL);
 
   await page.goto('/');
 
   // The summary arrived, which means the request carried a token the API
   // accepted: without one it would have been refused with 401.
-  await expect(page.getByRole('heading', { name: en.hub.heroTitle })).toBeVisible();
+  await expect(page.getByRole('heading', { name: en.dashboard.heroTitle })).toBeVisible();
   await expect(header(page).getByText(ADMIN_EMAIL, { exact: true })).toBeVisible();
 });
 
@@ -76,7 +76,7 @@ test('signing in through the window shows the person in the header', async ({ pa
 
   await expect(loginWindow(page)).toBeHidden();
   await expect(header(page).getByText(ADMIN_EMAIL, { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: en.hub.heroTitle })).toBeVisible();
+  await expect(page.getByRole('heading', { name: en.dashboard.heroTitle })).toBeVisible();
 });
 
 test('a refusal is shown in the window', async ({ page }) => {
