@@ -29,7 +29,7 @@ See proposal.md for why. What this builds on:
 ```
 problems(id uuid PK, team_id → teams CASCADE,
          summary varchar(500) NOT NULL, reason text NOT NULL DEFAULT '', solution text NOT NULL DEFAULT '',
-         responsible_id → employees RESTRICT NULL, due_on date NULL, metric_id → metrics SET NULL NULL,
+         responsible_employee_id → employees RESTRICT NULL, due_on date NULL, metric_id → metrics SET NULL NULL,
          stage pdca_stage NOT NULL DEFAULT 'not_started',
          raised_at timestamptz NOT NULL, raised_meeting_id → meetings SET NULL NULL,
          closed_at timestamptz NULL, closed_meeting_id → meetings SET NULL NULL,
@@ -41,7 +41,7 @@ tasks(... the same, with details text in place of reason and solution,
       problem_id → problems RESTRICT NULL)
 ```
 
-`pdca_stage` is a PostgreSQL enum, mapped like `Direction` in `app/models/metric.py`. Indexes: `(team_id, closed_at)` for the two lists, and a partial index on `responsible_id WHERE closed_at IS NULL` for the hub. Migration `0007_add_problems_and_tasks.py`.
+The stage is stored as `Direction` is in `app/models/metric.py`: a `VARCHAR` with a check constraint rather than a native enum, so a stage can be added later without a non-transactional `ALTER TYPE`. Indexes: `(team_id, closed_at)` for the two lists, and a partial index on `responsible_employee_id WHERE closed_at IS NULL` for the hub. Migration `0007_add_problems_and_tasks.py`.
 
 - **Archived is `closed_at IS NOT NULL`**, and the check constraint ties it to `stage = 'act'`, so the database cannot hold a closed item at `do` or an open one at `act`.
 - **`SET NULL` on the meetings**, so deleting a meeting opened by mistake is not blocked by a task someone raised that Monday. The proposal records this as an assumption.
@@ -109,15 +109,15 @@ An unknown stage or a malformed date is `request.invalid_field`, as an unknown d
 
 ### The hub reads the two tables
 
-`build_hub_summary` gains a `Session`. Two queries, both through `team_members` for the caller's employee:
+`build_hub_summary` gains a `Session`. Three statements, through `team_members`: the scope (a count of the caller's memberships), then for the caller's employee:
 
 - the funnel: `SELECT kind, bucket, count(*)` over a `UNION ALL` of problems and tasks of the caller's teams, with `bucket = CASE WHEN closed_at IS NOT NULL THEN 'archived' WHEN stage = 'not_started' THEN 'open' ELSE 'in_progress' END`;
-- the assigned items: active problems and tasks with `responsible_id` the caller's, joined to the team for its name, ordered by due date with none last.
+- the assigned items: active problems and tasks with `responsible_employee_id` the caller's, joined to the team for its name, ordered by due date with none last.
 
 A caller with no employee record gets zeros and no items. Schema changes, all in `app/schemas/hub.py`:
 
 - `Funnel.scope_meetings` → `scope_teams: int`;
-- `AssignedItem.summary: LocalizedText` → `str`; `progress: int` → `stage: Stage`; add `team_id`.
+- `AssignedItem.summary: LocalizedText` → `str`; `progress: int` → `stage: Stage`; `due_on` becomes optional; add `team_id` and `overdue`, decided by `is_overdue` on the Warsaw date of the request so the hub and the board's lists agree whatever the reader's time zone.
 
 `provisional` stays `True`: the declarations, teams, preparation counts and in-session flag are still invented. The hub's team list remains placeholder while the funnel's scope counts real memberships, so the two can disagree on a fresh system; this lasts until the hub's teams are made real.
 
@@ -161,7 +161,7 @@ New keys under `items.*` (shared by the board and the hub, replacing the hub's `
 
 ## Migration Plan
 
-`0007` creates the enum, the two tables, their constraints and indexes; downgrade drops them. No backfill. Deploy as usual: `alembic upgrade head`, then backend and frontend together, since `GET /hub` changes shape and the old frontend would misread `summary` and `progress`. Rolling back the code needs the frontend rolled back with it; the tables can stay.
+`0007` creates the two tables, their constraints and indexes; downgrade drops them. No backfill. Deploy as usual: `alembic upgrade head`, then backend and frontend together, since `GET /hub` changes shape and the old frontend would misread `summary` and `progress`. Rolling back the code needs the frontend rolled back with it; the tables can stay.
 
 ## Open Questions
 
