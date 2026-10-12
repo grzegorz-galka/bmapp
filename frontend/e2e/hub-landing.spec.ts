@@ -3,7 +3,7 @@ import { en } from '../src/i18n/en';
 import { pl } from '../src/i18n/pl';
 import { LANGUAGE_STORAGE_KEY } from '../src/i18n/languages';
 import { THEME_STORAGE_KEY } from '../src/theme/themes';
-import { signInAs } from './auth';
+import { ADMIN_EMAIL, signInAs } from './auth';
 
 /**
  * Pin the language before the app boots, the way the team-board spec does:
@@ -48,11 +48,15 @@ test('the hub shows the declarations, the teams and the assigned items', async (
   await expect(teams.getByText('Platform Core')).toBeVisible();
   await expect(page.getByRole('timer', { name: en.myTeams.countdownLabel })).toBeVisible();
 
-  // The funnel and the items assigned to the placeholder identity.
+  // The funnel and the items assigned to the signed-in person. Both are the
+  // recorded problems and tasks now, so what they hold is another spec's
+  // business; here it is enough that they are there and whose they are.
   await expect(page.getByRole('heading', { name: en.funnel.heading })).toBeVisible();
   await expect(page.getByText(en.funnel.footRight)).toBeVisible();
   const items = page.getByRole('region', { name: en.items.heading });
-  await expect(items.getByText(en.items.overdue)).toBeVisible();
+  await expect(
+    items.getByText(en.items.assignedTo.replace('{{email}}', ADMIN_EMAIL)),
+  ).toBeVisible();
 
   // And it says outright that none of this is recorded data.
   await expect(page.getByText(en.hub.provisional)).toBeVisible();

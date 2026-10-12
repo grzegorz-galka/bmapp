@@ -9,6 +9,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { useIsAdmin } from '../auth/useCurrentUser';
 import { useMeetings } from '../meetings/useMeetings';
 import { describeThreshold, GlobalMark, StatusBadge } from '../metrics/display';
+import { useMetrics } from '../metrics/useMetrics';
 import { useTeam } from '../teams/useTeams';
 import { MetricDetail } from './MetricDetail';
 import { organizationToday } from './organizationDate';
@@ -17,6 +18,8 @@ import { Sparkline } from './Sparkline';
 import { useBoard } from './useBoard';
 import { PulseView } from './pulse/PulseView';
 import { usePulse } from './pulse/usePulse';
+import { ArchivedView } from './items/ArchivedView';
+import { ItemLists } from './items/ItemLists';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
 import styles from './board.module.css';
@@ -29,7 +32,16 @@ export function defaultMeeting(meetings: Meeting[], today: string): Meeting | un
   return meetings.find((meeting) => meeting.date >= today) ?? meetings.at(-1);
 }
 
-/** A team's board: one meeting's metrics as tiles, and the way between its meetings. */
+type BoardView = 'metrics' | 'pulse' | 'archived';
+
+function viewOf(param: string | null): BoardView {
+  return param === 'pulse' || param === 'archived' ? param : 'metrics';
+}
+
+/**
+ * A team's board: one meeting's metrics as tiles beside the team's problems
+ * and tasks, and the way between its meetings, its pulse check and its archive.
+ */
 export function BoardPage() {
   const { teamId = '' } = useParams();
   const { t } = useTranslation();
@@ -47,8 +59,10 @@ export function BoardPage() {
   const all = meetings.data?.meetings ?? [];
   const shown =
     all.find((meeting) => meeting.id === search.get('meeting')) ?? defaultMeeting(all, today);
-  const view = search.get('view') === 'pulse' ? 'pulse' : 'metrics';
+  const view = viewOf(search.get('view'));
   const board = useBoard(teamId, shown?.id);
+  // What an item may be linked to; independent of the meeting shown.
+  const boardMetrics = useMetrics(teamId);
   // Fetched whichever view is open: the switch shows how many have answered.
   const pulse = usePulse(teamId, shown?.id);
   const teamPath = `/teams/${encodeURIComponent(teamId)}`;
@@ -88,11 +102,28 @@ export function BoardPage() {
   const mayRecord = isAdmin || viewer !== undefined;
   // Membership alone: an administrator does not answer on a team's behalf.
   const mayAnswer = viewer !== undefined;
+  // Problems and tasks are meeting data: anyone on the team, or an administrator.
+  const mayKeepItems = mayRecord;
+  // What an item may be linked to: the metrics on the board, retired ones aside.
+  // Read from the board's own list, so a team that has opened no meeting can link one too.
+  const linkable = (boardMetrics.data ?? [])
+    .filter((metric) => !metric.retired)
+    .map((metric) => ({ id: metric.id, name: metric.name }));
+
+  const lists = (
+    <ItemLists
+      teamId={teamId}
+      meetingId={shown?.id}
+      members={team.data.members}
+      metrics={linkable}
+      mayChange={mayKeepItems}
+    />
+  );
 
   /** The address keeps both the meeting and the view, so a reload lands on the same one. */
-  function show(meeting: Meeting, nextView: 'metrics' | 'pulse' = view) {
+  function show(meeting: Meeting, nextView: BoardView = view) {
     setSearch(
-      nextView === 'pulse' ? { meeting: meeting.id, view: 'pulse' } : { meeting: meeting.id },
+      nextView === 'metrics' ? { meeting: meeting.id } : { meeting: meeting.id, view: nextView },
     );
   }
 
@@ -118,10 +149,36 @@ export function BoardPage() {
       </header>
 
       {!shown ? (
-        <p>
-          {t('board.noMeetings')}{' '}
-          <Link to={`${teamPath}/meetings`}>{t('board.openMeetingLink')}</Link>
-        </p>
+        <>
+          {/* No meeting, so no pulse check; items closed meanwhile still have an archive. */}
+          <div
+            role="group"
+            aria-label={t('pulse.viewSwitchLabel')}
+            className={`${styles.segmented} ${styles.viewSwitch}`}
+          >
+            <button type="button" aria-pressed={view !== 'archived'} onClick={() => setSearch({})}>
+              {t('pulse.metricsView')}
+            </button>
+            <button
+              type="button"
+              aria-pressed={view === 'archived'}
+              onClick={() => setSearch({ view: 'archived' })}
+            >
+              {t('archive.view')}
+            </button>
+          </div>
+          {view === 'archived' ? (
+            <ArchivedView teamId={teamId} />
+          ) : (
+            <div className={styles.layout}>
+              <p className={styles.layoutMain}>
+                {t('board.noMeetings')}{' '}
+                <Link to={`${teamPath}/meetings`}>{t('board.openMeetingLink')}</Link>
+              </p>
+              {lists}
+            </div>
+          )}
+        </>
       ) : (
         <>
           <div role="group" aria-label={t('board.navigatorLabel')} className={styles.navigator}>
@@ -185,25 +242,41 @@ export function BoardPage() {
                   })
                 : t('pulse.view')}
             </button>
+            <button
+              type="button"
+              aria-pressed={view === 'archived'}
+              onClick={() => show(shown, 'archived')}
+            >
+              {t('archive.view')}
+            </button>
           </div>
 
           {view === 'pulse' ? (
             <PulseView key={shown.id} teamId={teamId} meeting={shown} mayAnswer={mayAnswer} />
-          ) : board.isPending ? (
-            <p>{t('board.loading')}</p>
-          ) : board.isError ? (
-            <p role="alert">{describeFailure(t, board.error)}</p>
+          ) : view === 'archived' ? (
+            <ArchivedView teamId={teamId} />
           ) : (
-            <BoardBody
-              teamId={teamId}
-              board={board.data}
-              mayConfigure={mayConfigure}
-              mayRecord={mayRecord}
-              isAdmin={isAdmin}
-              listing={listing}
-              onListing={setListing}
-              onDetail={setDetail}
-            />
+            <div className={styles.layout}>
+              <div className={styles.layoutMain}>
+                {board.isPending ? (
+                  <p>{t('board.loading')}</p>
+                ) : board.isError ? (
+                  <p role="alert">{describeFailure(t, board.error)}</p>
+                ) : (
+                  <BoardBody
+                    teamId={teamId}
+                    board={board.data}
+                    mayConfigure={mayConfigure}
+                    mayRecord={mayRecord}
+                    isAdmin={isAdmin}
+                    listing={listing}
+                    onListing={setListing}
+                    onDetail={setDetail}
+                  />
+                )}
+              </div>
+              {lists}
+            </div>
           )}
         </>
       )}

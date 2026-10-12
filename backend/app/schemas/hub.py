@@ -4,7 +4,8 @@ Three rules govern this payload, so that the interface can present it in
 either language and can be pointed at real data later without changing:
 
 * Authored prose published in both languages is a `LocalizedText`, so a
-  language change needs no second request.
+  language change needs no second request. Text a person typed - an
+  assigned item's summary - is a plain string, returned once as typed.
 * Anything naming a state from a fixed set is a code the interface
   translates, the same way it translates the codes carried by field errors.
 * Every point in time is ISO 8601 - an instant in UTC, or a calendar date.
@@ -16,9 +17,12 @@ both would let the two disagree once the reader's time zone is applied.
 """
 
 import datetime
+import uuid
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+
+from app.core.item_enums import Stage
 
 #: What a team member may be on a team.
 TeamRole = Literal["leader", "member"]
@@ -104,28 +108,35 @@ class FunnelStage(BaseModel):
 class Funnel(BaseModel):
     """The problem and task funnel, and the scope its figures cover."""
 
-    #: How many meetings back the figures reach.
-    scope_meetings: int
+    #: How many teams the figures are counted across: the caller's.
+    scope_teams: int
     stages: list[FunnelStage]
 
 
 class AssignedItem(BaseModel):
-    """A problem or task assigned to the current user."""
+    """An active problem or task the current user is responsible for."""
 
-    id: str
+    id: uuid.UUID
     kind: ItemKind
-    summary: LocalizedText
+    #: As it was typed, in whatever language that was.
+    summary: str
+    team_id: uuid.UUID
+    #: The team's name, so the list needs no second request to label an item.
     team: str
-    #: Progress towards done, 0-100.
-    progress: int = Field(ge=0, le=100)
-    due_on: datetime.date
+    stage: Stage
+    #: None when the item has no due date; such items come last.
+    due_on: datetime.date | None
+    #: Decided here, on the organization's calendar, as the board's lists are,
+    #: so the hub and the board never disagree about one item.
+    overdue: bool
 
 
 class HubSummary(BaseModel):
     """Everything the hub displays as data, in one read-only response."""
 
-    #: Always true while the hub is served from placeholder data. It is here
-    #: so that no caller mistakes these figures for anything recorded.
+    #: True while any of the hub is served from placeholder data - the
+    #: declarations, teams, preparation counts and in-session flag still are.
+    #: It is here so that no caller mistakes those for anything recorded.
     provisional: Literal[True] = True
     current_user: CurrentUser
     declarations: Declarations

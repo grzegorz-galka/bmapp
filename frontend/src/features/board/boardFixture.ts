@@ -4,12 +4,14 @@ import type { Meeting, MeetingList } from '../../api/meetings';
 import type {
   BoardMetric,
   MeetingBoard,
+  Metric,
   MetricDefinition,
   MetricTrend,
   Threshold,
 } from '../../api/metrics';
 import type { TeamDetail } from '../../api/teams';
 import type { PulseAnswerRead, PulseRating, PulseResults, PulseStatus } from '../../api/pulse';
+import type { ItemState, ProblemRead, TaskRead } from '../../api/items';
 
 export const TEAM_ID = 'team-1';
 export const LEADER = 'anna@example.com';
@@ -231,6 +233,62 @@ export function noPulse(meetingId: string, overrides: Partial<PulseResults> = {}
   });
 }
 
+/** An active problem raised at the coming meeting, with nothing optional set. */
+export function problem(overrides: Partial<ProblemRead> = {}): ProblemRead {
+  return {
+    id: 'problem-1',
+    team_id: TEAM_ID,
+    summary: 'Builds are flaky',
+    reason: 'Shared test database',
+    solution: '',
+    responsible: null,
+    due_on: null,
+    metric: null,
+    stage: 'not_started',
+    archived: false,
+    overdue: false,
+    raised_at: '2026-10-12T08:00:00Z',
+    raised_meeting: { id: 'm-2026-10-14', date: '2026-10-14' },
+    closed_at: null,
+    closed_meeting: null,
+    updated_at: '2026-10-12T08:00:00Z',
+    ...overrides,
+  };
+}
+
+/** An active task raised at the coming meeting, with nothing optional set. */
+export function task(overrides: Partial<TaskRead> = {}): TaskRead {
+  return {
+    id: 'task-1',
+    team_id: TEAM_ID,
+    summary: 'Update the agenda',
+    details: '',
+    problem: null,
+    responsible: null,
+    due_on: null,
+    metric: null,
+    stage: 'not_started',
+    archived: false,
+    overdue: false,
+    raised_at: '2026-10-12T08:00:00Z',
+    raised_meeting: { id: 'm-2026-10-14', date: '2026-10-14' },
+    closed_at: null,
+    closed_meeting: null,
+    updated_at: '2026-10-12T08:00:00Z',
+    ...overrides,
+  };
+}
+
+/** A team's problems and tasks by state, as the two list endpoints return them. */
+export interface ItemFixtures {
+  problems: Record<ItemState, ProblemRead[]>;
+  tasks: Record<ItemState, TaskRead[]>;
+}
+
+export function noItems(): ItemFixtures {
+  return { problems: { active: [], archived: [] }, tasks: { active: [], archived: [] } };
+}
+
 export function jsonResponse(body: unknown, status = 200) {
   return { ok: status < 400, status, json: async () => body } as Response;
 }
@@ -244,6 +302,10 @@ export interface Fixtures {
   trend: MetricTrend;
   /** Pulse results by meeting id; a meeting not listed has no answers. */
   pulse?: Record<string, PulseResults>;
+  /** The team's problems and tasks; none when left out. */
+  items?: ItemFixtures;
+  /** The board's metrics as the settings list them; the one tile's metric when left out. */
+  metrics?: Metric[];
   write: (url: string, init: RequestInit) => Response;
 }
 
@@ -266,7 +328,18 @@ export function serveBoard(fetchMock: ReturnType<typeof vi.fn>, fixtures: Fixtur
       const meetingId = decodeURIComponent(pulseMatch[1] ?? '');
       return Promise.resolve(jsonResponse(fixtures.pulse?.[meetingId] ?? noPulse(meetingId)));
     }
+    const itemsMatch = /\/(problems|tasks)\?state=(active|archived)$/.exec(url);
+    if (itemsMatch) {
+      const kind = itemsMatch[1] as 'problems' | 'tasks';
+      const state = itemsMatch[2] as ItemState;
+      return Promise.resolve(jsonResponse((fixtures.items ?? noItems())[kind][state]));
+    }
     if (url.endsWith('/meetings')) return Promise.resolve(jsonResponse(MEETINGS));
+    if (url.endsWith('/metrics')) {
+      return Promise.resolve(
+        jsonResponse(fixtures.metrics ?? [{ ...definition(), threshold: null }]),
+      );
+    }
     if (url.endsWith('/trend')) return Promise.resolve(jsonResponse(fixtures.trend));
     if (url.endsWith('/thresholds')) {
       return Promise.resolve(

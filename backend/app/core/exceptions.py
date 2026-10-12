@@ -415,3 +415,98 @@ class PulseAnswerMeetingFrozenError(DomainError):
 
     def __init__(self, meeting_id: object) -> None:
         super().__init__(f"Meeting {meeting_id} no longer takes pulse answers.")
+
+
+class ItemResponsibleNotMemberError(DomainError):
+    """Raised when someone outside a team is made responsible for one of its items.
+
+    Only when the responsible person is set: someone who later leaves the
+    team stays responsible for their items until someone changes it.
+    """
+
+    status_code = 409
+    field = "responsible_employee_id"
+    code = "item_responsible.not_member"
+
+    def __init__(self, employee_id: object) -> None:
+        super().__init__(f"Employee {employee_id} is not a member of this team.")
+
+
+class ItemMetricNotOnBoardError(DomainError):
+    """Raised when an item is linked to a metric its team's board does not show.
+
+    Only when it is linked: a link stays when the metric is later retired or
+    removed from the board.
+    """
+
+    status_code = 409
+    field = "metric_id"
+    code = "item_metric.not_on_board"
+
+    def __init__(self, metric_id: object) -> None:
+        super().__init__(f"Metric {metric_id} is not on this team's board.")
+
+
+class TaskProblemNotFoundError(DomainError):
+    """Raised when a task names a problem that is not one of its team's.
+
+    Another team's problem is "not found" too, as a meeting of another team is.
+    """
+
+    status_code = 409
+    field = "problem_id"
+    code = "task_problem.not_found"
+
+    def __init__(self, problem_id: object) -> None:
+        super().__init__(f"This team has no problem with the identifier {problem_id}.")
+
+
+class TaskProblemArchivedError(DomainError):
+    """Raised when a task is raised from, or moved to, a problem already closed."""
+
+    status_code = 409
+    field = "problem_id"
+    code = "task_problem.archived"
+
+    def __init__(self, problem_id: object) -> None:
+        super().__init__(f"Problem {problem_id} is closed; raise a task from an active one.")
+
+
+class ProblemNotFoundError(DomainError):
+    """Raised when a problem identifier names no problem of the team in the path."""
+
+    status_code = 404
+    code = "problem.not_found"
+
+    def __init__(self, problem_id: object) -> None:
+        super().__init__(f"This team has no problem with the identifier {problem_id}.")
+
+
+class TaskNotFoundError(DomainError):
+    """Raised when a task identifier names no task of the team in the path."""
+
+    status_code = 404
+    code = "task.not_found"
+
+    def __init__(self, task_id: object) -> None:
+        super().__init__(f"This team has no task with the identifier {task_id}.")
+
+
+class ProblemArchivedError(DomainError):
+    """Raised when a closed problem is changed. Archived is the only end state."""
+
+    status_code = 409
+    code = "problem.archived"
+
+    def __init__(self, problem_id: object) -> None:
+        super().__init__(f"Problem {problem_id} is closed and archived; it cannot change.")
+
+
+class TaskArchivedError(DomainError):
+    """Raised when a closed task is changed. Archived is the only end state."""
+
+    status_code = 409
+    code = "task.archived"
+
+    def __init__(self, task_id: object) -> None:
+        super().__init__(f"Task {task_id} is closed and archived; it cannot change.")

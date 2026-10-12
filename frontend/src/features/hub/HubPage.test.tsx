@@ -4,6 +4,8 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { Route, Routes, useParams } from 'react-router';
 import { renderWithLanguage } from '../../test/render';
 import { changeLanguage } from '../../i18n';
 import { en } from '../../i18n/en';
@@ -29,6 +31,12 @@ afterEach(() => {
   vi.useRealTimers();
   window.localStorage.clear();
 });
+
+/** Where the router lands when an item is chosen: the team's board. */
+function BoardStandIn() {
+  const { teamId } = useParams();
+  return <p>the board of {teamId}</p>;
+}
 
 /** Render the hub and wait for the summary to land. */
 async function renderHub(language: 'en' | 'pl' = 'en') {
@@ -215,7 +223,7 @@ describe('the entry points', () => {
 });
 
 describe('the funnel', () => {
-  it('shows every stage with its total and its split', async () => {
+  it('Each funnel stage shows its figures', async () => {
     await renderHub();
     const funnel = screen.getByRole('region', { name: en.funnel.heading });
 
@@ -236,10 +244,18 @@ describe('the funnel', () => {
     ).toBeInTheDocument();
   });
 
-  it('states the scope the figures cover', async () => {
+  it('The funnel states what it covers', async () => {
     await renderHub();
 
-    expect(screen.getByText(en.funnel.scope.replace('{{count}}', '12'))).toBeInTheDocument();
+    expect(screen.getByText(en.funnel.scope.replace('{{count}}', '2'))).toBeInTheDocument();
+  });
+
+  it('states the scope in Polish when Polish is active', async () => {
+    await renderHub('pl');
+
+    expect(screen.getByText(pl.funnel.scope.replace('{{count}}', '2'))).toBeInTheDocument();
+
+    await changeLanguage('en');
   });
 
   it('says archived items are closed, never deleted', async () => {
@@ -250,25 +266,71 @@ describe('the funnel', () => {
 });
 
 describe('the assigned items', () => {
-  it('shows each item with its kind, summary, team, progress and due date', async () => {
+  it('Assigned items are displayed', async () => {
+    await renderHub();
+    const list = screen.getByRole('region', { name: en.items.heading });
+    const [first] = within(list).getAllByRole('listitem');
+    const item = within(first!);
+
+    expect(item.getByText(en.items.kind_problem)).toBeInTheDocument();
+    expect(item.getByText('Deploy pipeline flaky')).toBeInTheDocument();
+    expect(item.getByText('Platform Core')).toBeInTheDocument();
+    // The stage is named in words beside the ball, not shown as a percentage.
+    expect(item.getByText(en.pdca.do)).toBeInTheDocument();
+    expect(item.getByText(/^Due /)).toBeInTheDocument();
+    expect(within(list).getByText(en.pdca.plan)).toBeInTheDocument();
+  });
+
+  it('shows a summary as it was typed, whatever the active language', async () => {
+    await renderHub('pl');
+    const list = screen.getByRole('region', { name: pl.items.heading });
+
+    expect(within(list).getByText('Deploy pipeline flaky')).toBeInTheDocument();
+    expect(within(list).getByText('Skrócić czas realizacji poniżej 5 dni')).toBeInTheDocument();
+    expect(within(list).getByText(pl.pdca.do)).toBeInTheDocument();
+
+    await changeLanguage('en');
+  });
+
+  it('says so when an item has no due date', async () => {
     await renderHub();
     const list = screen.getByRole('region', { name: en.items.heading });
 
-    expect(within(list).getByText('Deploy pipeline flaky')).toBeInTheDocument();
-    expect(within(list).getByText(en.items.kind_problem)).toBeInTheDocument();
-    expect(within(list).getByText(en.items.kind_task)).toBeInTheDocument();
-    expect(within(list).getByText('Platform Core')).toBeInTheDocument();
-    expect(
-      within(list).getByText(en.items.progress.replace('{{percent}}', '60')),
-    ).toBeInTheDocument();
+    expect(within(list).getByText(en.items.noDueDate)).toBeInTheDocument();
   });
 
-  it('marks an overdue item with a word as well as a colour', async () => {
+  it('An assigned item leads to its board', async () => {
+    await renderWithLanguage(
+      <Routes>
+        <Route path="/" element={<HubPage />} />
+        <Route path="/teams/:teamId" element={<BoardStandIn />} />
+      </Routes>,
+      'en',
+    );
+    const list = await screen.findByRole('region', { name: en.items.heading });
+
+    expect(within(list).getByRole('link', { name: 'Write the runbook' })).toHaveAttribute(
+      'href',
+      '/teams/payments',
+    );
+    await userEvent.click(within(list).getByRole('link', { name: 'Deploy pipeline flaky' }));
+
+    expect(await screen.findByText('the board of platform-core')).toBeInTheDocument();
+  });
+
+  it('offers no control to move a stage from the hub', async () => {
+    await renderHub();
+    const list = screen.getByRole('region', { name: en.items.heading });
+
+    expect(within(list).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('An overdue item is distinguished', async () => {
     await renderHub();
     const list = screen.getByRole('region', { name: en.items.heading });
 
     expect(within(list).getByText(en.items.overdue)).toBeInTheDocument();
-    // Exactly one of the two fixture items is overdue.
+    // Exactly one fixture item is overdue; one is on time and one has no date.
     expect(within(list).getAllByText(en.items.overdue)).toHaveLength(1);
   });
 
@@ -280,7 +342,7 @@ describe('the assigned items', () => {
     ).toBeInTheDocument();
   });
 
-  it('says so when nothing is assigned', async () => {
+  it('The user has no assigned items', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,

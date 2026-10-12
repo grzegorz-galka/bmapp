@@ -5,7 +5,7 @@ from collections.abc import Callable
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.integration import pulse_api
+from tests.integration import items_api, pulse_api
 from tests.integration.meetings_api import open_meeting
 from tests.integration.teams_api import register
 
@@ -90,3 +90,23 @@ def test_every_read_still_refuses_a_caller_with_no_token(
 
     assert response.status_code == 401
     assert response.json()["errors"][0]["code"] == "auth.token_missing"
+
+
+@pytest.mark.parametrize("kind", ["problems", "tasks"])
+def test_a_stranger_reads_a_teams_active_and_archived_items(
+    client: TestClient,
+    client_as: Callable[[str], TestClient],
+    monkeypatch: pytest.MonkeyPatch,
+    kind: str,
+) -> None:
+    """Problems and tasks, open and closed, are read like everything else."""
+    items_api.freeze_today(monkeypatch)
+    team = register(client, "Platform", LEADER)
+    path = f"/teams/{team['id']}/{kind}"
+    active = client_as(LEADER).post(path, json={"summary": "Still open"}).json()
+    closed = client_as(LEADER).post(path, json={"summary": "Done", "stage": "act"}).json()
+
+    outsider = client_as(OUTSIDER)
+
+    assert items_api.items_of(outsider, team["id"], kind) == [active]
+    assert items_api.items_of(outsider, team["id"], kind, "archived") == [closed]

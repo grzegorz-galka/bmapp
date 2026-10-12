@@ -279,3 +279,22 @@
 .viewSwitch {
   margin-bottom: var(--sp-4);
 }
+
+/* The metrics view: the tiles, then the problems and tasks beside them. */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 26rem);
+  gap: var(--sp-6);
+  align-items: start;
+}
+
+.layoutMain {
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

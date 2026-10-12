@@ -14,6 +14,7 @@ import { renderWithLanguage } from '../../test/render';
 import { en } from '../../i18n/en';
 import type { Metric } from '../../api/metrics';
 import type { PulseResults } from '../../api/pulse';
+import type { ItemFixtures } from './boardFixture';
 import {
   ADMIN,
   board,
@@ -23,8 +24,11 @@ import {
   MEETINGS,
   MEMBER,
   MONDAY,
+  noItems,
+  problem,
   pulseResults,
   serveBoard,
+  task,
   TEAM_ID,
   threshold,
   TREND,
@@ -33,6 +37,7 @@ import {
 const fetchMock = vi.fn();
 const METRICS: Metric[] = [{ ...definition(), threshold: threshold() }];
 let pulse: Record<string, PulseResults>;
+let items: ItemFixtures;
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
@@ -40,10 +45,12 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
   fetchMock.mockReset();
   pulse = { 'm-2026-10-14': pulseResults('m-2026-10-14') };
+  items = noItems();
   serveBoard(fetchMock, {
     boards: Object.fromEntries(MEETINGS.meetings.map((m) => [m.id, board(m.date)])),
     trend: TREND,
     pulse,
+    items,
     write: () => jsonResponse({}),
   });
   const served = fetchMock.getMockImplementation()!;
@@ -181,5 +188,60 @@ describe('the pulse check view offers only what its viewer may do', () => {
     expect(screen.getByRole('region', { name: en.pulse.answersHeading })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: en.pulse.yourAnswer })).not.toBeInTheDocument();
     expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+  });
+});
+
+/*
+ * Requirement: The problems and tasks offer only what their viewer may do
+ * (specs/authorization). The lists are the same for everyone; the controls
+ * are a member's or an administrator's, and the archive is nobody's to change.
+ */
+describe('the problems and tasks offer only what their viewer may do', () => {
+  beforeEach(() => {
+    items.problems.active = [problem({ summary: 'Builds are flaky', stage: 'plan' })];
+    items.tasks.active = [task({ summary: 'Update the agenda', stage: 'do' })];
+    items.tasks.archived = [
+      task({ id: 'task-closed', summary: 'Book the room', stage: 'act', archived: true }),
+    ];
+  });
+
+  function itemControls() {
+    return [
+      screen.queryByRole('button', { name: en.items.addProblem }),
+      screen.queryByRole('button', { name: en.items.addTask }),
+      screen.queryByRole('button', { name: 'Change: Builds are flaky' }),
+      screen.queryByRole('button', { name: 'Change: Update the agenda' }),
+      screen.queryByRole('button', { name: `${en.pdca.plan}: move on to ${en.pdca.do}` }),
+      screen.queryByRole('button', { name: `${en.pdca.do}: move on to ${en.pdca.check}` }),
+    ];
+  }
+
+  it('A member sees the controls', async () => {
+    await openBoard({ email: MEMBER }, 'm-2026-10-14');
+    await screen.findByText('Update the agenda');
+
+    for (const control of itemControls()) expect(control).toBeInTheDocument();
+  });
+
+  it('A stranger sees the lists without controls', async () => {
+    await openBoard({ email: 'stranger@example.com' }, 'm-2026-10-14');
+
+    expect(await screen.findByText('Builds are flaky')).toBeInTheDocument();
+    expect(screen.getByText('Update the agenda')).toBeInTheDocument();
+    expect(screen.getByText(en.pdca.do)).toBeInTheDocument();
+    for (const control of itemControls()) expect(control).not.toBeInTheDocument();
+  });
+
+  it('Nobody changes an archived item', async () => {
+    const user = userEvent.setup();
+    await openBoard({ email: ADMIN, isAdmin: true }, 'm-2026-10-14');
+
+    await user.click(screen.getByRole('button', { name: en.archive.view }));
+
+    const archived = await screen.findByRole('region', { name: en.archive.tasksHeading });
+    expect(within(archived).getByRole('rowheader', { name: 'Book the room' })).toBeInTheDocument();
+    expect(within(archived).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(archived).queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: en.items.addTask })).not.toBeInTheDocument();
   });
 });

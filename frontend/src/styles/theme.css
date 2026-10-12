@@ -55,6 +55,11 @@ html[data-theme='dark'] {
   --stage-progress: oklch(0.72 0.15 80);
   --stage-archived: oklch(0.68 0.14 150);
 
+  /* The PDCA ball: a ring filled a quarter per stage, solid once closed. The
+     stage is always named in words beside it; the marks are held to 3:1. */
+  --pdca-ring: #8fb0d4;
+  --pdca-done: oklch(0.75 0.14 150);
+
   --tint: 10%;
   --tint-2: 18%;
   --shadow: 0 1px 0 rgba(255, 255, 255, 0.03);
@@ -95,6 +100,9 @@ html[data-theme='light'] {
   --stage-open: oklch(0.62 0.17 25);
   --stage-progress: oklch(0.72 0.15 80);
   --stage-archived: oklch(0.68 0.14 150);
+
+  --pdca-ring: oklch(0.5 0.11 255);
+  --pdca-done: oklch(0.46 0.13 150);
 
   --tint: 12%;
   --tint-2: 26%;

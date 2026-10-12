@@ -47,8 +47,8 @@ board. BMAPP provides that board online and lets a team:
 | Threshold         | metric, effective from, green and amber boundaries, reason, who recorded it        |
 | Metric value      | metric, meeting, the number recorded, comment, colour set by hand (optional)       |
 | Pulse answer      | meeting, respondent (a member), rating 1–5, what helped, what hurt, what could be better |
-| Problem           | team, summary, reason, solution proposal, responsible employee, due date, progress |
-| Task              | team, summary, details, responsible employee, due date, progress                   |
+| Problem           | team, summary, reason, solution proposal, responsible member, due date, metric (optional), PDCA stage, meetings raised and closed at |
+| Task              | team, summary, details, responsible member, due date, metric and problem (optional), PDCA stage, meetings raised and closed at |
 
 Glossary (use these exact terms in code, UI and tests):
 
@@ -66,7 +66,8 @@ Glossary (use these exact terms in code, UI and tests):
 - **Status** — green, amber, red, no data or no threshold. Computed when read by `status_of`, never stored; boundaries count as the better zone.
 - **Target** — a declaration in prose, *not* a numeric range: what the company or the team is aiming at. Company-wide targets appear on every board; a team may add **custom targets**. A colour never comes from a target — only from the metric's threshold.
 - **Problem** — an obstacle identified at the board meeting; has a root cause ("reason") and a proposed solution.
-- **Task** — an action item. Problems and tasks are **archived**, never deleted, once closed/done.
+- **Task** — an action item, possibly raised from a problem. Problems and tasks are **archived**, never deleted, once closed: an archived item is read-only and cannot be reopened.
+- **PDCA stage** — a problem's or task's progress: not started, plan, do, check, act. Any member moves it forwards or back; reaching *act* closes and archives the item. Each item records the meeting it was raised at and the one it was closed at: the team's first meeting dated today or later, else its latest, else none. Overdue means a due date before today (Europe/Warsaw) on an active item, decided on the server.
 - **Pulse check** — the weekly survey each member answers for a meeting: a rating 1–5 and three optional texts (what had a positive effect, a negative one, what could be better). The four questions are fixed. A rating's colour comes from fixed bands (4–5 green, 3 amber, 1–2 red), not from a threshold: the pulse check is not a metric. Answers are open at the same meetings as metric values; only the team's members and administrators see who answered what. Kept as "Pulse check" in Polish too.
 
 **Indicator** is deliberately *not* a concept here. An earlier draft had metrics
@@ -214,10 +215,11 @@ at most, with the next date proposed from the schedule. Dates and times are
 wall-clock values on the organization's clock, Europe/Warsaw, fixed in
 `app/core/time.py`; instants are stored in UTC.
 
-**The hub is served from placeholder data.** `GET /hub` returns one read-only
-payload built from constants in `app/services/hub.py` — no tables, no
-migration, no database session. The one real thing in it is the identity, which
-comes from the caller's token; everything else is still invented. It exists so the shell is real while the
+**The hub is still mostly placeholder data.** `GET /hub` returns one read-only
+payload. The identity comes from the caller's token, and the problem/task
+funnel and the items assigned to the caller are read from the recorded
+problems and tasks; the declarations, teams, preparation counts and
+in-session flag are still constants in `app/services/hub.py`. It exists so the shell is real while the
 capabilities behind it are built, and it marks itself `provisional` so nothing
 mistakes its figures for recorded data. Each future capability replaces a slice
 of it; the shape it returns is the shape they should return.
@@ -251,8 +253,15 @@ in the legacy board - answers received, the average on a gauge, the
 distribution, the trend and the answers table, with names hideable for screen
 sharing. A meeting with answers can no longer be deleted.
 
-Everything else in the domain model above — targets, problems, tasks and archiving — is agreed but
-not built. Each is a capability of its own;
+`problems-and-tasks` is implemented: members raise and change a team's problems
+and tasks at any time (`/teams/:teamId/problems`, `/teams/:teamId/tasks`), the
+board shows the active ones beside the metric tiles with a PDCA ball that steps
+the stage on and asks before closing, and `/teams/:teamId?view=archived` lists
+the closed ones. Problems, tasks and archiving are one capability because they
+share one lifecycle. Deleting a meeting leaves its items recording no meeting.
+
+Everything else in the domain model above — targets — is agreed but
+not built. It is a capability of its own;
 propose it through `/opsx:propose` rather than adding it inline.
 
 ## Repository layout
@@ -289,9 +298,11 @@ propose it through `/opsx:propose` rather than adding it inline.
 └── CLAUDE.md
 ```
 
-`backend/tests/features/` holds the first BDD feature, `metric_status.feature`:
-the status rule and the threshold in force at a meeting, exercised directly
-against the pure functions in `app/services/metric_status.py`. Step definitions
+`backend/tests/features/` holds the BDD features: `metric_status.feature`, the
+status rule and the threshold in force at a meeting, against the pure functions
+in `app/services/metric_status.py`; and `item_lifecycle.feature`, the PDCA
+stages, archiving and the meeting an item is raised or closed at, against
+`app/services/item_lifecycle.py`. Step definitions
 live in `tests/features/steps/`.
 
 `src/pages/` never appeared; a feature folder holds its own page component, and
@@ -367,8 +378,8 @@ backend and meaningful coverage of every user-facing flow on the frontend.
   one, include a global one), define global metrics, answer and review the pulse
   check, view archive.
 - **BDD tests** (pytest-bdd) only for business rules worth stating in plain
-  language, e.g. the status of a metric value against its threshold (the one
-  that exists), archiving. Do not write BDD for CRUD plumbing. Target inheritance is not one
+  language, e.g. the status of a metric value against its threshold
+  (`metric_status.feature`) and archiving (`item_lifecycle.feature`). Do not write BDD for CRUD plumbing. Target inheritance is not one
   of these: targets are declarations that are displayed, not evaluated.
 - A change is not done until its tests pass locally and coverage does not drop.
 
@@ -469,5 +480,6 @@ record that adoption itself as a decision. Remove an item below once decided.
   meeting, so an import has to attach to one. What is still open is whether
   import exists at all.
 - Retention period for archived items and recorded meetings.
-- Whether a meeting records attendance, and whether a problem or task is tied to
-  the meeting that raised or closed it.
+- Whether a meeting records attendance. (Whether a problem or task is tied to
+  the meeting that raised or closed it is settled in `add-problems-and-tasks`:
+  it records both.)
