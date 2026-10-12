@@ -17,17 +17,17 @@ that includes them; and its board at
 `/teams/:teamId`, where members record each meeting's values and read their
 trends, answer and review the weekly pulse check, and keep the team's
 problems and tasks from raising to the archive. On top of it sits
-the **hub** at `/`, the landing page built from the mockup in `mockups/` — the
-company declarations, your teams and the countdown to the next board meeting,
-what happens at a board meeting, and the problem and task funnel. See
+the **dashboard** (*Pulpit*) at `/`, the landing page — the company
+declarations, your teams and the countdown to the next board meeting, your
+coming board meetings with what is still to be recorded and answered, and your
+teams' problems and tasks with the ones assigned to you. From a meeting row you
+prepare its data, fill your pulse check or, on the day, start it. See
 `openspec/` for what is specified and `CLAUDE.md` for the conventions.
 
-> **The hub's figures are mostly placeholder data.** They come from one
-> read-only endpoint, `GET /hub`. The problem and task funnel and the items
-> assigned to you are recorded data; the declarations, teams and preparation
-> counts are still constants. The response says so in a `provisional` field and
-> the page says so at the foot. Each capability still to be wired in will
-> replace a slice of it.
+> **The dashboard's declarations are constants.** Everything else on it comes
+> from recorded data through one read-only endpoint, `GET /dashboard`. The
+> company mission, vision, goals and values live in `app/services/dashboard.py`
+> until the targets capability makes them editable.
 
 > **Not deployable, except as a demo.** Every service in the Compose stack
 > binds to `127.0.0.1`. The only deployment is a public demonstration on
@@ -48,7 +48,7 @@ docker compose up -d          # PostgreSQL + backend + frontend
 docker compose exec backend alembic upgrade head
 ```
 
-Then open <http://localhost:5173>. You land on the hub; the team registration
+Then open <http://localhost:5173>. You land on the dashboard; the team registration
 page is at `/teams`, reachable from the header. The header also carries the
 English/Polish language toggle, the dark/light theme toggle — dark by default, and
 your choice is remembered — and the account control.
@@ -248,10 +248,13 @@ uv run alembic upgrade head
 Boardmeeting tool into BMAPP as one team: its participants as employees (named
 `firstname.lastname@pse.pl`), the team, board and schedule, a meeting per week,
 its KPIs as metrics with threshold versions derived from the tool's own colour
-rule, and every recorded value with its comment. It needs both the backup
-(`boardmeeting-backup` JSON) and the tool's HTML, which holds the KPI
-definitions. Problems, tasks, pulse answers and projects are counted and
-skipped: BMAPP now has problems and tasks, but the importer does not load them yet.
+rule, every recorded value with its comment, every problem and task at its
+PDCA stage (archived where the tool closed it, with the meetings it was raised
+and closed at), and every pulse answer at its week's meeting. It needs both the
+backup (`boardmeeting-backup` JSON) and the tool's HTML, which holds the KPI
+definitions. The KPI projects are counted and skipped. An item with several
+owners gets the first as its responsible person and names the others in its
+text.
 
 ```bash
 cd backend

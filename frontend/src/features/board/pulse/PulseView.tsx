@@ -25,14 +25,20 @@ export function PulseView({
   teamId,
   meeting,
   mayAnswer,
+  answering,
+  onAnswering,
 }: {
   teamId: string;
   meeting: Meeting;
   mayAnswer: boolean;
+  /** Whether the address asks for the form; ignored where no form is offered. */
+  answering: boolean;
+  onAnswering: (answering: boolean) => void;
 }) {
   const { t } = useTranslation();
   const pulse = usePulse(teamId, meeting.id);
-  const [mode, setMode] = useState<Mode>('results');
+  const mode: Mode = answering ? 'form' : 'results';
+  const setMode = (next: Mode) => onAnswering(next === 'form');
   // About the screen right now, not a preference to remember.
   const [hideNames, setHideNames] = useState(false);
 

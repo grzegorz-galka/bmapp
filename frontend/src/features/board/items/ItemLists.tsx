@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router';
 import {
   nextStage,
   type ItemKind,
@@ -14,6 +15,9 @@ import { ItemEntry } from './ItemEntry';
 import { useChangeProblem, useChangeTask, useProblems, useTasks } from './useItems';
 import teamStyles from '../../teams/teams.module.css';
 import styles from './items.module.css';
+
+/** The address fragment that names each list: `/teams/:id#problems`. */
+const anchors: Record<ItemKind, string> = { problem: 'problems', task: 'tasks' };
 
 type Closing = { kind: 'problem'; item: ProblemRead } | { kind: 'task'; item: TaskRead };
 
@@ -48,6 +52,25 @@ export function ItemLists({
   const [closing, setClosing] = useState<Closing | null>(null);
   // Each opening starts from the item as it is then.
   const [opened, setOpened] = useState(0);
+  const { hash } = useLocation();
+  const scrolledTo = useRef<string | null>(null);
+  const named = hash.slice(1);
+  const isList = named === anchors.problem || named === anchors.task;
+  // Both, since the problems list above the tasks moves them as it fills.
+  const namedReady = isList && !problems.isPending && !tasks.isPending;
+
+  // Brought into view once the lists have their entries, not on mount: they
+  // arrive later and would push the list away again. Once per fragment, so a
+  // reader scrolling on is not pulled back by a refetch.
+  useEffect(() => {
+    if (!namedReady) {
+      if (!isList) scrolledTo.current = null;
+      return;
+    }
+    if (scrolledTo.current === named) return;
+    scrolledTo.current = named;
+    document.getElementById(named)?.scrollIntoView({ block: 'start' });
+  }, [named, isList, namedReady]);
 
   function open(target: DialogTarget) {
     setDialog(target);
@@ -95,7 +118,7 @@ export function ItemLists({
     const headingId = `items-${kind}-heading`;
     const items: (ProblemRead | TaskRead)[] = query.data ?? [];
     return (
-      <section className={styles.listSection} aria-labelledby={headingId}>
+      <section id={anchors[kind]} className={styles.listSection} aria-labelledby={headingId}>
         <header className={styles.listHeader}>
           <h2 id={headingId} className={styles.listHeading}>
             {t(kind === 'problem' ? 'items.problemsHeading' : 'items.tasksHeading')}

@@ -1,7 +1,7 @@
 """Business logic, callable without HTTP."""
 
+from app.services.dashboard import build_dashboard_summary
 from app.services.employees import get_or_create_employee
-from app.services.hub import build_hub_summary, next_occurrence
 from app.services.meetings import (
     MeetingOverview,
     change_meeting,
@@ -23,7 +23,7 @@ from app.services.teams import (
 __all__ = [
     "MeetingOverview",
     "add_member",
-    "build_hub_summary",
+    "build_dashboard_summary",
     "change_leader",
     "change_meeting",
     "delete_meeting",
@@ -31,7 +31,6 @@ __all__ = [
     "get_team",
     "list_meetings",
     "list_teams",
-    "next_occurrence",
     "open_meeting",
     "register_team",
     "remove_member",

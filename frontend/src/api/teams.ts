@@ -1,7 +1,7 @@
 /**
  * Typed client for the team-board and team-membership API.
  *
- * Field names mirror the API's snake_case exactly, as the hub client does, so
+ * Field names mirror the API's snake_case exactly, as the dashboard client does, so
  * there is no mapping layer to keep in step with the backend.
  */
 import { request } from './client';

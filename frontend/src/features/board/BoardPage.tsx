@@ -52,7 +52,6 @@ export function BoardPage() {
   const meetings = useMeetings(teamId);
   const [search, setSearch] = useSearchParams();
   const [today] = useState(() => organizationToday());
-  const [listing, setListing] = useState(false);
   const [detail, setDetail] = useState<MetricDefinition | null>(null);
   const closeDetail = useCallback(() => setDetail(null), []);
 
@@ -60,6 +59,10 @@ export function BoardPage() {
   const shown =
     all.find((meeting) => meeting.id === search.get('meeting')) ?? defaultMeeting(all, today);
   const view = viewOf(search.get('view'));
+  // The open toggle lives in the address, so a reload or a shared link keeps it.
+  // A mode the view does not have is ignored; whether it can be used is
+  // decided where the view is drawn.
+  const mode = search.get('mode');
   const board = useBoard(teamId, shown?.id);
   // What an item may be linked to; independent of the meeting shown.
   const boardMetrics = useMetrics(teamId);
@@ -120,11 +123,27 @@ export function BoardPage() {
     />
   );
 
-  /** The address keeps both the meeting and the view, so a reload lands on the same one. */
+  /**
+   * The address keeps both the meeting and the view, so a reload lands on the
+   * same one. The recording view stays open from meeting to meeting, as it
+   * always has; any other mode belongs to the view and meeting it was set on.
+   */
   function show(meeting: Meeting, nextView: BoardView = view) {
-    setSearch(
-      nextView === 'metrics' ? { meeting: meeting.id } : { meeting: meeting.id, view: nextView },
-    );
+    const next: Record<string, string> = { meeting: meeting.id };
+    if (nextView !== 'metrics') next.view = nextView;
+    if (nextView === 'metrics' && view === 'metrics' && mode === 'record') next.mode = mode;
+    setSearch(next);
+  }
+
+  /** Opens or leaves a view's mode, keeping the meeting shown in the address. */
+  function setMode(meeting: Meeting, nextMode: 'record' | 'answer' | null) {
+    setSearch((current) => {
+      const next = new URLSearchParams(current);
+      next.set('meeting', meeting.id);
+      if (nextMode) next.set('mode', nextMode);
+      else next.delete('mode');
+      return next;
+    });
   }
 
   function go(meeting: Meeting) {
@@ -252,7 +271,14 @@ export function BoardPage() {
           </div>
 
           {view === 'pulse' ? (
-            <PulseView key={shown.id} teamId={teamId} meeting={shown} mayAnswer={mayAnswer} />
+            <PulseView
+              key={shown.id}
+              teamId={teamId}
+              meeting={shown}
+              mayAnswer={mayAnswer}
+              answering={mode === 'answer'}
+              onAnswering={(answering) => setMode(shown, answering ? 'answer' : null)}
+            />
           ) : view === 'archived' ? (
             <ArchivedView teamId={teamId} />
           ) : (
@@ -269,8 +295,8 @@ export function BoardPage() {
                     mayConfigure={mayConfigure}
                     mayRecord={mayRecord}
                     isAdmin={isAdmin}
-                    listing={listing}
-                    onListing={setListing}
+                    listing={mode === 'record'}
+                    onListing={(listing) => setMode(shown, listing ? 'record' : null)}
                     onDetail={setDetail}
                   />
                 )}

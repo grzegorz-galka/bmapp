@@ -64,7 +64,7 @@ def _shared_checks(table: str, *text_columns: str) -> tuple[CheckConstraint | In
         ),
         # The board's two lists: a team's active items, and its archived ones.
         Index(f"ix_{table}_team_closed_at", "team_id", "closed_at"),
-        # The hub: what is still open and assigned to a person.
+        # The dashboard: what is still open and assigned to a person.
         Index(
             f"ix_{table}_responsible_active",
             "responsible_employee_id",

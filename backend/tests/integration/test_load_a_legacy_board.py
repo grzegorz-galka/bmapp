@@ -43,7 +43,9 @@ def test_the_team_its_board_and_its_people_are_loaded(
 ) -> None:
     assert team["board"]["name"] == "Board Zarządu"
     assert team["board"]["schedule"] == {"weekday": 3, "time": "13:00"}
+    # Adam Nowy is no participant, but owns a task, so he is a member too.
     assert sorted((m["email"], m["is_leader"]) for m in team["members"]) == [
+        ("adam.nowy@pse.pl", False),
         ("ewa.nowak@pse.pl", False),
         ("jan.kowalski@pse.pl", False),
         ("zofia.lecka@pse.pl", True),
@@ -129,10 +131,99 @@ def test_loading_again_is_refused_and_replacing_works(session: Session) -> None:
     assert summary.employees_added == 0  # the people are kept, not duplicated
 
 
-def test_what_cannot_be_loaded_yet_is_counted(session: Session) -> None:
+def test_what_cannot_be_loaded_is_counted(session: Session) -> None:
     summary = _load(session)
 
-    assert summary.skipped == {"pulse metric": 1, "problems": 1, "tasks": 2}
+    # The pulse answer for a week the backup holds no meeting for is skipped.
+    assert summary.skipped == {"pulse metric": 1, "pulse answers": 1, "projects": 1}
+    assert (summary.problems, summary.tasks, summary.archived) == (2, 3, 2)
+    assert summary.pulse_answers == 2
+
+
+def _items(client: TestClient, team: dict[str, object], kind: str, state: str) -> dict[str, dict]:
+    items = client.get(f"/teams/{team['id']}/{kind}", params={"state": state}).json()
+    return {item["summary"]: item for item in items}
+
+
+def test_problems_are_loaded_at_their_stage_and_meetings(
+    client: TestClient, team: dict[str, object]
+) -> None:
+    [active] = _items(client, team, "problems", "active").values()
+    [archived] = _items(client, team, "problems", "archived").values()
+
+    assert (archived["summary"], archived["stage"], archived["reason"]) == (
+        "Builds break on Mondays",
+        "act",
+        "A shared test database",
+    )
+    assert archived["responsible"]["email"] == "jan.kowalski@pse.pl"
+    assert archived["metric"]["name"] == "Backlog: overdue"
+    assert (archived["raised_meeting"]["date"], archived["closed_meeting"]["date"]) == (
+        "2026-09-23",
+        "2026-10-07",
+    )
+    assert (active["stage"], active["due_on"], active["closed_meeting"]) == (
+        "plan",
+        "2026-10-21",
+        None,
+    )
+
+
+def test_an_item_with_several_owners_names_the_others(
+    client: TestClient, team: dict[str, object]
+) -> None:
+    problem = _items(client, team, "problems", "active")["Too little focus at the board"]
+
+    assert problem["responsible"]["email"] == "ewa.nowak@pse.pl"
+    assert problem["solution"] == (
+        "Keep the routines on one tab\n\nKomentarz: Discussed twice"
+        "\n\nWspółodpowiedzialni: Jan Kowalski"
+    )
+
+
+def test_tasks_keep_their_problem_metric_and_archive(
+    client: TestClient, team: dict[str, object]
+) -> None:
+    active = _items(client, team, "tasks", "active")
+    [archived] = _items(client, team, "tasks", "archived").values()
+
+    linked = active["Give each pipeline its own database"]
+    assert (linked["stage"], linked["details"]) == ("do", "Ask the platform team first")
+    assert linked["problem"]["summary"] == "Too little focus at the board"
+    assert linked["metric"]["name"] == "Revenue"
+    # The pulse KPI has no metric in BMAPP, and a blank due date is none.
+    unlinked = active["Decide how often the pulse is answered"]
+    assert (unlinked["metric"], unlinked["due_on"], unlinked["stage"]) == (
+        None,
+        None,
+        "not_started",
+    )
+    assert unlinked["raised_at"].startswith("2026-10-")
+    assert (archived["summary"], archived["closed_meeting"]["date"]) == (
+        "Update the agenda",
+        "2026-10-07",
+    )
+
+
+def test_pulse_answers_are_loaded_at_their_weeks_meeting(
+    client: TestClient, team: dict[str, object]
+) -> None:
+    meetings = client.get(f"/teams/{team['id']}/meetings").json()["meetings"]
+    results = client.get(f"/teams/{team['id']}/meetings/{meetings[-1]['id']}/pulse").json()
+
+    assert (results["answered"], results["average"]) == (2, "3.00")
+    answers = {a["email"]: a for a in results["answers"]}
+    assert (
+        answers["jan.kowalski@pse.pl"]["rating"],
+        answers["jan.kowalski@pse.pl"]["positive"],
+    ) == (
+        4,
+        "A good release",
+    )
+    assert (answers["ewa.nowak@pse.pl"]["negative"], answers["ewa.nowak@pse.pl"]["better"]) == (
+        "Illness in the team",
+        "Fewer meetings",
+    )
 
 
 def test_a_file_that_is_not_a_backup_is_refused(session: Session) -> None:
@@ -153,4 +244,4 @@ def test_people_who_already_exist_are_reused(session: Session) -> None:
     session.add(Employee(email="jan.kowalski@pse.pl"))
     session.flush()
 
-    assert _load(session).employees_added == 2
+    assert _load(session).employees_added == 3

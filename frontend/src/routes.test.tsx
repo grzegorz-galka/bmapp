@@ -1,14 +1,17 @@
 /**
  * The route table and the shell every page renders inside.
- * See "The application opens at the hub" in specs/hub/spec.md.
+ * See "The application opens at the dashboard" and "Every page carries the
+ * navigation" in specs/dashboard/spec.md.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AppRoutes } from './routes';
 import { renderWithLanguage } from './test/render';
+import { AddressProbe } from './test/AddressProbe';
 import { en } from './i18n/en';
-import { hubSummary } from './features/hub/hubFixture';
+import { pl } from './i18n/pl';
+import { dashboardSummary } from './features/dashboard/dashboardFixture';
 
 const fetchMock = vi.fn();
 
@@ -19,7 +22,7 @@ beforeEach(() => {
     Promise.resolve({
       ok: true,
       status: 200,
-      json: async () => (String(url).includes('/hub') ? hubSummary() : []),
+      json: async () => (String(url).includes('/dashboard') ? dashboardSummary() : []),
     } as Response),
   );
 });
@@ -32,20 +35,22 @@ afterEach(() => {
 const nav = () => screen.getByRole('navigation', { name: en.nav.label });
 
 describe('the route table', () => {
-  it('shows the hub at the root address', async () => {
+  it('The root address shows the dashboard', async () => {
     await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', { route: '/' });
 
-    expect(await screen.findByRole('heading', { name: en.hub.heroTitle })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: en.dashboard.heroTitle }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: en.teams.heading })).not.toBeInTheDocument();
   });
 
-  it('shows the team page at its own address', async () => {
+  it('The teams address can be opened directly', async () => {
     await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', {
       route: '/teams',
     });
 
     expect(await screen.findByRole('heading', { name: en.teams.heading })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: en.hub.heroTitle })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: en.dashboard.heroTitle })).not.toBeInTheDocument();
   });
 
   it("shows a team's members page at its own address", async () => {
@@ -54,8 +59,8 @@ describe('the route table', () => {
         ok: true,
         status: 200,
         json: async () =>
-          String(url).includes('/hub')
-            ? hubSummary()
+          String(url).includes('/dashboard')
+            ? dashboardSummary()
             : {
                 id: 'team-1',
                 name: 'Platform',
@@ -79,7 +84,7 @@ describe('the route table', () => {
 
   it('shows the global metrics page at its own address, linked from the header', async () => {
     await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', { route: '/' });
-    await screen.findByRole('heading', { name: en.hub.heroTitle });
+    await screen.findByRole('heading', { name: en.dashboard.heroTitle });
 
     await userEvent.click(within(nav()).getByRole('link', { name: en.nav.globalMetrics }));
 
@@ -92,37 +97,67 @@ describe('the route table', () => {
     );
   });
 
-  it('falls back to the hub for an address it does not recognise', async () => {
+  it('An unknown address falls back to the dashboard', async () => {
     await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', {
       route: '/nothing-here',
     });
 
-    expect(await screen.findByRole('heading', { name: en.hub.heroTitle })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: en.dashboard.heroTitle }),
+    ).toBeInTheDocument();
   });
 
-  it('navigates to the team page without reloading', async () => {
-    await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', { route: '/' });
-    await screen.findByRole('heading', { name: en.hub.heroTitle });
+  it('The teams page keeps its own address', async () => {
+    await renderWithLanguage(
+      <>
+        <AppRoutes completeSignIn={async () => true} />
+        <AddressProbe />
+      </>,
+      'en',
+      { route: '/' },
+    );
+    await screen.findByRole('heading', { name: en.dashboard.heroTitle });
 
     await userEvent.click(within(nav()).getByRole('link', { name: en.nav.teams }));
 
     expect(await screen.findByRole('heading', { name: en.teams.heading })).toBeInTheDocument();
+    expect(within(nav()).getByRole('link', { name: en.nav.teams })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(screen.getByTestId('address')).toHaveTextContent(/^\/teams$/);
   });
 
-  it('navigates back to the hub', async () => {
+  it('navigates back to the dashboard', async () => {
     await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', {
       route: '/teams',
     });
     await screen.findByRole('heading', { name: en.teams.heading });
 
-    await userEvent.click(within(nav()).getByRole('link', { name: en.nav.hub }));
+    await userEvent.click(within(nav()).getByRole('link', { name: en.nav.dashboard }));
 
-    expect(await screen.findByRole('heading', { name: en.hub.heroTitle })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: en.dashboard.heroTitle }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('the dashboard destination', () => {
+  it('The dashboard is named in the active language', async () => {
+    await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', { route: '/' });
+    expect(within(nav()).getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/');
+
+    await userEvent.click(screen.getByRole('button', { name: en.language.switchToPl }));
+
+    const polishNav = await screen.findByRole('navigation', { name: pl.nav.label });
+    expect(within(polishNav).getByRole('link', { name: 'Pulpit' })).toHaveAttribute('href', '/');
+
+    await userEvent.click(screen.getByRole('button', { name: pl.language.switchToEn }));
   });
 });
 
 describe('the header', () => {
-  it('is on the hub and on the team page alike', async () => {
+  it('is on the dashboard and on the team page alike', async () => {
     await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', { route: '/' });
     expect(nav()).toBeInTheDocument();
     expect(screen.getByRole('button', { name: en.language.switchToPl })).toBeInTheDocument();
@@ -143,7 +178,7 @@ describe('the header', () => {
       'aria-current',
       'page',
     );
-    expect(within(nav()).getByRole('link', { name: en.nav.hub })).not.toHaveAttribute(
+    expect(within(nav()).getByRole('link', { name: en.nav.dashboard })).not.toHaveAttribute(
       'aria-current',
     );
   });
@@ -172,7 +207,7 @@ describe('the header', () => {
 });
 
 describe('the archive destination', () => {
-  it('is named but exposed as unavailable', async () => {
+  it('The archive is named but unavailable', async () => {
     await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', { route: '/' });
 
     const archive = within(nav()).getByText(en.nav.archive, { exact: false });
@@ -182,11 +217,11 @@ describe('the archive destination', () => {
 
   it('changes neither the page nor the address when activated', async () => {
     await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', { route: '/' });
-    await screen.findByRole('heading', { name: en.hub.heroTitle });
+    await screen.findByRole('heading', { name: en.dashboard.heroTitle });
 
     await userEvent.click(within(nav()).getByText(en.nav.archive, { exact: false }));
 
-    expect(screen.getByRole('heading', { name: en.hub.heroTitle })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: en.dashboard.heroTitle })).toBeInTheDocument();
     expect(window.location.pathname).toBe('/');
   });
 

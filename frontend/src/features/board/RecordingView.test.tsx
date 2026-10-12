@@ -74,6 +74,37 @@ function lastWrite(): { url: string; body: unknown } {
   return { url, body: JSON.parse(String(init.body)) };
 }
 
+describe('the recording view has its own address', () => {
+  async function openAt(query: string) {
+    await renderWithLanguage(
+      <Routes>
+        <Route path="/teams/:teamId" element={<BoardPage />} />
+      </Routes>,
+      'en',
+      { route: `/teams/${TEAM_ID}${query}`, auth: { email: MEMBER } },
+    );
+    // The board's first render is the slow one under a full run, as in the item tests.
+    return screen.findByRole('region', { name: /Values at the meeting on/ }, { timeout: 5000 });
+  }
+
+  it('The recording view is opened from its address', async () => {
+    // Monday the 12th: next Wednesday's meeting is the 14th.
+    const view = await openAt('?meeting=m-2026-10-14&mode=record');
+
+    expect((screen.getByLabelText(en.board.meetingSelectLabel) as HTMLSelectElement).value).toBe(
+      'm-2026-10-14',
+    );
+    expect(within(view).getByRole('textbox', { name: 'Value: Revenue' })).toBeEnabled();
+  });
+
+  it('opens the recording view of a frozen meeting read-only from its address', async () => {
+    const view = await openAt('?meeting=m-2026-09-30&mode=record');
+
+    expect(within(view).queryByRole('textbox')).not.toBeInTheDocument();
+    expect(view).toHaveTextContent(en.recording.readOnly);
+  });
+});
+
 describe('the recording view', () => {
   it('records a number typed in the Polish format, and shows it that way', async () => {
     // Scenario: A number is typed in the Polish format.

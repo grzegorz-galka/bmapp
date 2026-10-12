@@ -48,9 +48,9 @@ def get_authenticated_person(
 ) -> AuthenticatedPerson:
     """Verify the bearer token and go no further.
 
-    No session, so an endpoint that needs only the caller's email can answer
-    without PostgreSQL - which is what keeps the hub replying while the
-    database is down, as it did before it needed a token.
+    No employee lookup, so an endpoint that needs only the caller's email
+    spends no statement on it - the dashboard matches the caller by email in
+    the queries it runs anyway.
     """
     return verify_token(token_from_header(authorization), get_settings())
 

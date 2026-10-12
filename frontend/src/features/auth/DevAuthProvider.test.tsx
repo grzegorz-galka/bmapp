@@ -133,7 +133,7 @@ describe('DevAuthProvider', () => {
     await signInThroughTheWindow();
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('signedIn'));
 
-    await request('/hub').catch(() => undefined);
+    await request('/dashboard').catch(() => undefined);
 
     const [, init] = backend.mock.calls.at(-1)!;
     expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer token-1');
@@ -201,12 +201,12 @@ describe('DevAuthProvider', () => {
     // The restarted backend refuses the token issued before it, and accepts the next.
     const original = backend.getMockImplementation()!;
     backend.mockImplementation(async (input, init) => {
-      if (!String(input).endsWith('/hub')) return original(input, init);
+      if (!String(input).endsWith('/dashboard')) return original(input, init);
       const sent = (init?.headers as Record<string, string>).Authorization;
       return sent === 'Bearer token-1' ? json(401, { errors: [] }) : json(200, { ok: true });
     });
 
-    await expect(request('/hub')).resolves.toEqual({ ok: true });
+    await expect(request('/dashboard')).resolves.toEqual({ ok: true });
     expect(loginWindow()).not.toBeInTheDocument();
     const retried = backend.mock.calls.at(-1)![1];
     expect((retried?.headers as Record<string, string>).Authorization).toBe('Bearer token-2');
@@ -221,7 +221,7 @@ describe('DevAuthProvider', () => {
     await userEvent.click(screen.getByRole('button', { name: en.auth.signOut }));
     backend.mockImplementation(async () => json(401, { errors: [] }));
 
-    await expect(request('/hub')).rejects.toThrow();
+    await expect(request('/dashboard')).rejects.toThrow();
     expect(backend.mock.calls.some(([url]) => String(url).endsWith('/auth/dev-login'))).toBe(true);
     expect(screen.getByTestId('status')).toHaveTextContent('signedOut');
   });

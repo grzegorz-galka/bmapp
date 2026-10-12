@@ -4,7 +4,7 @@
  * specs/problems-and-tasks/spec.md; the overdue mark is in ItemEntry.test.tsx.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { BoardPage } from '../BoardPage';
@@ -185,5 +185,56 @@ describe('the board shows the active problems and tasks', () => {
     ).toBeInTheDocument();
     expect(within(listOf(pl.items.problemsHeading)).queryByRole('list')).not.toBeInTheDocument();
     expect(await entriesOf(pl.items.tasksHeading)).toHaveLength(1);
+  });
+});
+
+describe('the board’s lists can be reached from an address', () => {
+  let scrolled: Element[];
+  let release: () => void;
+
+  beforeEach(() => {
+    scrolled = [];
+    // jsdom lays nothing out, so it has no scrollIntoView of its own.
+    Element.prototype.scrollIntoView = vi.fn(function (this: Element) {
+      scrolled.push(this);
+    });
+    // The lists arrive only after the board has first been drawn.
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const served = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+      /\/(problems|tasks)\?state=active$/.test(url)
+        ? held.then(() => served(url, init))
+        : served(url, init),
+    );
+    fixtures.items!.problems.active = [problem({ id: 'p-1', summary: 'Builds are flaky' })];
+    fixtures.items!.tasks.active = [task({ id: 't-1', summary: 'Split the test database' })];
+  });
+
+  afterEach(() => {
+    delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
+
+  it('The tasks list is brought into view', async () => {
+    await renderBoard('#tasks');
+    expect(scrolled).toHaveLength(0);
+
+    release();
+
+    await within(listOf(en.items.tasksHeading)).findByText('Split the test database');
+    await waitFor(() => expect(scrolled).toHaveLength(1));
+    expect(scrolled[0]).toBe(listOf(en.items.tasksHeading));
+    expect(scrolled[0]).toHaveAttribute('id', 'tasks');
+  });
+
+  it('The problems list is brought into view', async () => {
+    await renderBoard('#problems');
+    expect(scrolled).toHaveLength(0);
+
+    release();
+
+    await within(listOf(en.items.problemsHeading)).findByText('Builds are flaky');
+    await waitFor(() => expect(scrolled).toHaveLength(1));
+    expect(scrolled[0]).toBe(listOf(en.items.problemsHeading));
+    expect(scrolled[0]).toHaveAttribute('id', 'problems');
   });
 });

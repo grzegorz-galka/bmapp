@@ -36,10 +36,10 @@ def test_an_authenticated_person_who_is_not_a_recorded_employee_reads_the_list(
     assert [team["name"] for team in response.json()] == ["Platform"]
 
 
-def test_an_authenticated_person_on_no_team_reads_the_hub(
+def test_an_authenticated_person_on_no_team_reads_the_dashboard(
     client_as: Callable[[str], TestClient],
 ) -> None:
-    response = client_as(OUTSIDER).get("/hub")
+    response = client_as(OUTSIDER).get("/dashboard")
 
     assert response.status_code == 200
     assert response.json()["current_user"]["email"] == OUTSIDER
@@ -81,7 +81,7 @@ def test_individual_pulse_answers_are_the_one_exception(
     assert (results["answers"], results["missing"]) == (None, None)
 
 
-@pytest.mark.parametrize("path", ["/teams", "/hub", "/auth/me"])
+@pytest.mark.parametrize("path", ["/teams", "/dashboard", "/auth/me"])
 def test_every_read_still_refuses_a_caller_with_no_token(
     anonymous_client: TestClient, path: str
 ) -> None:

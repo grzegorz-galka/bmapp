@@ -14,6 +14,7 @@ import { pl } from '../../../i18n/pl';
 import type { Language } from '../../../i18n/languages';
 import type { PulseAnswerWrite } from '../../../api/pulse';
 import {
+  ADMIN,
   board,
   errorResponse,
   jsonResponse,
@@ -271,6 +272,63 @@ describe('the pulse check view', () => {
     await user.click(screen.getByRole('button', { name: en.pulse.answerFirst }));
 
     expect(screen.getByRole('radio', { name: '4 – Good' })).toBeInTheDocument();
+  });
+});
+
+describe('the answer form has its own address', () => {
+  it('The answer form is opened from its address', async () => {
+    await renderBoard('?meeting=m-2026-10-14&view=pulse&mode=answer');
+
+    expect(await screen.findAllByRole('radio')).not.toHaveLength(0);
+    expect(screen.getByRole('button', { name: en.pulse.yourAnswer })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(meetingShown()).toBe('m-2026-10-14');
+  });
+
+  it('The form of a frozen meeting falls back to the results', async () => {
+    fixtures.pulse!['m-2026-09-30'] = pulseResults('m-2026-09-30');
+    await renderBoard('?meeting=m-2026-09-30&view=pulse&mode=answer');
+
+    expect(await screen.findByText('7 of 11')).toBeInTheDocument();
+    expect(screen.getByText(en.pulse.frozen)).toBeInTheDocument();
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+  });
+
+  it('shows the results to a viewer who may not answer, whatever the address asks', async () => {
+    await renderBoard('?meeting=m-2026-10-14&view=pulse&mode=answer', 'en', {
+      email: ADMIN,
+      isAdmin: true,
+    });
+
+    expect(await screen.findByText('7 of 11')).toBeInTheDocument();
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: en.pulse.yourAnswer })).not.toBeInTheDocument();
+  });
+
+  it('Switching to the results updates the address', async () => {
+    const user = userEvent.setup();
+    await renderBoard('?meeting=m-2026-10-14&view=pulse&mode=answer');
+    await screen.findAllByRole('radio');
+
+    await user.click(screen.getByRole('button', { name: en.pulse.results }));
+
+    await waitFor(() => expect(address().get('mode')).toBeNull());
+    expect(address().get('view')).toBe('pulse');
+    expect(address().get('meeting')).toBe('m-2026-10-14');
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+  });
+
+  it('asks for the form in the address when it is opened', async () => {
+    await renderBoard('?view=pulse');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: en.pulse.yourAnswer }));
+
+    expect(address().get('mode')).toBe('answer');
+    expect(address().get('view')).toBe('pulse');
+    expect(address().get('meeting')).toBe('m-2026-10-14');
   });
 });
 

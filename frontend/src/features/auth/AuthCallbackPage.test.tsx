@@ -13,7 +13,7 @@ async function renderCallback(complete: () => Promise<boolean>, language: 'en' |
   await renderWithLanguage(
     <Routes>
       <Route path="/auth/callback" element={<AuthCallbackPage complete={complete} />} />
-      <Route path="/" element={<h1>the hub</h1>} />
+      <Route path="/" element={<h1>the dashboard</h1>} />
     </Routes>,
     language,
     { route: '/auth/callback', auth: { email: null } },
@@ -23,7 +23,7 @@ async function renderCallback(complete: () => Promise<boolean>, language: 'en' |
 it('returns the person to the application once the sign-in completes', async () => {
   await renderCallback(async () => true);
 
-  expect(await screen.findByRole('heading', { name: 'the hub' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'the dashboard' })).toBeInTheDocument();
 });
 
 describe('a response that does not match the sign-in this page started', () => {
@@ -35,7 +35,7 @@ describe('a response that does not match the sign-in this page started', () => {
     expect(
       await screen.findByRole('heading', { name: en.auth.signInFailedTitle }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'the hub' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'the dashboard' })).not.toBeInTheDocument();
   });
 
   it('reports the failure in the active language', async () => {
@@ -62,6 +62,6 @@ it('does not complete a sign-in more than once', async () => {
   const complete = vi.fn(async () => true);
   await renderCallback(complete);
 
-  await screen.findByRole('heading', { name: 'the hub' });
+  await screen.findByRole('heading', { name: 'the dashboard' });
   expect(complete).toHaveBeenCalledTimes(1);
 });

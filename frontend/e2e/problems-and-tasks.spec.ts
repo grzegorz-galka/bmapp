@@ -10,8 +10,8 @@ import { addDays, apiAs, uniqueSuffix } from './api';
  * Problems and tasks at the board, in Polish: a member raises a problem with
  * its reason, raises a task from it for themselves that is already overdue,
  * steps the task through the PDCA stages and closes it, which archives it.
- * The Archived view lists it with its meetings, the hub stops listing it as
- * assigned and counts it as archived, and a stranger reads the lists with
+ * The Archived view lists it with its meetings, the dashboard stops listing it
+ * as assigned and counts it as archived, and a stranger reads the lists with
  * nothing to operate.
  *
  * The meetings are placed around today, since an item is raised and closed at
@@ -101,9 +101,9 @@ test('a member keeps a problem and its task to the archive in Polish', async ({
     pl.items.fromProblem.replace('{{summary}}', problemSummary),
   );
 
-  // The hub lists it as assigned to the member.
+  // The dashboard lists it as assigned to the member.
   await page.goto('/');
-  const assigned = page.getByRole('region', { name: pl.items.heading });
+  const assigned = page.getByRole('region', { name: pl.itemsTile.assignedHeading });
   await expect(assigned.getByRole('link', { name: taskSummary })).toBeVisible();
   await expect(assigned).toContainText(pl.items.overdue);
 
@@ -154,18 +154,18 @@ test('a member keeps a problem and its task to the archive in Polish', async ({
   await page.reload();
   await expect(row).toBeVisible();
 
-  // The hub no longer lists it, and its funnel counts it as archived.
+  // The dashboard no longer lists it, and its funnel counts it as archived.
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: pl.funnel.heading })).toBeVisible();
-  await expect(assigned.getByText(pl.items.empty)).toBeVisible();
+  await expect(page.getByRole('heading', { name: pl.itemsTile.heading })).toBeVisible();
+  await expect(assigned.getByText(pl.itemsTile.empty)).toBeVisible();
   await expect(assigned.getByRole('link', { name: taskSummary })).toBeHidden();
-  const funnel = page.getByRole('region', { name: pl.funnel.heading });
+  const funnel = page.getByRole('region', { name: pl.itemsTile.heading });
   const stage = (name: string) => funnel.getByRole('listitem').filter({ hasText: name });
-  await expect(stage(pl.funnel.stage_archived)).toContainText(
-    pl.funnel.split.replace('{{problems}}', '0').replace('{{tasks}}', '1'),
+  await expect(stage(pl.itemsTile.stage_archived)).toContainText(
+    pl.itemsTile.split.replace('{{problems}}', '0').replace('{{tasks}}', '1'),
   );
-  await expect(stage(pl.funnel.stage_open)).toContainText(
-    pl.funnel.split.replace('{{problems}}', '1').replace('{{tasks}}', '0'),
+  await expect(stage(pl.itemsTile.stage_open)).toContainText(
+    pl.itemsTile.split.replace('{{problems}}', '1').replace('{{tasks}}', '0'),
   );
 
   // A stranger reads the lists and the archive, with nothing to operate.

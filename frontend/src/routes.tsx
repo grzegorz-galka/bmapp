@@ -4,7 +4,7 @@ import { AuthCallbackPage } from './features/auth/AuthCallbackPage';
 import { BoardPage } from './features/board/BoardPage';
 import { CALLBACK_PATH } from './features/auth/config';
 import { GlobalMetricsPage } from './features/globalMetrics/GlobalMetricsPage';
-import { HubPage } from './features/hub/HubPage';
+import { DashboardPage } from './features/dashboard/DashboardPage';
 import { TeamMeetingsPage } from './features/meetings/TeamMeetingsPage';
 import { MetricSettingsPage } from './features/metrics/MetricSettingsPage';
 import { TeamMembersPage } from './features/teams/TeamMembersPage';
@@ -14,8 +14,8 @@ import { TeamsPage } from './features/teams/TeamsPage';
  * The route table.
  *
  * The header is on the layout route, so every page has it by construction.
- * An address nobody recognises lands on the hub rather than on an error: the
- * hub is the page that explains the application, which is what someone who
+ * An address nobody recognises lands on the dashboard rather than on an error: the
+ * dashboard is the way in to everything else, which is what someone who
  * mistyped a URL needs.
  */
 export function AppRoutes({ completeSignIn }: { completeSignIn: () => Promise<boolean> }) {
@@ -29,7 +29,7 @@ export function AppRoutes({ completeSignIn }: { completeSignIn: () => Promise<bo
           </>
         }
       >
-        <Route index element={<HubPage />} />
+        <Route index element={<DashboardPage />} />
         <Route
           path={CALLBACK_PATH.replace(/^\//, '')}
           element={<AuthCallbackPage complete={completeSignIn} />}

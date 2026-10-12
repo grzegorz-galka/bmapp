@@ -205,7 +205,7 @@ of the team records it, and only their own.
 
 | Action                                      | Endpoint                                        | Who                          |
 |---------------------------------------------|-------------------------------------------------|------------------------------|
-| Read anything                               | `GET /hub`, `GET /teams`, `GET /teams/{id}`     | any valid token              |
+| Read anything                               | `GET /dashboard`, `GET /teams`, `GET /teams/{id}`     | any valid token              |
 | Register a team and name its leader         | `POST /teams`                                   | admin                        |
 | Hand over leadership                        | `PUT /teams/{team_id}/leader`                   | admin                        |
 | Add a member                                | `POST /teams/{team_id}/members`                 | admin, or that team's leader |

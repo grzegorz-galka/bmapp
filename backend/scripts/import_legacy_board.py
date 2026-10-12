@@ -18,8 +18,17 @@ What is loaded, in one transaction:
 - every recorded number, its comment, and a colour set by hand where the tool
   had overridden its own rule.
 
-Problems, tasks and their archive are counted and skipped: BMAPP has no
-problems or tasks yet. Pulse answers and the KPI projects are skipped too.
+- every problem and task, archived where the tool closed it, at its PDCA
+  stage, with the meetings it was raised and closed at, its due date, its
+  metric and, for a task, its problem;
+- every pulse answer, at its week's meeting.
+
+The KPI projects are counted and skipped: BMAPP has no projects.
+
+A legacy item may name several owners (`Anna Nowak/Jan Kowalski`). BMAPP has
+one responsible person, so the first is responsible and the others are named
+in the item's text. Owners and pulse respondents become members of the team,
+as only members are responsible for items or answer the pulse check.
 
 The colour rule is the legacy `autoStatus`: for G the KPI's fixed `green`, or
 else the week's target, a higher-is-better value is green from G and amber
@@ -40,6 +49,7 @@ import json
 import re
 import sys
 import unicodedata
+import uuid
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_EVEN, Decimal
@@ -50,6 +60,7 @@ from sqlalchemy import create_engine, delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.item_enums import Stage
 from app.core.metric_enums import Colour, Direction, Status
 from app.core.time import ORGANIZATION_TZ
 from app.models import (
@@ -61,6 +72,9 @@ from app.models import (
     MetricThreshold,
     MetricValue,
     MetricValueCorrection,
+    Problem,
+    PulseAnswer,
+    Task,
     Team,
     TeamMember,
 )
@@ -88,6 +102,10 @@ DIRECTIONS = {
     "band": Direction.WITHIN_BAND,
 }
 LEGACY_COLOURS = {"g": Colour.GREEN, "y": Colour.AMBER, "r": Colour.RED}
+#: The legacy item status, 0 to 4, is the PDCA stage in this order; 4 closes.
+STAGES = (Stage.NOT_STARTED, Stage.PLAN, Stage.DO, Stage.CHECK, Stage.ACT)
+CO_OWNERS = "Współodpowiedzialni: {names}"
+PROBLEM_COMMENT = "Komentarz: {text}"
 WEEKDAYS = {
     "poniedziałek": 1,
     "wtorek": 2,
@@ -365,6 +383,39 @@ def projects_status(projects: Iterable[dict[str, Any]], date: str) -> object:
     return num / den / 2 if den else None
 
 
+def owners_of(raw: dict[str, Any]) -> list[str]:
+    """The people a legacy item names as its owners, in the order named."""
+    owner = raw.get("owner")
+    if not isinstance(owner, str):
+        return []
+    return [name.strip() for name in re.split(r"[/,;]", owner) if name.strip()]
+
+
+def stage_of(raw: dict[str, Any]) -> Stage:
+    """A legacy item's status as its PDCA stage."""
+    status = raw.get("status") or 0
+    if not isinstance(status, int) or not 0 <= status < len(STAGES):
+        raise LegacyImportError(f"Unknown item status {status!r} for {raw.get('title')!r}.")
+    return STAGES[status]
+
+
+def _text(raw: dict[str, Any], key: str) -> str:
+    value = raw.get(key)
+    return value.strip() if isinstance(value, str) else ""
+
+
+def _paragraphs(*texts: str) -> str:
+    return "\n\n".join(text for text in texts if text)
+
+
+def _co_owners(owners: Sequence[str]) -> str:
+    return CO_OWNERS.format(names=", ".join(owners[1:])) if len(owners) > 1 else ""
+
+
+def _date(value: object) -> datetime.date | None:
+    return datetime.date.fromisoformat(value) if isinstance(value, str) and value else None
+
+
 # ---------------------------------------------------------------- loading
 
 
@@ -377,6 +428,10 @@ class Summary:
     thresholds: int = 0
     values: int = 0
     hand_colours: int = 0
+    problems: int = 0
+    tasks: int = 0
+    archived: int = 0
+    pulse_answers: int = 0
     skipped: dict[str, int] = field(default_factory=dict)
 
     def lines(self) -> Iterator[str]:
@@ -384,6 +439,8 @@ class Summary:
         yield f"meetings: {self.meetings}"
         yield f"metrics: {self.metrics}, threshold versions: {self.thresholds}"
         yield f"values: {self.values} (colours set by hand: {self.hand_colours})"
+        yield f"problems: {self.problems}, tasks: {self.tasks} (archived: {self.archived})"
+        yield f"pulse answers: {self.pulse_answers}"
         for what, count in self.skipped.items():
             yield f"skipped {what}: {count}"
 
@@ -424,16 +481,19 @@ def _employee(session: Session, name: str, summary: Summary) -> Employee:
 def remove_team(session: Session, name: str) -> bool:
     """Delete a team and everything recorded for it, for a clean re-import.
 
-    Values and corrections refer to meetings and metrics with RESTRICT, so they
-    go first; deleting the team then cascades to its board and members.
+    Values, corrections and pulse answers refer to meetings with RESTRICT, and
+    a task to its problem, so they go first; deleting the team then cascades
+    to its board and members.
     """
     team = session.scalar(select(Team).where(func.lower(Team.name) == name.lower()))
     if team is None:
         return False
     meetings = select(Meeting.id).where(Meeting.team_id == team.id)
     own_metrics = select(Metric.id).where(Metric.team_id == team.id)
-    for model in (MetricValueCorrection, MetricValue):
+    for model in (MetricValueCorrection, MetricValue, PulseAnswer):
         session.execute(delete(model).where(model.meeting_id.in_(meetings)))
+    session.execute(delete(Task).where(Task.team_id == team.id))
+    session.execute(delete(Problem).where(Problem.team_id == team.id))
     session.execute(delete(Metric).where(Metric.id.in_(own_metrics)))
     session.execute(delete(Meeting).where(Meeting.team_id == team.id))
     session.delete(team)
@@ -459,9 +519,23 @@ def load(
     weeks: dict[str, dict[str, Any]] = dict(sorted(collections["weeks"].items()))
     summary = Summary()
 
-    # People: every participant, plus anyone who hosted a week.
-    names = list(dict.fromkeys([definitions.owner, *definitions.participants]))
-    names += [w["leader"] for w in weeks.values() if w.get("leader") and w["leader"] not in names]
+    problems: dict[str, dict[str, Any]] = collections.get("problems") or {}
+    tasks: dict[str, dict[str, Any]] = collections.get("tasks") or {}
+    pulse: dict[str, dict[str, Any]] = collections.get("pulse") or {}
+
+    # People: every participant, anyone who hosted a week, owned an item or
+    # answered the pulse check.
+    names = list(
+        dict.fromkeys(
+            [
+                definitions.owner,
+                *definitions.participants,
+                *(w["leader"] for w in weeks.values() if w.get("leader")),
+                *(n for item in (*problems.values(), *tasks.values()) for n in owners_of(item)),
+                *(a["person"] for a in pulse.values() if isinstance(a.get("person"), str)),
+            ]
+        )
+    )
     people = {name: _employee(session, name, summary) for name in names}
 
     team = Team(name=team_name)
@@ -498,6 +572,7 @@ def load(
     summary.meetings = len(meetings)
 
     projects = list((collections.get("projects") or {}).values())
+    kpi_metrics: dict[str, uuid.UUID] = {}
     position = 0
     for series in _series(definitions):
         kpi = series.kpi
@@ -517,6 +592,8 @@ def load(
         )
         session.add(metric)
         session.flush()
+        if series.key == f"k_{kpi.id}":
+            kpi_metrics[kpi.id] = metric.id
         session.add(
             BoardMetric(
                 team_id=team.id, metric_id=metric.id, position=position, group_label=kpi.group
@@ -582,11 +659,113 @@ def load(
             summary.values += 1
     session.flush()
 
-    for collection in ("problems", "tasks", "projects", "pulse"):
-        count = len(collections.get(collection) or {})
-        if count:
-            summary.skipped[collection] = count
+    items = _Items(team.id, people, meetings, kpi_metrics, summary)
+    loaded_problems = {key: items.problem(raw) for key, raw in problems.items()}
+    session.add_all(loaded_problems.values())
+    session.flush()
+    session.add_all(items.task(raw, loaded_problems) for raw in tasks.values())
+    _load_pulse(session, pulse, people, meetings, summary)
+    session.flush()
+
+    if projects:
+        summary.skipped["projects"] = len(projects)
     return summary
+
+
+@dataclass(slots=True)
+class _Items:
+    """Turns the legacy problems and tasks into BMAPP's, counting as it goes."""
+
+    team_id: uuid.UUID
+    people: dict[str, Employee]
+    meetings: dict[str, Meeting]
+    kpi_metrics: dict[str, uuid.UUID]
+    summary: Summary
+
+    def _common(self, raw: dict[str, Any]) -> dict[str, Any]:
+        summary = _text(raw, "title")
+        if not summary:
+            raise LegacyImportError(f"An item has no title: {raw!r}.")
+        stage = stage_of(raw)
+        owners = owners_of(raw)
+        raised = self.meetings.get(raw.get("createdWeek") or "")
+        raised_at = (
+            _instant(raw.get("createdAt"))
+            or (raised.starts_at if raised else None)
+            or datetime.datetime.now(datetime.UTC)
+        )
+        closed = self.meetings.get(raw.get("closedWeek") or "") if stage is Stage.ACT else None
+        if stage is Stage.ACT:
+            self.summary.archived += 1
+        return {
+            "team_id": self.team_id,
+            "summary": summary,
+            "responsible_employee_id": self.people[owners[0]].id if owners else None,
+            "due_on": _date(raw.get("due")),
+            "metric_id": self.kpi_metrics.get(raw.get("kpi") or ""),
+            "stage": stage,
+            "raised_at": raised_at,
+            "raised_meeting_id": raised.id if raised else None,
+            # Closed is the same fact as `act`; a closing week the backup does
+            # not hold still closes the item, at the moment it was raised.
+            "closed_at": (closed.starts_at if closed else raised_at)
+            if stage is Stage.ACT
+            else None,
+            "closed_meeting_id": closed.id if closed else None,
+        }
+
+    def problem(self, raw: dict[str, Any]) -> Problem:
+        self.summary.problems += 1
+        comment = _text(raw, "comment")
+        return Problem(
+            **self._common(raw),
+            reason=_text(raw, "cause"),
+            solution=_paragraphs(
+                _text(raw, "idea"),
+                PROBLEM_COMMENT.format(text=comment) if comment else "",
+                _co_owners(owners_of(raw)),
+            ),
+        )
+
+    def task(self, raw: dict[str, Any], problems: dict[str, Problem]) -> Task:
+        self.summary.tasks += 1
+        problem = problems.get(raw.get("problemId") or "")
+        return Task(
+            **self._common(raw),
+            details=_paragraphs(_text(raw, "comment"), _co_owners(owners_of(raw))),
+            problem_id=problem.id if problem else None,
+        )
+
+
+def _load_pulse(
+    session: Session,
+    answers: dict[str, dict[str, Any]],
+    people: dict[str, Employee],
+    meetings: dict[str, Meeting],
+    summary: Summary,
+) -> None:
+    """Each pulse answer at its week's meeting; one with no meeting, person or rating is skipped."""
+    for raw in answers.values():
+        meeting = meetings.get(raw.get("week") or "")
+        rating = raw.get("mood")
+        person = people.get(raw.get("person") or "")
+        if meeting is None or person is None or not isinstance(rating, int) or not 1 <= rating <= 5:
+            summary.skipped["pulse answers"] = summary.skipped.get("pulse answers", 0) + 1
+            continue
+        at = _instant(raw.get("at")) or meeting.starts_at
+        session.add(
+            PulseAnswer(
+                meeting_id=meeting.id,
+                employee_id=person.id,
+                rating=rating,
+                positive=_text(raw, "pos"),
+                negative=_text(raw, "neg"),
+                better=_text(raw, "better"),
+                created_at=at,
+                updated_at=at,
+            )
+        )
+        summary.pulse_answers += 1
 
 
 def _columns(bounds: Bounds) -> dict[str, Decimal | None]:

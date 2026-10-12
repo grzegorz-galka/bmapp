@@ -3,21 +3,21 @@ import { useTranslation } from 'react-i18next';
 import { LanguageToggle } from './LanguageToggle';
 import { ThemeToggle } from './ThemeToggle';
 import { AccountControl } from './AccountControl';
-import { useHubSummary } from '../features/hub/useHubSummary';
+import { useDashboardSummary } from '../features/dashboard/useDashboardSummary';
 import styles from './AppHeader.module.css';
 
 /**
  * The shell every page renders inside.
  *
- * The identity comes from the hub summary rather than being written in here.
+ * The identity comes from the dashboard summary rather than being written in here.
  * There is a session behind it now, so the account control offers a sign-out;
  * the summary supplies only the initials, which it derives from the email.
- * The query is the same one the hub page uses, so this costs no second
+ * The query is the same one the dashboard uses, so this costs no second
  * request.
  */
 export function AppHeader() {
   const { t } = useTranslation();
-  const summary = useHubSummary();
+  const summary = useDashboardSummary();
   const user = summary.data?.current_user;
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -35,7 +35,7 @@ export function AppHeader() {
 
       <nav className={styles.nav} aria-label={t('nav.label')}>
         <NavLink to="/" className={linkClass} end>
-          {t('nav.hub')}
+          {t('nav.dashboard')}
         </NavLink>
         <NavLink to="/teams" className={linkClass}>
           {t('nav.teams')}
