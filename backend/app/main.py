@@ -9,9 +9,9 @@ from fastapi.responses import JSONResponse
 
 from app.api import (
     auth_router,
+    dashboard_router,
     global_metrics_router,
     health_router,
-    hub_router,
     meetings_router,
     metric_values_router,
     metrics_router,
@@ -66,7 +66,7 @@ app.add_middleware(
 )
 app.include_router(auth_router)
 app.include_router(health_router)
-app.include_router(hub_router)
+app.include_router(dashboard_router)
 app.include_router(teams_router)
 app.include_router(meetings_router)
 app.include_router(metrics_router)

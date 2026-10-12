@@ -1,18 +1,22 @@
 """Pydantic request and response models."""
 
-from app.schemas.employee import EmployeeEmail, normalise_email
-from app.schemas.hub import (
+from app.schemas.dashboard import (
     AssignedItem,
-    BoardReadiness,
+    AssignedMetric,
+    AssignedProblem,
     CurrentUser,
+    DashboardMeeting,
+    DashboardSchedule,
+    DashboardSummary,
+    DashboardTeam,
     Declarations,
     Funnel,
     FunnelStage,
-    HubSummary,
-    HubTeam,
     LocalizedText,
-    PreparationCounts,
+    Statement,
+    Value,
 )
+from app.schemas.employee import EmployeeEmail, normalise_email
 from app.schemas.item import (
     ItemMeeting,
     ItemMetric,
@@ -84,12 +88,17 @@ from app.schemas.team import (
 
 __all__ = [
     "AssignedItem",
+    "AssignedMetric",
+    "AssignedProblem",
     "BoardMetric",
     "BoardRead",
-    "BoardReadiness",
     "Completeness",
     "CorrectionRead",
     "CurrentUser",
+    "DashboardMeeting",
+    "DashboardSchedule",
+    "DashboardSummary",
+    "DashboardTeam",
     "Declarations",
     "EmployeeEmail",
     "ExactDecimal",
@@ -100,8 +109,6 @@ __all__ = [
     "GlobalMetricInclusion",
     "GlobalMetricRead",
     "HostRead",
-    "HubSummary",
-    "HubTeam",
     "ItemMeeting",
     "ItemMetric",
     "ItemResponsible",
@@ -125,7 +132,6 @@ __all__ = [
     "MetricValueWrite",
     "MissingMetric",
     "OwnerRead",
-    "PreparationCounts",
     "ProblemChange",
     "ProblemCreate",
     "ProblemRead",
@@ -139,6 +145,7 @@ __all__ = [
     "ScheduleRead",
     "ScheduleSet",
     "SparklinePoint",
+    "Statement",
     "TaskChange",
     "TaskCreate",
     "TaskProblem",
@@ -151,6 +158,7 @@ __all__ = [
     "ThresholdRead",
     "TrendPoint",
     "TwoPlaces",
+    "Value",
     "WallClockTime",
     "normalise_email",
 ]

@@ -15,9 +15,9 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def read_current_user(current_user: CurrentUserDependency) -> CurrentUserRead:
     """Return the caller's email and whether they are an administrator.
 
-    Its own endpoint rather than part of the hub summary: the hub is
-    placeholder data due to be replaced slice by slice, and every page needs
-    the administrator flag, which nothing else in any payload reveals.
+    Its own endpoint rather than part of the dashboard summary: every page
+    needs the administrator flag, not only the dashboard, and nothing else in
+    any payload reveals it.
     """
     return CurrentUserRead(email=current_user.email, is_admin=current_user.is_admin)
 
