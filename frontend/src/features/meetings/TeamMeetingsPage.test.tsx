@@ -17,8 +17,18 @@ import type { Member, TeamDetail } from '../../api/teams';
 const TEAM_ID = 'team-1';
 // A Monday morning: the 7th has been, the 14th is coming.
 const NOW = Date.parse('2026-10-12T08:00:00Z');
-const ANNA: Member = { employee_id: 'emp-anna', email: 'anna@example.com', is_leader: true };
-const BARTEK: Member = { employee_id: 'emp-bartek', email: 'bartek@example.com', is_leader: false };
+const ANNA: Member = {
+  employee_id: 'emp-anna',
+  email: 'anna@example.com',
+  is_leader: true,
+  is_deputy: false,
+};
+const BARTEK: Member = {
+  employee_id: 'emp-bartek',
+  email: 'bartek@example.com',
+  is_leader: false,
+  is_deputy: false,
+};
 
 const TEAM: TeamDetail = {
   id: TEAM_ID,

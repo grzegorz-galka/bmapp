@@ -18,9 +18,15 @@ const TEAM_ID = 'team-1';
 const LEADER = member('anna@example.com', true);
 const BARTEK = member('bartek@example.com');
 const CELINA = member('celina@example.com');
+const DORA = member('dora@example.com', false, true);
 
-function member(email: string, isLeader = false): Member {
-  return { employee_id: `emp-${email.split('@')[0]}`, email, is_leader: isLeader };
+function member(email: string, isLeader = false, isDeputy = false): Member {
+  return {
+    employee_id: `emp-${email.split('@')[0]}`,
+    email,
+    is_leader: isLeader,
+    is_deputy: isDeputy,
+  };
 }
 
 function detail(...members: Member[]): TeamDetail {
@@ -124,6 +130,7 @@ describe('Members are managed from the team page', () => {
 
     const row = await screen.findByText('bartek@example.com');
     expect(rowOf('bartek@example.com')).not.toHaveTextContent(en.members.leader);
+    expect(rowOf('bartek@example.com')).not.toHaveTextContent(en.members.deputy);
     expect(row).toBeInTheDocument();
     expect(screen.getByLabelText(en.members.emailLabel)).toHaveValue('');
     expect(onlyRequest('POST')).toEqual({
@@ -168,18 +175,75 @@ describe('Members are managed from the team page', () => {
   });
 
   it('The leader offers no remove action', async () => {
-    serve(jsonResponse(detail(LEADER, BARTEK, CELINA)));
+    serve(jsonResponse(detail(LEADER, BARTEK, CELINA, DORA)));
     await renderPage();
     await screen.findByText('anna@example.com');
 
+    // No remove, make-leader, appoint or revoke action on the leader's row.
     expect(within(rowOf('anna@example.com')).queryAllByRole('button')).toHaveLength(0);
     expect(rowOf('anna@example.com')).toHaveTextContent(en.members.leader);
-    for (const email of ['bartek@example.com', 'celina@example.com']) {
+    expect(rowOf('anna@example.com')).not.toHaveTextContent(en.members.deputy);
+    for (const email of ['bartek@example.com', 'celina@example.com', 'dora@example.com']) {
       const row = within(rowOf(email));
       expect(row.getByRole('button', { name: `Remove from team: ${email}` })).toBeVisible();
       expect(row.getByRole('button', { name: `Make leader: ${email}` })).toBeVisible();
       expect(rowOf(email)).not.toHaveTextContent(en.members.leader);
     }
+    // An ordinary member may be appointed; a deputy may be revoked.
+    for (const email of ['bartek@example.com', 'celina@example.com']) {
+      expect(
+        within(rowOf(email)).getByRole('button', { name: `Make deputy: ${email}` }),
+      ).toBeVisible();
+      expect(rowOf(email)).not.toHaveTextContent(en.members.deputy);
+    }
+    const dora = within(rowOf('dora@example.com'));
+    expect(rowOf('dora@example.com')).toHaveTextContent(en.members.deputy);
+    expect(dora.getByRole('button', { name: 'Revoke deputy: dora@example.com' })).toBeVisible();
+    expect(dora.queryByRole('button', { name: /^Make deputy/ })).not.toBeInTheDocument();
+  });
+
+  it('A deputy is appointed from the members page', async () => {
+    serve(jsonResponse(detail(LEADER, BARTEK, CELINA)), {
+      PUT: jsonResponse(detail(LEADER, { ...BARTEK, is_deputy: true }, CELINA)),
+    });
+    await renderPage();
+    await screen.findByText('bartek@example.com');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Make deputy: bartek@example.com' }));
+
+    const bartek = within(rowOf('bartek@example.com'));
+    expect(
+      await bartek.findByRole('button', { name: 'Revoke deputy: bartek@example.com' }),
+    ).toBeVisible();
+    expect(rowOf('bartek@example.com')).toHaveTextContent(en.members.deputy);
+    expect(bartek.queryByRole('button', { name: /^Make deputy/ })).not.toBeInTheDocument();
+    expect(rowOf('anna@example.com')).toHaveTextContent(en.members.leader);
+    expect(rowOf('anna@example.com')).not.toHaveTextContent(en.members.deputy);
+    expect(rowOf('celina@example.com')).not.toHaveTextContent(en.members.deputy);
+    expect(onlyRequest('PUT')).toEqual({
+      url: `/api/teams/${TEAM_ID}/deputies/${BARTEK.employee_id}`,
+      body: undefined,
+    });
+  });
+
+  it('A deputy is revoked from the members page', async () => {
+    serve(jsonResponse(detail(LEADER, BARTEK, DORA)), {
+      DELETE: jsonResponse(detail(LEADER, BARTEK, { ...DORA, is_deputy: false })),
+    });
+    await renderPage();
+    await screen.findByText('dora@example.com');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Revoke deputy: dora@example.com' }));
+
+    const dora = within(rowOf('dora@example.com'));
+    expect(
+      await dora.findByRole('button', { name: 'Make deputy: dora@example.com' }),
+    ).toBeVisible();
+    expect(rowOf('dora@example.com')).not.toHaveTextContent(en.members.deputy);
+    expect(dora.queryByRole('button', { name: /^Revoke deputy/ })).not.toBeInTheDocument();
+    // Revoked, not removed.
+    expect(emails()).toEqual(['anna@example.com', 'bartek@example.com', 'dora@example.com']);
+    expect(onlyRequest('DELETE').url).toBe(`/api/teams/${TEAM_ID}/deputies/${DORA.employee_id}`);
   });
 
   it('Leadership is handed over from the members page', async () => {
@@ -220,7 +284,7 @@ describe('Members are managed from the team page', () => {
   });
 
   it('The members page reads in Polish', async () => {
-    serve(jsonResponse(detail(LEADER, BARTEK)), {
+    serve(jsonResponse(detail(LEADER, BARTEK, DORA)), {
       POST: errorResponse(409, 'email', 'team_member.duplicate', 'Already a member.'),
     });
     await renderPage('pl');
@@ -237,6 +301,13 @@ describe('Members are managed from the team page', () => {
     expect(
       screen.getByRole('button', { name: 'Ustaw jako lidera: bartek@example.com' }),
     ).toHaveTextContent(pl.members.makeLeader);
+    expect(screen.getByText(pl.members.deputy)).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Mianuj zastępcą: bartek@example.com' }),
+    ).toHaveTextContent(pl.members.makeDeputy);
+    expect(
+      screen.getByRole('button', { name: 'Odwołaj zastępcę: dora@example.com' }),
+    ).toHaveTextContent(pl.members.revokeDeputy);
 
     await userEvent.type(screen.getByLabelText(pl.members.emailLabel), 'bartek@example.com');
     await userEvent.click(screen.getByRole('button', { name: pl.members.add }));
@@ -250,6 +321,9 @@ describe('Members are managed from the team page', () => {
       en.members.add,
       en.members.remove,
       en.members.makeLeader,
+      en.members.deputy,
+      en.members.makeDeputy,
+      en.members.revokeDeputy,
       en.errors['team_member.duplicate'],
     ]) {
       expect(document.body.textContent).not.toContain(english);
@@ -292,5 +366,22 @@ describe('the members page otherwise', () => {
     const alert = await within(rowOf('celina@example.com')).findByRole('alert');
     expect(alert).toHaveTextContent(en.errors['team_leader.not_member']);
     expect(within(rowOf('bartek@example.com')).queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('shows a rejected appointment next to the member it concerns, translated', async () => {
+    serve(jsonResponse(detail(LEADER, BARTEK)), {
+      PUT: errorResponse(422, 'employee_id', 'team_deputy.not_member', 'Not a member.'),
+    });
+    await renderPage('pl');
+    await screen.findByText('bartek@example.com');
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Mianuj zastępcą: bartek@example.com' }),
+    );
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.closest('li')).toHaveTextContent('bartek@example.com');
+    expect(alert).toHaveTextContent(pl.errors['team_deputy.not_member']);
+    expect(document.body.textContent).not.toContain('Not a member.');
   });
 });

@@ -10,6 +10,7 @@ import { useIsAdmin } from '../auth/useCurrentUser';
 import { useMeetings } from '../meetings/useMeetings';
 import { describeThreshold, GlobalMark, StatusBadge } from '../metrics/display';
 import { useMetrics } from '../metrics/useMetrics';
+import { teamAuthority } from '../teams/teamAuthority';
 import { useTeam } from '../teams/useTeams';
 import { MetricDetail } from './MetricDetail';
 import { organizationToday } from './organizationDate';
@@ -101,7 +102,7 @@ export function BoardPage() {
   // As the API decides it. The server refuses regardless; offering only what
   // the viewer may use is a courtesy.
   const viewer = team.data.members.find((member) => member.email === signedInEmail);
-  const mayConfigure = isAdmin || viewer?.is_leader === true;
+  const mayConfigure = teamAuthority(team.data, signedInEmail, isAdmin).configure;
   const mayRecord = isAdmin || viewer !== undefined;
   // Membership alone: an administrator does not answer on a team's behalf.
   const mayAnswer = viewer !== undefined;

@@ -54,6 +54,7 @@ export const pl: Translations = {
     heading: 'Moje zespoły',
     count: 'Zespoły: {{count}}',
     role_leader: 'Lider zespołu',
+    role_deputy: 'Zastępca lidera',
     role_member: 'Członek',
     schedule: 'Spotyka się: {{weekday}}, {{time}}',
     noSchedule: 'Bez harmonogramu',
@@ -241,6 +242,11 @@ export const pl: Translations = {
     removeLabel: 'Usuń z zespołu: {{email}}',
     makeLeader: 'Ustaw jako lidera',
     makeLeaderLabel: 'Ustaw jako lidera: {{email}}',
+    deputy: 'Zastępca lidera',
+    makeDeputy: 'Mianuj zastępcą',
+    makeDeputyLabel: 'Mianuj zastępcą: {{email}}',
+    revokeDeputy: 'Odwołaj zastępcę',
+    revokeDeputyLabel: 'Odwołaj zastępcę: {{email}}',
   },
   meetings: {
     heading: 'Spotkania zespołu {{name}}',
@@ -570,6 +576,8 @@ export const pl: Translations = {
     'team_member.is_leader':
       'Nie można usunąć lidera zespołu. Najpierw ustaw innego członka jako lidera.',
     'team_leader.not_member': 'Liderem zespołu może zostać tylko jego członek.',
+    'team_deputy.not_member': 'Zastępcą lidera może zostać tylko członek zespołu.',
+    'team_deputy.is_leader': 'Lider zespołu nie może być jednocześnie zastępcą lidera.',
     'auth.token_missing': 'Nie jesteś zalogowany. Zaloguj się, aby kontynuować.',
     'auth.token_expired': 'Twoja sesja wygasła. Zaloguj się ponownie, aby kontynuować.',
     'auth.token_invalid': 'Twoja sesja jest nieważna. Zaloguj się ponownie, aby kontynuować.',

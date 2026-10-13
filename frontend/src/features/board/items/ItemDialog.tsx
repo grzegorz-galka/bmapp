@@ -213,7 +213,7 @@ export function ItemDialog({
   // could be given; it is still offered, so saving other fields keeps it.
   const responsibleOptions = [...members];
   if (item?.responsible && !members.some((m) => m.employee_id === item.responsible?.employee_id)) {
-    responsibleOptions.push({ ...item.responsible, is_leader: false });
+    responsibleOptions.push({ ...item.responsible, is_leader: false, is_deputy: false });
   }
   const metricOptions = [...metrics];
   if (item?.metric && !metrics.some((m) => m.id === item.metric?.id)) {

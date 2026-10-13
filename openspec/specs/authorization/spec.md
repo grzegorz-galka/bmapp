@@ -12,12 +12,13 @@ leadership. There are no roles to assign.
 The system SHALL decide every write from two facts and no others: whether the
 person is an administrator, and what relationship they have to the team the write
 concerns. The relationship SHALL be read from the team's recorded membership — a
-member is someone the team records as a member, and a leader is the member the
-team records as its leader.
+member is someone the team records as a member, a leader is the member the
+team records as its leader, and a leader deputy is a member the team records as
+one of its deputies.
 
-The system SHALL NOT hold a role for a person. Leadership SHALL NOT be configured
-anywhere outside the team's own records, so that a person who leads one team holds
-no authority over a team they do not lead.
+The system SHALL NOT hold a role for a person. Leadership and deputyship SHALL NOT
+be configured anywhere outside the team's own records, so that a person who leads
+or deputises for one team holds no authority over a team they do not.
 
 An administrator SHALL be permitted every action this capability governs.
 
@@ -33,6 +34,12 @@ An administrator SHALL be permitted every action this capability governs.
 - **WHEN** leadership of a team is handed from one member to another
 - **THEN** the new leader is permitted what a leader may do on that team and the
   previous leader is not, with no other change made anywhere
+
+#### Scenario: Deputyship comes from the team's records
+
+- **WHEN** a member of a team is appointed its deputy
+- **THEN** they are permitted what a deputy may do on that team, with no other change
+  made anywhere
 
 #### Scenario: An administrator may act on any team
 
@@ -131,9 +138,11 @@ organization's decisions rather than the team's.
 
 ### Requirement: A team's leader manages that team's membership
 
-The system SHALL permit the leader of a team, as well as an administrator, to add
-a member to that team and to remove a member from it. It SHALL refuse those writes
-to anyone else, including a member of that team who does not lead it.
+The system SHALL permit the leader of a team, its leader deputies, as well as an
+administrator, to add a member to that team and to remove from it a member who is
+not a deputy. Removing a deputy is decided by the requirement on choosing deputies.
+It SHALL refuse those writes to anyone else, including a member of that team who
+neither leads it nor is its deputy.
 
 The routine arrival and departure of people belongs to whoever runs the team, so
 that an administrator is not required for it.
@@ -150,7 +159,7 @@ that an administrator is not required for it.
 
 #### Scenario: An ordinary member cannot change membership
 
-- **WHEN** a member of a team who does not lead it adds or removes a member
+- **WHEN** a member of a team who neither leads it nor is its deputy adds or removes a member
 - **THEN** the request is refused and the team's members are unchanged
 
 #### Scenario: A stranger cannot change membership
@@ -197,9 +206,10 @@ not found.
 ### Requirement: The interface offers only what its viewer may do
 
 The system SHALL offer a control for an action only to a viewer permitted to
-perform it. The members page SHALL offer adding a member, removing a member and
-handing over the leadership only to a viewer permitted each, and the team page
-SHALL offer registering a team only to an administrator. The meetings page SHALL
+perform it. The members page SHALL offer adding a member, removing a member,
+handing over the leadership, and appointing and revoking a deputy only to a viewer
+permitted each, and SHALL offer removing a deputy only to a viewer permitted to
+choose deputies; the team page SHALL offer registering a team only to an administrator. The meetings page SHALL
 offer setting the schedule only to a viewer permitted to set it, and opening,
 moving, re-hosting and deleting meetings only to a viewer permitted to manage
 that team's meetings. The board SHALL offer recording values only to a viewer
@@ -216,19 +226,29 @@ it reads, since reading is open to everyone signed in.
 
 - **WHEN** the leader of a team, who is not an administrator, opens that team's members
   page
-- **THEN** adding and removing members is offered, and handing over the leadership is
-  not
+- **THEN** adding and removing members and appointing and revoking deputies are
+  offered, and handing over the leadership is not
+
+#### Scenario: A deputy sees the controls they may use
+
+- **WHEN** a deputy of a team, who is not an administrator, opens that team's members
+  page, its meetings page and its metric settings
+- **THEN** adding a member and removing an ordinary member are offered; removing a
+  deputy, appointing or revoking a deputy and handing over the leadership are not; and
+  setting the schedule and changing metrics and thresholds are offered
 
 #### Scenario: An ordinary member sees no membership controls
 
-- **WHEN** a member of a team who does not lead it opens that team's members page
-- **THEN** the team and its members are shown, and no add, remove or hand-over control
-  is offered
+- **WHEN** a member of a team who neither leads it nor is its deputy opens that team's
+  members page
+- **THEN** the team and its members are shown, and no add, remove, hand-over, appoint
+  or revoke control is offered
 
 #### Scenario: An administrator sees every control
 
 - **WHEN** an administrator opens a team's members page
-- **THEN** adding, removing and handing over the leadership are all offered
+- **THEN** adding, removing, handing over the leadership and appointing and revoking
+  deputies are all offered
 
 #### Scenario: Registering a team is offered only to an administrator
 
@@ -238,7 +258,8 @@ it reads, since reading is open to everyone signed in.
 
 #### Scenario: An ordinary member manages meetings but not the schedule
 
-- **WHEN** a member of a team who does not lead it opens that team's meetings page
+- **WHEN** a member of a team who neither leads it nor is its deputy opens that team's
+  meetings page
 - **THEN** opening, moving, re-hosting and deleting meetings are offered, and setting
   the schedule is not
 
@@ -251,8 +272,8 @@ it reads, since reading is open to everyone signed in.
 
 #### Scenario: A member records values but does not configure metrics
 
-- **WHEN** a member of a team who does not lead it opens the board at a meeting that
-  can be edited, and then the metric settings
+- **WHEN** a member of a team who neither leads it nor is its deputy opens the board at
+  a meeting that can be edited, and then the metric settings
 - **THEN** recording values is offered on the board, and the settings show the metrics
   and thresholds without controls to change them, to copy a metric or to include a
   global metric
@@ -272,7 +293,7 @@ it reads, since reading is open to everyone signed in.
 
 ### Requirement: A team's leader sets its meeting schedule
 
-The system SHALL permit the leader of a team, as well as an administrator, to set the meeting schedule of that team's board. It SHALL refuse it to anyone else, including a member of the team who does not lead it.
+The system SHALL permit the leader of a team, its leader deputies, as well as an administrator, to set the meeting schedule of that team's board. It SHALL refuse it to anyone else, including a member of the team who neither leads it nor is its deputy.
 
 When a team meets is part of configuring its board, which belongs to whoever runs the team.
 
@@ -283,7 +304,7 @@ When a team meets is part of configuring its board, which belongs to whoever run
 
 #### Scenario: An ordinary member cannot set the schedule
 
-- **WHEN** a member of a team who does not lead it sets its board's meeting schedule
+- **WHEN** a member of a team who neither leads it nor is its deputy sets its board's meeting schedule
 - **THEN** the request is refused with the code `auth.forbidden` and the schedule is unchanged
 
 #### Scenario: An administrator sets any team's schedule
@@ -324,7 +345,7 @@ Holding the meeting is the team's shared work, and it does not wait on the leade
 
 ### Requirement: A team's leader configures its metrics and thresholds
 
-The system SHALL permit the leader of a team, as well as an administrator, to add, change, retire, bring back and delete the metrics of that team's board, to record threshold versions for them, to copy a metric of any board onto it, and to include, place and remove global metrics on it. It SHALL refuse those writes to anyone else, including a member who does not lead the team.
+The system SHALL permit the leader of a team, its leader deputies, as well as an administrator, to add, change, retire, bring back and delete the metrics of that team's board, to record threshold versions for them, to copy a metric of any board onto it, and to include, place and remove global metrics on it. It SHALL refuse those writes to anyone else, including a member who neither leads the team nor is its deputy.
 
 What the team measures, and what counts as green, is part of configuring its board. Copying needs no permission on the source board, since anyone signed in may read it.
 
@@ -335,7 +356,7 @@ What the team measures, and what counts as green, is part of configuring its boa
 
 #### Scenario: An ordinary member cannot configure metrics
 
-- **WHEN** a member of a team who does not lead it adds a metric, changes one, records a threshold version, copies a metric onto the board or includes a global metric in it
+- **WHEN** a member of a team who neither leads it nor is its deputy adds a metric, changes one, records a threshold version, copies a metric onto the board or includes a global metric in it
 - **THEN** each request is refused with `auth.forbidden`, and nothing is changed
 
 #### Scenario: An administrator configures any team's metrics
@@ -531,3 +552,63 @@ How a board's metrics are grouped and ordered is part of what the team measures 
 
 - **WHEN** an administrator who does not belong to a team replaces its board's layout
 - **THEN** the layout is replaced
+
+### Requirement: A leader deputy stands in for the leader
+
+The system SHALL permit a leader deputy of a team every write this capability permits that team's leader, except appointing, revoking or removing a deputy, which stay with the leader and administrators. A deputy SHALL NOT hand over the leadership, which stays an administrator's. A deputy's authority SHALL reach only the team they are a deputy of.
+
+#### Scenario: A deputy configures the board
+
+- **WHEN** a deputy of a team, who is not an administrator, adds a metric to its board, records a threshold version for it and sets the board's meeting schedule
+- **THEN** each is done as the `metrics` and `team-board` capabilities require
+
+#### Scenario: A deputy manages ordinary members
+
+- **WHEN** a deputy of a team adds an employee to it and then removes a member who is neither the leader nor a deputy
+- **THEN** the member is added and then removed as the `team-membership` capability requires
+
+#### Scenario: A deputy cannot hand over the leadership
+
+- **WHEN** a deputy of a team, who is not an administrator, makes a member the leader of that team
+- **THEN** the request is refused with `auth.forbidden` and the team's leader is unchanged
+
+#### Scenario: A deputy's authority does not reach another team
+
+- **WHEN** a deputy of one team adds a metric to the board of a team where they are an ordinary member
+- **THEN** the request is refused with `auth.forbidden`, and adding it to the board of the team they are a deputy of succeeds
+
+#### Scenario: Revoking a deputy removes the authority
+
+- **WHEN** a deputy is revoked and then sets the board's meeting schedule
+- **THEN** the request is refused with `auth.forbidden` and the schedule is unchanged
+
+### Requirement: Only a team's leader or an administrator chooses its deputies
+
+The system SHALL permit only the leader of a team, as well as an administrator, to appoint a deputy of that team, to revoke one, and to remove from the team a member who is a deputy. It SHALL refuse those writes to anyone else, deputies of that team included.
+
+The leader chooses who stands in for them; a deputy SHALL NOT widen or narrow the circle of deputies they belong to.
+
+#### Scenario: A leader appoints and revokes a deputy
+
+- **WHEN** the leader of a team, who is not an administrator, appoints a member a deputy and then revokes them
+- **THEN** both are done as the `team-membership` capability requires
+
+#### Scenario: A deputy cannot appoint or revoke deputies
+
+- **WHEN** a deputy of a team, who is not an administrator, appoints another member a deputy, revokes another deputy, or revokes themselves
+- **THEN** each request is refused with `auth.forbidden` and the team's deputies are unchanged
+
+#### Scenario: A deputy cannot remove another deputy
+
+- **WHEN** a deputy of a team removes another deputy from the team
+- **THEN** the request is refused with `auth.forbidden` and the team's members are unchanged
+
+#### Scenario: An ordinary member cannot appoint a deputy
+
+- **WHEN** a member of a team who is neither its leader nor a deputy appoints themselves or another member a deputy
+- **THEN** the request is refused with `auth.forbidden` and the team's deputies are unchanged
+
+#### Scenario: An administrator appoints a deputy of any team
+
+- **WHEN** an administrator who does not belong to a team appoints one of its members a deputy
+- **THEN** the member is appointed

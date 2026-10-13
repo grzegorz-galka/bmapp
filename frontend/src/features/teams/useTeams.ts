@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
   addMember,
+  appointDeputy,
   createTeam,
   getTeam,
   listTeams,
   makeLeader,
   removeMember,
+  revokeDeputy,
   type Team,
   type TeamDetail,
 } from '../../api/teams';
@@ -71,6 +73,22 @@ export function useMakeLeader(teamId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (employeeId: string) => makeLeader(teamId, employeeId),
+    onSuccess: (team) => storeTeam(queryClient, teamId, team),
+  });
+}
+
+export function useAppointDeputy(teamId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (employeeId: string) => appointDeputy(teamId, employeeId),
+    onSuccess: (team) => storeTeam(queryClient, teamId, team),
+  });
+}
+
+export function useRevokeDeputy(teamId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (employeeId: string) => revokeDeputy(teamId, employeeId),
     onSuccess: (team) => storeTeam(queryClient, teamId, team),
   });
 }

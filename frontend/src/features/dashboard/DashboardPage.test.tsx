@@ -189,6 +189,36 @@ describe('the teams', () => {
     );
   });
 
+  it("The viewer's role is shown per team", async () => {
+    const [leads, deputises, belongs] = summary.teams;
+    respondWith(
+      dashboardSummary({
+        teams: [
+          { ...leads!, role: 'leader' },
+          { ...deputises!, role: 'deputy' },
+          { ...belongs!, role: 'member' },
+        ],
+      }),
+    );
+
+    await renderDashboard();
+    let rows = within(within(teamsPanel()).getByRole('list')).getAllByRole('listitem');
+    expect(rows[0]).toHaveTextContent(`${en.myTeams.role_leader} ·`);
+    expect(rows[1]).toHaveTextContent(`${en.myTeams.role_deputy} ·`);
+    expect(rows[2]).toHaveTextContent(`${en.myTeams.role_member} ·`);
+    expect(en.myTeams.role_deputy).toBe('Leader deputy');
+
+    await changeLanguage('pl');
+    const panel = await screen.findByRole('region', { name: pl.myTeams.heading });
+    rows = within(within(panel).getByRole('list')).getAllByRole('listitem');
+    expect(rows[0]).toHaveTextContent(`${pl.myTeams.role_leader} ·`);
+    expect(rows[1]).toHaveTextContent(`${pl.myTeams.role_deputy} ·`);
+    expect(rows[2]).toHaveTextContent(`${pl.myTeams.role_member} ·`);
+    expect(pl.myTeams.role_deputy).toBe('Zastępca lidera');
+
+    await changeLanguage('en');
+  });
+
   it('A team with no meeting and no schedule', async () => {
     await renderDashboard();
     const rows = within(within(teamsPanel()).getByRole('list')).getAllByRole('listitem');

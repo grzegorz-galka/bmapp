@@ -5,7 +5,7 @@ from collections.abc import Callable
 from fastapi.testclient import TestClient
 
 from tests.conftest import ADMIN_EMAIL
-from tests.integration.teams_api import add, member_id, register
+from tests.integration.teams_api import add, appoint, member_id, register
 
 LEADER = "lead@pse.pl"
 MEMBER = "member@pse.pl"
@@ -39,6 +39,7 @@ def test_a_leader_removes_a_member_from_their_team(
 def test_an_ordinary_member_cannot_add_a_member(
     client: TestClient, client_as: Callable[[str], TestClient]
 ) -> None:
+    """A member who neither leads the team nor is its deputy."""
     team = register(client, "Platform", LEADER)
     add(client, team["id"], MEMBER)
 
@@ -53,6 +54,7 @@ def test_an_ordinary_member_cannot_add_a_member(
 def test_an_ordinary_member_cannot_remove_a_member(
     client: TestClient, client_as: Callable[[str], TestClient]
 ) -> None:
+    """A member who neither leads the team nor is its deputy."""
     team = register(client, "Platform", LEADER)
     detail = add(client, team["id"], MEMBER)
     other = add(client, team["id"], NEWCOMER)
@@ -117,6 +119,24 @@ def test_leadership_handed_over_takes_the_authority_with_it(
     )
 
     assert (now_permitted.status_code, now_refused.status_code) == (201, 403)
+
+
+def test_deputyship_comes_from_the_teams_records(
+    client: TestClient, client_as: Callable[[str], TestClient]
+) -> None:
+    """Scenario: Deputyship comes from the team's records (Permission is decided per team).
+
+    Appointing the member is the only change made, and it is what grants them
+    a deputy's authority on that team.
+    """
+    team = register(client, "Platform", LEADER)
+    detail = add(client, team["id"], MEMBER)
+
+    before = client_as(MEMBER).post(f"/teams/{team['id']}/members", json={"email": NEWCOMER})
+    appoint(client, team["id"], member_id(detail, MEMBER))
+    after = client_as(MEMBER).post(f"/teams/{team['id']}/members", json={"email": NEWCOMER})
+
+    assert (before.status_code, after.status_code) == (403, 201)
 
 
 def test_an_unauthenticated_caller_cannot_change_membership(

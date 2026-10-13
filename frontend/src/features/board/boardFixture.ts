@@ -26,8 +26,8 @@ export const TEAM: TeamDetail = {
   name: 'Platform',
   board: { id: 'board-1', name: 'Platform', schedule: { weekday: 3, time: '13:00' } },
   members: [
-    { employee_id: 'emp-anna', email: LEADER, is_leader: true },
-    { employee_id: 'emp-bartek', email: MEMBER, is_leader: false },
+    { employee_id: 'emp-anna', email: LEADER, is_leader: true, is_deputy: false },
+    { employee_id: 'emp-bartek', email: MEMBER, is_leader: false, is_deputy: false },
   ],
 };
 

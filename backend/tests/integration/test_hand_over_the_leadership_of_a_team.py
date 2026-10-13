@@ -14,7 +14,15 @@ from sqlalchemy.orm import Session
 
 from app.models import Employee, Team, TeamMember
 from app.services import add_member, change_leader, register_team
-from tests.integration.teams_api import LEADER_EMAIL, add, leaders, member_id, register
+from tests.integration.teams_api import (
+    LEADER_EMAIL,
+    add,
+    appoint,
+    deputies,
+    leaders,
+    member_id,
+    register,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -30,6 +38,25 @@ def test_leadership_passes_to_another_member(client: TestClient) -> None:
     body = response.json()
     assert leaders(body) == ["jan@example.com"]
     assert [m["email"] for m in body["members"]] == ["jan@example.com", LEADER_EMAIL]
+
+
+def test_leadership_passes_to_a_deputy(client: TestClient) -> None:
+    """Scenario: Leadership passes to a deputy."""
+    team = register(client)
+    add(client, team["id"], "anna@example.com")
+    detail = add(client, team["id"], "jan@example.com")
+    anna, jan = member_id(detail, "anna@example.com"), member_id(detail, "jan@example.com")
+    appoint(client, team["id"], anna)
+    appoint(client, team["id"], jan)
+
+    response = client.put(f"/teams/{team['id']}/leader", json={"employee_id": jan})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert leaders(body) == ["jan@example.com"]
+    assert deputies(body) == ["anna@example.com"]
+    previous = next(m for m in body["members"] if m["email"] == LEADER_EMAIL)
+    assert (previous["is_leader"], previous["is_deputy"]) == (False, False)
 
 
 def test_the_current_leader_is_made_leader_again(client: TestClient) -> None:

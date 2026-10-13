@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from tests.integration.dashboard_api import VIEWER, dashboard_of, freeze_today, team_with
 from tests.integration.meetings_api import open_meeting, set_schedule
-from tests.integration.teams_api import register
+from tests.integration.teams_api import appoint, member_id, register
 
 ClientAs = Callable[[str], TestClient]
 
@@ -41,6 +41,22 @@ def test_teams_are_listed_in_order_of_their_next_meeting(
         ("Beta", "BE", "member", None, "2026-10-13T09:00:00Z"),
         ("Alpha", "AL", "member", {"weekday": 4, "start_time": "09:30"}, "2026-10-15T07:30:00Z"),
         ("Gamma", "GA", "leader", None, None),
+    ]
+
+
+def test_the_viewers_role_is_shown_per_team(client: TestClient, client_as: ClientAs) -> None:
+    """Scenario: The viewer's role is shown per team (the API half: the codes)."""
+    register(client, "Alpha", VIEWER)
+    deputised = team_with(client, "Beta", VIEWER)
+    appoint(client, deputised["id"], member_id(deputised, VIEWER))
+    team_with(client, "Gamma", VIEWER)
+
+    teams = dashboard_of(client_as(VIEWER))["teams"]
+
+    assert sorted((team["name"], team["role"]) for team in teams) == [
+        ("Alpha", "leader"),
+        ("Beta", "deputy"),
+        ("Gamma", "member"),
     ]
 
 

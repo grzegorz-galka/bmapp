@@ -182,6 +182,28 @@ class LeaderNotMemberError(DomainError):
         super().__init__(f"Employee {employee_id} is not a member of this team.")
 
 
+class TeamDeputyNotMemberError(DomainError):
+    """Raised when someone outside a team is appointed its deputy."""
+
+    status_code = 409
+    field = "employee_id"
+    code = "team_deputy.not_member"
+
+    def __init__(self, employee_id: object) -> None:
+        super().__init__(f"Employee {employee_id} is not a member of this team.")
+
+
+class TeamDeputyIsLeaderError(DomainError):
+    """Raised when a team's leader is appointed its deputy."""
+
+    status_code = 409
+    field = "employee_id"
+    code = "team_deputy.is_leader"
+
+    def __init__(self) -> None:
+        super().__init__("The team's leader cannot also be its deputy.")
+
+
 class MeetingDateTakenError(DomainError):
     """Raised when a team already holds a meeting on the date asked for."""
 

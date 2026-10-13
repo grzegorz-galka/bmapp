@@ -22,7 +22,7 @@ export interface LocalizedText {
   pl: string;
 }
 
-export type TeamRole = 'leader' | 'member';
+export type TeamRole = 'leader' | 'deputy' | 'member';
 export type FunnelStageCode = 'open' | 'in_progress' | 'archived';
 export type ItemKind = 'problem' | 'task';
 export type ValueIcon = 'effectiveness' | 'passion' | 'innovation' | 'collaboration';

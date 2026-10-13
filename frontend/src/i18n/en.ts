@@ -59,6 +59,7 @@ export const en = {
     // in ways English does not, and the two catalogues must hold the same keys.
     count: 'Teams: {{count}}',
     role_leader: 'Team leader',
+    role_deputy: 'Leader deputy',
     role_member: 'Member',
     schedule: 'Meets {{weekday}} at {{time}}',
     noSchedule: 'No schedule',
@@ -260,6 +261,11 @@ export const en = {
     removeLabel: 'Remove from team: {{email}}',
     makeLeader: 'Make leader',
     makeLeaderLabel: 'Make leader: {{email}}',
+    deputy: 'Leader deputy',
+    makeDeputy: 'Make deputy',
+    makeDeputyLabel: 'Make deputy: {{email}}',
+    revokeDeputy: 'Revoke deputy',
+    revokeDeputyLabel: 'Revoke deputy: {{email}}',
   },
   meetings: {
     heading: 'Meetings of {{name}}',
@@ -605,6 +611,8 @@ export const en = {
     'team_member.is_leader':
       'The team leader cannot be removed. Make another member the leader first.',
     'team_leader.not_member': 'Only a member of the team can become its leader.',
+    'team_deputy.not_member': 'Only a member of the team can become a leader deputy.',
+    'team_deputy.is_leader': 'The team leader cannot also be a leader deputy.',
     'auth.token_missing': 'You are not signed in. Sign in to continue.',
     'auth.token_expired': 'Your session has expired. Sign in again to continue.',
     'auth.token_invalid': 'Your session is no longer valid. Sign in again to continue.',

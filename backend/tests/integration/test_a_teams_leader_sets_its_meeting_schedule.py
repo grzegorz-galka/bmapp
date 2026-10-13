@@ -26,6 +26,7 @@ def test_a_leader_sets_the_schedule_of_their_team(
 def test_an_ordinary_member_cannot_set_the_schedule(
     client: TestClient, client_as: Callable[[str], TestClient]
 ) -> None:
+    """Scenario: An ordinary member cannot set the schedule - neither leader nor deputy."""
     team = register(client, "Platform", LEADER)
     add(client, team["id"], MEMBER)
 

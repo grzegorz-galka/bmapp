@@ -12,6 +12,7 @@ import {
 import { useFormat } from '../../i18n/format';
 import { useAuth } from '../auth/AuthProvider';
 import { useIsAdmin } from '../auth/useCurrentUser';
+import { teamAuthority } from '../teams/teamAuthority';
 import { useTeam } from '../teams/useTeams';
 import {
   useChangeMeeting,
@@ -64,12 +65,12 @@ export function TeamMeetingsPage() {
     );
   }
 
-  // Decided the way the API decides it: the schedule is the leader's or an
-  // administrator's, meetings belong to anyone on the team. The server
+  // Decided the way the API decides it: the schedule is the leader's, a
+  // deputy's or an administrator's, meetings belong to anyone on the team. The server
   // refuses regardless; hiding what someone cannot use is a courtesy.
   const members = team.data.members;
   const viewer = members.find((member) => member.email === signedInEmail);
-  const mayConfigure = isAdmin || viewer?.is_leader === true;
+  const mayConfigure = teamAuthority(team.data, signedInEmail, isAdmin).configure;
   const mayManage = isAdmin || viewer !== undefined;
 
   const upcoming = meetings.data.meetings.filter((m) => Date.parse(m.starts_at) > now);
@@ -464,7 +465,15 @@ function MeetingRow({
   // who hosts this meeting.
   const hostOptions =
     meeting.host && !members.some((member) => member.employee_id === meeting.host?.id)
-      ? [...members, { employee_id: meeting.host.id, email: meeting.host.email, is_leader: false }]
+      ? [
+          ...members,
+          {
+            employee_id: meeting.host.id,
+            email: meeting.host.email,
+            is_leader: false,
+            is_deputy: false,
+          },
+        ]
       : members;
   const deleteError = describeFailure(t, deleteMeeting.error);
   const hostError = describeFieldFailure(t, changeMeeting.error, 'host_employee_id');

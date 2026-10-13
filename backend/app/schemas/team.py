@@ -93,6 +93,7 @@ class MemberRead(BaseModel):
     employee_id: uuid.UUID
     email: str
     is_leader: bool
+    is_deputy: bool
 
 
 def _by_email(members: list[MemberRead]) -> list[MemberRead]:

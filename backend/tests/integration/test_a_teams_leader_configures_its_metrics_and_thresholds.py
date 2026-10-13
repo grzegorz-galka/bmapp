@@ -40,7 +40,10 @@ def test_a_leader_adds_a_metric_and_its_threshold(
 def test_an_ordinary_member_cannot_configure_metrics(
     client: TestClient, client_as: Callable[[str], TestClient], session: Session
 ) -> None:
-    """Scenario: An ordinary member cannot configure metrics."""
+    """Scenario: An ordinary member cannot configure metrics.
+
+    The member neither leads the team nor is its deputy.
+    """
     team = register(client, "Platform", LEADER)
     other = register(client, "Billing", "lead.billing@example.com")
     add(client, team["id"], MEMBER)
