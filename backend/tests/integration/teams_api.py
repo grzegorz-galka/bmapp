@@ -29,3 +29,15 @@ def member_id(detail: Any, email: str) -> str:
 def leaders(detail: Any) -> list[str]:
     """The emails of the members flagged as leader."""
     return [m["email"] for m in detail["members"] if m["is_leader"]]
+
+
+def appoint(client: TestClient, team_id: str, employee_id: str) -> Any:
+    """Appoint a member a deputy and return the team detail, failing the test if refused."""
+    response = client.put(f"/teams/{team_id}/deputies/{employee_id}")
+    assert response.status_code == 200, response.json()
+    return response.json()
+
+
+def deputies(detail: Any) -> list[str]:
+    """The emails of the members flagged as deputy, in the detail's order."""
+    return [m["email"] for m in detail["members"] if m["is_deputy"]]

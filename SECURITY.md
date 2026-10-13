@@ -176,6 +176,7 @@ always **"may this user do X to *this team*?"**
          |
          +-- the row exists      -> a member of that team
          +-- the row.is_leader   -> the leader of that team
+         +-- the row.is_deputy   -> a leader deputy of that team
 ```
 
 Leadership is a fact about a team, not a property of a person. It is assigned by
@@ -185,12 +186,19 @@ every team. One employee may lead any number of teams. There is therefore nothin
 about leaders in configuration, and no role to resolve: `team_members.is_leader`
 is the only answer.
 
+A **leader deputy** (*zastępca lidera*) is the same kind of fact: a flag on a
+member's row, held by any number of members, never by the leader (a check
+constraint on `team_members`). A deputy stands in for the leader on that team
+only, and is appointed and revoked by the leader or an admin.
+
 ## Who owns what
 
 ```
   ADMIN   owns the org chart   -> teams exist, and who leads them
   LEADER  owns their board     -> metrics, min/max, targets, schedule,
-                                  and who is on their team
+                                  who is on their team, and who deputises
+  DEPUTY  stands in for it     -> the leader's board and membership work,
+                                  but not who deputises
   MEMBER  owns the meeting     -> metric values, problems, tasks,
                                   and their own pulse answer
   ANYONE  reads everything but who answered the pulse check what
@@ -208,9 +216,12 @@ of the team records it, and only their own.
 | Read anything                               | `GET /dashboard`, `GET /teams`, `GET /teams/{id}`     | any valid token              |
 | Register a team and name its leader         | `POST /teams`                                   | admin                        |
 | Hand over leadership                        | `PUT /teams/{team_id}/leader`                   | admin                        |
-| Add a member                                | `POST /teams/{team_id}/members`                 | admin, or that team's leader |
-| Remove a member                             | `DELETE /teams/{team_id}/members/{employee_id}` | admin, or that team's leader |
-| Configure the board                         | *not yet built*                                 | admin, or that team's leader |
+| Add a member                                | `POST /teams/{team_id}/members`                 | admin, or that team's leader or a deputy |
+| Remove an ordinary member                   | `DELETE /teams/{team_id}/members/{employee_id}` | admin, or that team's leader or a deputy |
+| Remove a member who is a deputy             | `DELETE /teams/{team_id}/members/{employee_id}` | admin, or that team's leader |
+| Appoint a leader deputy                     | `PUT /teams/{team_id}/deputies/{employee_id}`   | admin, or that team's leader |
+| Revoke a leader deputy                      | `DELETE /teams/{team_id}/deputies/{employee_id}` | admin, or that team's leader |
+| Configure the board and its schedule        | *not yet built*                                 | admin, or that team's leader or a deputy |
 | Record metric values, problems, tasks       | *not yet built*                                 | admin, or a member of that team |
 | Read a meeting's individual pulse answers   | `GET /teams/{team_id}/meetings/{meeting_id}/pulse` | admin, or a member of that team; anyone else gets the aggregates only |
 | Answer the pulse check (one's own answer)   | `PUT /teams/{team_id}/meetings/{meeting_id}/pulse/me` | a member of that team - not an admin who is not one |
@@ -218,6 +229,12 @@ of the team records it, and only their own.
 The split inside membership is deliberate: an admin decides that a team exists and
 who runs it, while the routine churn of people joining and leaving a team belongs
 to the leader who runs it.
+
+Deputies get the leader's authority except over the circle of authority itself:
+who leads stays with admins, and who deputises stays with the leader and admins.
+Removing a member is therefore decided by who the *target* is - an ordinary
+member by the leader or a deputy, a deputy only by the leader or an admin - so
+that "remove, then re-add" is not a deputy's way round the rule.
 
 ## Reading is not gated on an Employee record
 

@@ -139,7 +139,8 @@
   color: var(--ink-2);
 }
 
-.leaderMark {
+.leaderMark,
+.deputyMark {
   display: inline-block;
   margin-left: var(--sp-2);
   padding: 1px var(--sp-2);
@@ -150,6 +151,12 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+/* A deputy stands in for the leader: the same badge, quieter. */
+.deputyMark {
+  border-color: var(--line-control);
+  color: var(--ink-2);
 }
 
 .actions {

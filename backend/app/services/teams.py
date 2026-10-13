@@ -1,4 +1,4 @@
-"""Business logic for teams, their members and their leader.
+"""Business logic for teams, their members, their leader and its deputies.
 
 No HTTP, and no session lifecycle: the caller provides the session.
 """
@@ -17,6 +17,8 @@ from app.core.exceptions import (
     LeaderNotMemberError,
     LeaderRemovalError,
     MemberNotFoundError,
+    TeamDeputyIsLeaderError,
+    TeamDeputyNotMemberError,
     TeamNotFoundError,
 )
 from app.models import BoardDefinition, Team, TeamMember
@@ -103,7 +105,8 @@ def remove_member(session: Session, team_id: uuid.UUID, employee_id: uuid.UUID) 
     """Remove a member from a team. The employee record itself is kept.
 
     The leader cannot be removed: that would leave the team leaderless, so
-    leadership has to be handed over first.
+    leadership has to be handed over first. A deputy removed stops being one
+    with the membership; added again later, they start as an ordinary member.
     """
     team = get_team(session, team_id)
     membership = _membership(team, employee_id)
@@ -120,6 +123,10 @@ def remove_member(session: Session, team_id: uuid.UUID, employee_id: uuid.UUID) 
 
 def change_leader(session: Session, team_id: uuid.UUID, employee_id: uuid.UUID) -> Team:
     """Make a member of a team its leader; the previous leader stays a member.
+
+    A deputy made leader stops being a deputy. The previous leader becomes an
+    ordinary member, not a deputy: whether they stand in is the new leader's
+    choice, not one taken on their behalf.
 
     The team row is locked first, so two concurrent handovers on one team run
     one after the other. Without it, both could read the same old leader, and
@@ -151,8 +158,37 @@ def change_leader(session: Session, team_id: uuid.UUID, employee_id: uuid.UUID) 
     # cleared in the database before the new one is set.
     session.flush()
     new_leader.is_leader = True
+    new_leader.is_deputy = False
     session.commit()
     logger.info("Leadership of team %s handed over to %s", team.id, new_leader.email)
+    return team
+
+
+def appoint_deputy(session: Session, team_id: uuid.UUID, employee_id: uuid.UUID) -> Team:
+    """Make a member of a team one of its leader deputies. Appointing again changes nothing."""
+    team = get_team(session, team_id)
+    membership = _membership(team, employee_id)
+    if membership is None:
+        raise TeamDeputyNotMemberError(employee_id)
+    if membership.is_leader:
+        raise TeamDeputyIsLeaderError()
+    if not membership.is_deputy:
+        membership.is_deputy = True
+        session.commit()
+        logger.info("%s appointed deputy of team %s", membership.email, team.id)
+    return team
+
+
+def revoke_deputy(session: Session, team_id: uuid.UUID, employee_id: uuid.UUID) -> Team:
+    """Make a deputy an ordinary member again. Revoking a non-deputy changes nothing."""
+    team = get_team(session, team_id)
+    membership = _membership(team, employee_id)
+    if membership is None:
+        raise MemberNotFoundError(employee_id)
+    if membership.is_deputy:
+        membership.is_deputy = False
+        session.commit()
+        logger.info("%s revoked as deputy of team %s", membership.email, team.id)
     return team
 
 

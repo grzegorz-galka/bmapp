@@ -93,7 +93,11 @@ def relationship_to(
     membership = session.get(TeamMember, (team_id, current_user.employee.id))
     if membership is None:
         return Relationship.STRANGER
-    return Relationship.LEADER if membership.is_leader else Relationship.MEMBER
+    if membership.is_leader:
+        return Relationship.LEADER
+    if membership.is_deputy:
+        return Relationship.DEPUTY
+    return Relationship.MEMBER
 
 
 def require(permitted: bool) -> None:

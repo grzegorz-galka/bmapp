@@ -62,6 +62,7 @@ Glossary (use these exact terms in code, UI and tests):
 - **Meeting** — one occurrence of a team's board meeting. Metric values are recorded at a meeting and belong to it. Opened explicitly by a member; a skipped week simply has none.
 - **Schedule** — the weekday and start time a board's team meets, on the organization's clock (Europe/Warsaw). It proposes the next meeting's date; it never creates meetings.
 - **Host** — the member who runs one meeting (*prowadzący*). Rotates from meeting to meeting; not the team leader.
+- **Leader deputy** (*zastępca lidera*) — a member who stands in for the team leader: configures the board and schedule and adds and removes ordinary members. A team has any number, never the leader. Only the leader or an administrator appoints, revokes or removes one; who leads stays an administrator's decision. Code `deputy`.
 - **Metric** — a named thing the team measures (e.g. "Open bugs"), with a unit and a fixed **direction**: higher is better, lower is better, or within a band. Teams track metrics directly. A metric with values is **retired**, never deleted.
 - **Global metric** (*wskaźnik globalny*) — a metric defined once by an administrator in the company-wide catalogue at `/global-metrics`, with its thresholds, and **included** in any number of boards. A board sets only its placement (group, position, owner) and may remove or retire it there; its definition and thresholds are read-only on the board. Each team still records its own values for it. A board's own metric can be **copied** onto another board with its thresholds; the copy is independent.
 - **Threshold** (*próg*) — one version of what green and amber mean for a metric, from an effective date on, with a reason. Versions are append-only and may be back-dated; a value is judged against the version in force on its meeting's date.
@@ -245,7 +246,8 @@ answer form (`?meeting=…&view=pulse&mode=answer`) and a list (`#problems`,
 `authentication` and `authorization` are implemented too: every endpoint needs a
 verified token, the dashboard reports the caller rather than a placeholder, and writes
 are decided per team — administrators from `BMAPP_ADMIN_EMAILS` register teams and
-name leaders, a team's leader manages its members, and anyone signed in may read
+name leaders, a team's leader or its deputies manage its members (only the leader
+or an administrator chooses the deputies), and anyone signed in may read
 everything.
 
 `metrics` and `metric-values` are implemented: a board's leader defines its
@@ -471,8 +473,9 @@ A task is done when:
 - Authorization has **no roles**: a global admin flag from `BMAPP_ADMIN_EMAILS`,
   and membership read from `team_members`. The question is always "may this user
   do X to *this team*", never "what role is this user". Admins register teams and
-  assign their leaders; a team's leader configures that team's board and manages
-  its members; members edit the meeting data of their own teams; a valid token
+  assign their leaders; a team's leader or its deputies configure that team's
+  board and manage its members, and only the leader or an admin appoints,
+  revokes or removes a deputy; members edit the meeting data of their own teams; a valid token
   reads everything - except individual pulse answers, which only the team's
   members and administrators read; others get the aggregates. Only a member
   answers the pulse check, for themselves - not even an administrator for them.

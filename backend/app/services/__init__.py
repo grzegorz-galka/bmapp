@@ -12,17 +12,20 @@ from app.services.meetings import (
 )
 from app.services.teams import (
     add_member,
+    appoint_deputy,
     change_leader,
     get_team,
     list_teams,
     register_team,
     remove_member,
+    revoke_deputy,
     set_schedule,
 )
 
 __all__ = [
     "MeetingOverview",
     "add_member",
+    "appoint_deputy",
     "build_dashboard_summary",
     "change_leader",
     "change_meeting",
@@ -34,6 +37,7 @@ __all__ = [
     "open_meeting",
     "register_team",
     "remove_member",
+    "revoke_deputy",
     "set_schedule",
     "today",
 ]

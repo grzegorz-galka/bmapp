@@ -41,9 +41,14 @@ export interface Member {
   employee_id: string;
   email: string;
   is_leader: boolean;
+  /** One of the team's leader deputies. Never true of the leader. */
+  is_deputy: boolean;
 }
 
-/** A team with its members, ordered by email. Exactly one is the leader. */
+/**
+ * A team with its members, ordered by email. Exactly one is the leader; any
+ * number of the others may be its deputies.
+ */
 export interface TeamDetail {
   id: string;
   name: string;
@@ -90,6 +95,22 @@ export function makeLeader(teamId: string, employeeId: string): Promise<TeamDeta
     method: 'PUT',
     body: JSON.stringify({ employee_id: employeeId }),
   });
+}
+
+/** Appoint a member a leader deputy. Idempotent. */
+export function appointDeputy(teamId: string, employeeId: string): Promise<TeamDetail> {
+  return request<TeamDetail>(
+    `/teams/${encodeURIComponent(teamId)}/deputies/${encodeURIComponent(employeeId)}`,
+    { method: 'PUT' },
+  );
+}
+
+/** Make a deputy an ordinary member again. Idempotent. */
+export function revokeDeputy(teamId: string, employeeId: string): Promise<TeamDetail> {
+  return request<TeamDetail>(
+    `/teams/${encodeURIComponent(teamId)}/deputies/${encodeURIComponent(employeeId)}`,
+    { method: 'DELETE' },
+  );
 }
 
 export function setSchedule(teamId: string, schedule: Schedule): Promise<Team> {

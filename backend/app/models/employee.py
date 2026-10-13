@@ -32,10 +32,11 @@ class Employee(Base):
 
 
 class TeamMember(Base):
-    """An employee's membership of a team, and whether they lead it.
+    """An employee's membership of a team, and whether they lead or deputise for it.
 
-    Leadership is a flag on the membership rather than a column on the team,
-    so "the leader is a member" holds by construction.
+    Leadership and deputyship are flags on the membership rather than columns
+    on the team, so "the leader is a member" and "a deputy is a member" hold
+    by construction.
     """
 
     __tablename__ = "team_members"
@@ -52,6 +53,11 @@ class TeamMember(Base):
         # For "which teams does this employee belong to"; the primary key
         # already serves lookups by team.
         Index("ix_team_members_employee_id", "employee_id"),
+        # The leader stands in for nobody; the service rejects it first with
+        # `team_deputy.is_leader`, and this is the backstop.
+        CheckConstraint(
+            "NOT (is_leader AND is_deputy)", name="ck_team_members_not_leader_and_deputy"
+        ),
     )
 
     team_id: Mapped[uuid.UUID] = mapped_column(
@@ -62,6 +68,9 @@ class TeamMember(Base):
         UUID(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), primary_key=True
     )
     is_leader: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_deputy: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

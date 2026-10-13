@@ -2,7 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { en, type Translations } from '../src/i18n/en';
 import { pl } from '../src/i18n/pl';
 import { LANGUAGE_STORAGE_KEY } from '../src/i18n/languages';
-import { signInAs } from './auth';
+import { ADMIN_EMAIL, signInAs } from './auth';
+import { apiAs } from './api';
 
 /*
  * The members flow from the team list to a handover. The stack keeps its data
@@ -138,4 +139,50 @@ test('the members flow reads in Polish', async ({ page }) => {
   await useLanguage(page, 'pl');
   await handOverAndRemove(page, pl);
   await expect(page.locator('html')).toHaveAttribute('lang', 'pl');
+});
+
+test('a leader appoints a deputy who configures the board, then revokes them', async ({
+  page,
+  request,
+}) => {
+  const suffix = uniqueSuffix();
+  const leader = `e2e.leader.${suffix}@example.com`;
+  const deputy = `e2e.deputy.${suffix}@example.com`;
+  const admin = await apiAs(request, ADMIN_EMAIL);
+  const team = await admin.registerTeam(`E2E Deputies ${suffix}`, leader);
+  await admin.addMember(team.id, deputy);
+  await useLanguage(page, 'en');
+
+  await signInAs(page, leader);
+  await page.goto(`/teams/${team.id}/members`);
+  await page
+    .getByRole('button', { name: fill(en.members.makeDeputyLabel, { email: deputy }) })
+    .click();
+  await expect(memberRow(page, en, deputy)).toContainText(en.members.deputy);
+
+  // The deputy stands in for the leader on the metric settings page.
+  await signInAs(page, deputy);
+  await page.goto(`/teams/${team.id}/metrics`);
+  await page.getByRole('button', { name: en.metrics.create }).click();
+  const dialog = page.getByRole('dialog', { name: en.metrics.create });
+  await dialog.getByLabel(en.metrics.nameLabel).fill('Lead time');
+  await dialog.getByLabel(en.metrics.unitLabel).fill('days');
+  await dialog.getByLabel(en.metrics.decimalsLabel).fill('1');
+  await dialog.getByLabel(en.metrics.directionLabel).selectOption('lower_is_better');
+  await dialog.getByRole('button', { name: en.metrics.add, exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('listitem').filter({ hasText: 'Lead time' })).toBeVisible();
+
+  await signInAs(page, leader);
+  await page.goto(`/teams/${team.id}/members`);
+  await page
+    .getByRole('button', { name: fill(en.members.revokeDeputyLabel, { email: deputy }) })
+    .click();
+  await expect(memberRow(page, en, deputy)).not.toContainText(en.members.deputy);
+
+  // Revoked, they are an ordinary member again and offered no configuration.
+  await signInAs(page, deputy);
+  await page.goto(`/teams/${team.id}/metrics`);
+  await expect(page.getByRole('listitem').filter({ hasText: 'Lead time' })).toBeVisible();
+  await expect(page.getByRole('button', { name: en.metrics.create })).toBeHidden();
 });

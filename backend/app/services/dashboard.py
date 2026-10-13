@@ -56,6 +56,7 @@ from app.schemas.dashboard import (
     ItemKind,
     LocalizedText,
     Strategy,
+    TeamRole,
     Value,
 )
 from app.services.item_lifecycle import is_overdue
@@ -157,7 +158,7 @@ DECLARATIONS = Declarations(
 class _Team:
     id: uuid.UUID
     name: str
-    is_leader: bool
+    role: TeamRole
     schedule: WeeklySchedule | None
 
 
@@ -175,6 +176,12 @@ class OpenedMeeting:
         return to_wall_clock(self.starts_at)[0]
 
 
+def _role(*, is_leader: bool, is_deputy: bool) -> TeamRole:
+    if is_leader:
+        return "leader"
+    return "deputy" if is_deputy else "member"
+
+
 def _teams(session: Session, email: str) -> list[_Team]:
     """The teams `email` is a member of, with the role and the board's schedule. One statement."""
     rows = session.execute(
@@ -182,6 +189,7 @@ def _teams(session: Session, email: str) -> list[_Team]:
             Team.id,
             Team.name,
             TeamMember.is_leader,
+            TeamMember.is_deputy,
             BoardDefinition.schedule_weekday,
             BoardDefinition.schedule_time,
         )
@@ -195,7 +203,7 @@ def _teams(session: Session, email: str) -> list[_Team]:
         _Team(
             id=row.id,
             name=row.name,
-            is_leader=row.is_leader,
+            role=_role(is_leader=row.is_leader, is_deputy=row.is_deputy),
             schedule=(
                 WeeklySchedule(row.schedule_weekday, row.schedule_time)
                 if row.schedule_weekday is not None and row.schedule_time is not None
@@ -341,7 +349,7 @@ def _teams_and_meetings(
                 id=team.id,
                 name=team.name,
                 initials=team_initials(team.name),
-                role="leader" if team.is_leader else "member",
+                role=team.role,
                 schedule=(
                     DashboardSchedule(weekday=schedule.weekday, start_time=schedule.time)
                     if schedule

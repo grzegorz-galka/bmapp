@@ -10,6 +10,7 @@ import pytest
 from app.services.authz import (
     Relationship,
     may_answer_the_pulse_check,
+    may_appoint_deputies,
     may_change_the_leader,
     may_configure_the_board,
     may_define_global_metrics,
@@ -20,7 +21,8 @@ from app.services.authz import (
     may_register_a_team,
 )
 
-EVERY_RELATIONSHIP = [Relationship.STRANGER, Relationship.MEMBER, Relationship.LEADER]
+EVERY_RELATIONSHIP = list(Relationship)
+ON_THE_TEAM = [Relationship.MEMBER, Relationship.LEADER, Relationship.DEPUTY]
 
 
 # --- Registering a team, and naming who leads it -------------------------------
@@ -43,11 +45,20 @@ def test_a_leader_cannot_hand_over_their_own_leadership() -> None:
     assert may_change_the_leader(is_admin=False) is False
 
 
+def test_a_deputy_cannot_hand_over_leadership() -> None:
+    """The rule takes no relationship at all: a deputy is no closer to it than a leader."""
+    assert may_change_the_leader(is_admin=False) is False
+
+
 # --- Membership ----------------------------------------------------------------
 
 
 def test_a_leader_manages_the_membership_of_their_team() -> None:
     assert may_manage_membership(is_admin=False, relationship=Relationship.LEADER) is True
+
+
+def test_a_deputy_manages_ordinary_membership() -> None:
+    assert may_manage_membership(is_admin=False, relationship=Relationship.DEPUTY) is True
 
 
 def test_an_ordinary_member_cannot_change_membership() -> None:
@@ -62,6 +73,26 @@ def test_a_stranger_cannot_change_membership() -> None:
 def test_an_administrator_manages_membership_of_any_team(relationship: Relationship) -> None:
     """Including a team they neither lead nor belong to."""
     assert may_manage_membership(is_admin=True, relationship=relationship) is True
+
+
+# --- Choosing the deputies ----------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("is_admin", "relationship", "permitted"),
+    [
+        (False, Relationship.LEADER, True),
+        (False, Relationship.DEPUTY, False),
+        (False, Relationship.MEMBER, False),
+        (False, Relationship.STRANGER, False),
+        *[(True, relationship, True) for relationship in Relationship],
+    ],
+)
+def test_only_a_leader_or_an_administrator_appoints_deputies(
+    is_admin: bool, relationship: Relationship, permitted: bool
+) -> None:
+    """A deputy neither widens nor narrows the circle of deputies they belong to."""
+    assert may_appoint_deputies(is_admin=is_admin, relationship=relationship) is permitted
 
 
 # --- A leader's authority stops at their own team ------------------------------
@@ -92,6 +123,10 @@ def test_a_leader_configures_their_own_board() -> None:
     assert may_configure_the_board(is_admin=False, relationship=Relationship.LEADER) is True
 
 
+def test_a_deputy_configures_their_own_board() -> None:
+    assert may_configure_the_board(is_admin=False, relationship=Relationship.DEPUTY) is True
+
+
 @pytest.mark.parametrize("relationship", [Relationship.MEMBER, Relationship.STRANGER])
 def test_nobody_else_configures_a_board(relationship: Relationship) -> None:
     assert may_configure_the_board(is_admin=False, relationship=relationship) is False
@@ -100,7 +135,7 @@ def test_nobody_else_configures_a_board(relationship: Relationship) -> None:
 # --- Recording what happens at a meeting ---------------------------------------
 
 
-@pytest.mark.parametrize("relationship", [Relationship.MEMBER, Relationship.LEADER])
+@pytest.mark.parametrize("relationship", ON_THE_TEAM)
 def test_anyone_on_the_team_records_meeting_data(relationship: Relationship) -> None:
     assert may_record_meeting_data(is_admin=False, relationship=relationship) is True
 
@@ -114,7 +149,7 @@ def test_a_stranger_does_not_record_meeting_data() -> None:
 # The same rule as the rest of the meeting's data: no permission of their own.
 
 
-@pytest.mark.parametrize("relationship", [Relationship.MEMBER, Relationship.LEADER])
+@pytest.mark.parametrize("relationship", ON_THE_TEAM)
 def test_anyone_on_the_team_keeps_its_problems_and_tasks(relationship: Relationship) -> None:
     assert may_record_meeting_data(is_admin=False, relationship=relationship) is True
 
@@ -150,6 +185,7 @@ def test_an_administrator_may_act_on_any_team(relationship: Relationship) -> Non
             may_manage_membership(is_admin=True, relationship=relationship),
             may_configure_the_board(is_admin=True, relationship=relationship),
             may_record_meeting_data(is_admin=True, relationship=relationship),
+            may_appoint_deputies(is_admin=True, relationship=relationship),
         )
     )
 
@@ -169,7 +205,7 @@ def test_no_one_else_defines_global_metrics() -> None:
 # --- The pulse check -----------------------------------------------------------
 
 
-@pytest.mark.parametrize("relationship", [Relationship.MEMBER, Relationship.LEADER])
+@pytest.mark.parametrize("relationship", ON_THE_TEAM)
 def test_anyone_on_the_team_reads_its_pulse_answers(relationship: Relationship) -> None:
     assert may_read_pulse_answers(is_admin=False, relationship=relationship) is True
 
@@ -183,7 +219,7 @@ def test_an_administrator_reads_any_teams_pulse_answers(relationship: Relationsh
     assert may_read_pulse_answers(is_admin=True, relationship=relationship) is True
 
 
-@pytest.mark.parametrize("relationship", [Relationship.MEMBER, Relationship.LEADER])
+@pytest.mark.parametrize("relationship", ON_THE_TEAM)
 def test_anyone_on_the_team_answers_the_pulse_check(relationship: Relationship) -> None:
     assert may_answer_the_pulse_check(relationship=relationship) is True
 

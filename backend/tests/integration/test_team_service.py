@@ -1,11 +1,12 @@
 """The service layer, exercised directly against a session - no HTTP involved."""
 
 import pytest
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import DuplicateTeamNameError
-from app.models import BoardDefinition, Team
+from app.models import BoardDefinition, Team, TeamMember
 from app.services import list_teams, register_team
 
 LEADER = "lead@example.com"
@@ -50,3 +51,17 @@ def test_the_session_is_usable_after_a_rejected_registration(session: Session) -
     register_team(session, "Quality", LEADER)
 
     assert [team.name for team in list_teams(session)] == ["Platform", "Quality"]
+
+
+def test_the_database_refuses_a_member_who_is_both_leader_and_deputy(session: Session) -> None:
+    """The check constraint is the backstop behind `team_deputy.is_leader`."""
+    team = register_team(session, "Platform", LEADER)
+    leader = team.members[0]
+
+    with pytest.raises(IntegrityError, match="ck_team_members_not_leader_and_deputy"):
+        session.execute(
+            update(TeamMember)
+            .where(TeamMember.team_id == team.id, TeamMember.employee_id == leader.employee_id)
+            .values(is_deputy=True)
+        )
+    session.rollback()

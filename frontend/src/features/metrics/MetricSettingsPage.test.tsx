@@ -19,14 +19,16 @@ import type { Team, TeamDetail } from '../../api/teams';
 const TEAM_ID = 'team-1';
 const LEADER = 'anna@example.com';
 const MEMBER = 'bartek@example.com';
+const DEPUTY = 'dora@example.com';
 
 const TEAM: TeamDetail = {
   id: TEAM_ID,
   name: 'Platform',
   board: { id: 'board-1', name: 'Platform', schedule: null },
   members: [
-    { employee_id: 'emp-anna', email: LEADER, is_leader: true },
-    { employee_id: 'emp-bartek', email: MEMBER, is_leader: false },
+    { employee_id: 'emp-anna', email: LEADER, is_leader: true, is_deputy: false },
+    { employee_id: 'emp-bartek', email: MEMBER, is_leader: false, is_deputy: false },
+    { employee_id: 'emp-dora', email: DEPUTY, is_leader: false, is_deputy: true },
   ],
 };
 
@@ -384,6 +386,16 @@ describe('the metric settings page', () => {
     ]) {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
     }
+  });
+
+  it('A deputy sees the controls they may use', async () => {
+    await renderSettings('en', { email: DEPUTY });
+
+    expect(screen.getByRole('button', { name: en.metrics.create })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: en.metrics.copy })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: en.metrics.include })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit: Revenue' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Change threshold: Revenue' })).toBeInTheDocument();
   });
 
   it('offers every control to an administrator outside the team', async () => {

@@ -6,6 +6,7 @@ import type { Member } from '../../api/teams';
 import { isNotFound } from '../../i18n/apiErrors';
 import { useAuth } from '../auth/AuthProvider';
 import { useIsAdmin } from '../auth/useCurrentUser';
+import { teamAuthority } from '../teams/teamAuthority';
 import { useTeam } from '../teams/useTeams';
 import { ArrangedMetrics, GroupNameDialog } from './ArrangedMetrics';
 import { CopyMetricDialog, IncludeGlobalMetricDialog } from './BringMetricDialogs';
@@ -53,10 +54,9 @@ export function MetricSettingsPage() {
     );
   }
 
-  // As the API decides it: what is measured is the leader's or an
-  // administrator's. Everyone else reads the same page without the controls.
-  const viewer = team.data.members.find((member) => member.email === signedInEmail);
-  const mayConfigure = isAdmin || viewer?.is_leader === true;
+  // As the API decides it: what is measured is the leader's, a deputy's or
+  // an administrator's. Everyone else reads the same page without the controls.
+  const mayConfigure = teamAuthority(team.data, signedInEmail, isAdmin).configure;
 
   return (
     <main className={teamStyles.page}>

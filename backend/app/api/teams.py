@@ -13,17 +13,21 @@ from app.api.dependencies import (
     require_admin,
 )
 from app.core.db import get_session
+from app.models import TeamMember
 from app.schemas import LeaderChange, MemberAdd, ScheduleSet, TeamCreate, TeamDetail, TeamRead
 from app.services import (
     add_member,
+    appoint_deputy,
     change_leader,
     get_team,
     list_teams,
     register_team,
     remove_member,
+    revoke_deputy,
     set_schedule,
 )
 from app.services.authz import (
+    may_appoint_deputies,
     may_change_the_leader,
     may_configure_the_board,
     may_manage_membership,
@@ -75,8 +79,8 @@ def create_member(
 ) -> TeamDetail:
     """Add an employee to a team by email, recording the employee if new.
 
-    The team's own leader, or an administrator: people joining a team is the
-    leader's to handle, so it needs nobody above them.
+    The team's own leader or deputies, or an administrator: people joining a
+    team is for whoever runs it to handle, so it needs nobody above them.
     """
     require(
         may_manage_membership(
@@ -94,13 +98,19 @@ def delete_member(
     session: SessionDependency,
     current_user: CurrentUserDependency,
 ) -> TeamDetail:
-    """Remove a member who is not the leader from a team."""
-    require(
-        may_manage_membership(
-            is_admin=current_user.is_admin,
-            relationship=relationship_to(session, current_user, team_id),
-        )
-    )
+    """Remove a member who is not the leader from a team.
+
+    An ordinary member is removed by whoever runs the team; a deputy only by
+    the leader or an administrator, or removing and re-adding would be a
+    deputy's way round not choosing deputies. The one rule that needs a fact
+    about the target, so it is read here and the rules stay pure.
+    """
+    relationship = relationship_to(session, current_user, team_id)
+    target = session.get(TeamMember, (team_id, employee_id))
+    if target is not None and target.is_deputy:
+        require(may_appoint_deputies(is_admin=current_user.is_admin, relationship=relationship))
+    else:
+        require(may_manage_membership(is_admin=current_user.is_admin, relationship=relationship))
     return TeamDetail.model_validate(remove_member(session, team_id, employee_id))
 
 
@@ -120,6 +130,48 @@ def replace_leader(
     return TeamDetail.model_validate(change_leader(session, team_id, payload.employee_id))
 
 
+@router.put("/{team_id}/deputies/{employee_id}", response_model=TeamDetail)
+def put_deputy(
+    team_id: uuid.UUID,
+    employee_id: uuid.UUID,
+    session: SessionDependency,
+    current_user: CurrentUserDependency,
+) -> TeamDetail:
+    """Make one of the team's members a leader deputy. Idempotent.
+
+    The team's leader, or an administrator: the leader chooses who stands in
+    for them, so a deputy does not appoint other deputies.
+    """
+    require(
+        may_appoint_deputies(
+            is_admin=current_user.is_admin,
+            relationship=relationship_to(session, current_user, team_id),
+        )
+    )
+    return TeamDetail.model_validate(appoint_deputy(session, team_id, employee_id))
+
+
+@router.delete("/{team_id}/deputies/{employee_id}", response_model=TeamDetail)
+def delete_deputy(
+    team_id: uuid.UUID,
+    employee_id: uuid.UUID,
+    session: SessionDependency,
+    current_user: CurrentUserDependency,
+) -> TeamDetail:
+    """Make a deputy an ordinary member again. Idempotent; they stay a member.
+
+    The team's leader, or an administrator - a deputy does not revoke another
+    deputy, nor themselves.
+    """
+    require(
+        may_appoint_deputies(
+            is_admin=current_user.is_admin,
+            relationship=relationship_to(session, current_user, team_id),
+        )
+    )
+    return TeamDetail.model_validate(revoke_deputy(session, team_id, employee_id))
+
+
 @router.put("/{team_id}/schedule", response_model=TeamRead)
 def replace_schedule(
     team_id: uuid.UUID,
@@ -129,8 +181,8 @@ def replace_schedule(
 ) -> TeamRead:
     """Set when the team meets each week, replacing any schedule it had.
 
-    The team's leader, or an administrator: when a team meets is part of
-    configuring its board.
+    The team's leader or deputies, or an administrator: when a team meets is
+    part of configuring its board.
     """
     require(
         may_configure_the_board(

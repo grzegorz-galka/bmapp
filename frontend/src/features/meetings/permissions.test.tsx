@@ -16,6 +16,7 @@ import type { TeamDetail } from '../../api/teams';
 const TEAM_ID = 'team-1';
 const LEADER_EMAIL = 'anna@example.com';
 const MEMBER_EMAIL = 'bartek@example.com';
+const DEPUTY_EMAIL = 'dora@example.com';
 const STRANGER_EMAIL = 'stranger@example.com';
 
 const TEAM: TeamDetail = {
@@ -23,8 +24,9 @@ const TEAM: TeamDetail = {
   name: 'Platform',
   board: { id: 'board-1', name: 'Platform', schedule: { weekday: 3, time: '13:00' } },
   members: [
-    { employee_id: 'emp-anna', email: LEADER_EMAIL, is_leader: true },
-    { employee_id: 'emp-bartek', email: MEMBER_EMAIL, is_leader: false },
+    { employee_id: 'emp-anna', email: LEADER_EMAIL, is_leader: true, is_deputy: false },
+    { employee_id: 'emp-bartek', email: MEMBER_EMAIL, is_leader: false, is_deputy: false },
+    { employee_id: 'emp-dora', email: DEPUTY_EMAIL, is_leader: false, is_deputy: true },
   ],
 };
 
@@ -108,6 +110,13 @@ describe('the meetings page', () => {
     const offered = controls();
     expect(offered.schedule).toBeInTheDocument();
     expect(offered.prepare).toBeInTheDocument();
+  });
+
+  it('A deputy sees the controls they may use', async () => {
+    await renderMeetings({ email: DEPUTY_EMAIL });
+
+    // A deputy stands in for the leader: the schedule as well as the meetings.
+    expect(Object.values(controls()).every((control) => control !== null)).toBe(true);
   });
 
   it('offers an administrator every control on any team', async () => {

@@ -22,8 +22,8 @@ from pydantic import BaseModel
 from app.core.item_enums import Stage
 from app.schemas.meeting import WallClockTime
 
-#: What a team member may be on a team.
-TeamRole = Literal["leader", "member"]
+#: What a team member may be on a team: its leader, one of its leader deputies, or neither.
+TeamRole = Literal["leader", "deputy", "member"]
 
 #: Which pictogram a company value is drawn with.
 ValueIcon = Literal["effectiveness", "passion", "innovation", "collaboration"]

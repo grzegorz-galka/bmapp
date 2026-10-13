@@ -7,7 +7,15 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.models import Employee
-from tests.integration.teams_api import LEADER_EMAIL, add, leaders, member_id, register
+from tests.integration.teams_api import (
+    LEADER_EMAIL,
+    add,
+    appoint,
+    deputies,
+    leaders,
+    member_id,
+    register,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -29,6 +37,21 @@ def test_a_member_is_removed(client: TestClient, session: Session) -> None:
     assert "jan@example.com" in [
         m["email"] for m in client.get(f"/teams/{other['id']}").json()["members"]
     ]
+
+
+def test_a_deputy_is_removed(client: TestClient) -> None:
+    """Scenario: A deputy is removed."""
+    team = register(client)
+    jan = member_id(add(client, team["id"], "jan@example.com"), "jan@example.com")
+    appoint(client, team["id"], jan)
+
+    response = client.delete(f"/teams/{team['id']}/members/{jan}")
+
+    assert response.status_code == 200
+    assert [m["email"] for m in response.json()["members"]] == [LEADER_EMAIL]
+    readded = add(client, team["id"], "jan@example.com")
+    assert [m["email"] for m in readded["members"]] == ["jan@example.com", LEADER_EMAIL]
+    assert deputies(readded) == []
 
 
 def test_the_leader_cannot_be_removed(client: TestClient) -> None:
