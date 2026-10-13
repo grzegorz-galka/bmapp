@@ -355,6 +355,46 @@ class MetricCopySourceGlobalError(DomainError):
         super().__init__(f"Metric {metric_id} is global; include it instead of copying it.")
 
 
+class DuplicateMetricGroupNameError(DomainError):
+    """Raised when a board already has a group of that name, ignoring case."""
+
+    status_code = 409
+    field = "name"
+    code = "metric_group_name.duplicate"
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"This board already has a group named {name!r}.")
+
+
+class MetricGroupNotFoundError(DomainError):
+    """Raised when a group identifier names no group of the board in the path.
+
+    Another board's group alike: a placement stays within its own board.
+    Reported against `group_id` when a metric is placed, and against no field
+    when the group is the one in the path.
+    """
+
+    status_code = 404
+    code = "metric_group.not_found"
+
+    def __init__(self, group_id: object, field: str | None = None) -> None:
+        super().__init__(f"This board has no group with the identifier {group_id}.", field)
+
+
+class MetricLayoutStaleError(DomainError):
+    """Raised when a layout does not name the board's groups and metrics exactly once.
+
+    The client arranged a board that has changed since it was read; applying
+    part of the layout would leave an order nobody chose.
+    """
+
+    status_code = 409
+    code = "metric_layout.stale"
+
+    def __init__(self) -> None:
+        super().__init__("The board's groups or metrics changed since the layout was read.")
+
+
 class ThresholdOrderError(DomainError):
     """Raised when a threshold's amber boundary is better than its green one."""
 

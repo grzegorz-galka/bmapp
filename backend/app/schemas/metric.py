@@ -116,47 +116,36 @@ class _MetricFields(BaseModel):
             )
         return value
 
-    @field_validator("group_label", check_fields=False)
-    @classmethod
-    def group_trimmed_and_bounded(cls, value: str | None) -> str | None:
-        trimmed = _strip_or_none(value)
-        if trimmed is not None and len(trimmed) > METRIC_GROUP_MAX_LENGTH:
-            raise PydanticCustomError(
-                GENERIC_ERROR_CODE, f"Group must be at most {METRIC_GROUP_MAX_LENGTH} characters."
-            )
-        return trimmed
-
 
 class MetricCreate(_MetricFields):
-    """A request to add a metric to a board."""
+    """A request to add a metric to a board, last in its group or among the ungrouped."""
 
     name: str
     unit: str = ""
     decimals: int = 0
     direction: Direction
-    group_label: str | None = None
-    position: int = 0
+    group_id: uuid.UUID | None = None
     owner_employee_id: uuid.UUID | None = None
 
 
 class MetricChange(_MetricFields):
     """A partial change to a metric. A key that is absent is left alone.
 
-    `group_label: null` and `owner_employee_id: null` clear those; the other
-    properties always have a value, so null is refused for them. `direction`
-    is accepted only so that changing it can be refused by name.
+    `group_id: null` takes the metric out of every group and `owner_employee_id:
+    null` clears the owner; the other properties always have a value, so null
+    is refused for them. `direction` is accepted only so that changing it can
+    be refused by name. A metric's order changes through the board's layout.
     """
 
     name: str | None = None
     unit: str | None = None
     decimals: int | None = None
     direction: Direction | None = None
-    group_label: str | None = None
-    position: int | None = None
+    group_id: uuid.UUID | None = None
     owner_employee_id: uuid.UUID | None = None
     retired: bool | None = None
 
-    @field_validator("name", "unit", "decimals", "direction", "position", "retired")
+    @field_validator("name", "unit", "decimals", "direction", "retired")
     @classmethod
     def not_null(cls, value: object) -> object:
         if value is None:
@@ -201,20 +190,76 @@ class MetricCopy(_MetricFields):
     """A request to copy another board's own metric onto this board.
 
     `name` renames the copy on the way in; absent, the source's name is kept.
+    The source's group belongs to its own board, so the copy goes into the
+    group named here, or among the ungrouped metrics.
     """
 
     source_metric_id: uuid.UUID
     name: str | None = None
-    position: int = 0
+    group_id: uuid.UUID | None = None
 
 
 class GlobalMetricInclusion(_MetricFields):
     """A request to include a global metric in a board: its placement there."""
 
     global_metric_id: uuid.UUID
-    position: int = 0
-    group_label: str | None = None
+    group_id: uuid.UUID | None = None
     owner_employee_id: uuid.UUID | None = None
+
+
+class _MetricGroupName(BaseModel):
+    """A group's name: trimmed, not blank, at most the stored length."""
+
+    name: str
+
+    @field_validator("name")
+    @classmethod
+    def name_trimmed_and_bounded(cls, value: str) -> str:
+        trimmed = value.strip()
+        if not trimmed:
+            raise PydanticCustomError("metric_group_name.blank", "Group name must not be blank.")
+        if len(trimmed) > METRIC_GROUP_MAX_LENGTH:
+            raise PydanticCustomError(
+                "metric_group_name.too_long",
+                "Group name must be at most {max_length} characters after trimming.",
+                {"max_length": METRIC_GROUP_MAX_LENGTH},
+            )
+        return trimmed
+
+
+class MetricGroupCreate(_MetricGroupName):
+    """A request to add a group to a board, after its other groups."""
+
+
+class MetricGroupRename(_MetricGroupName):
+    """A request to rename a board's group."""
+
+
+class MetricGroupRead(BaseModel):
+    """A board's group: its name and its place among the board's groups."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    position: int
+
+
+class MetricLayoutGroup(BaseModel):
+    """One group of a layout and the metrics in it, in order."""
+
+    id: uuid.UUID
+    metric_ids: list[uuid.UUID]
+
+
+class MetricLayout(BaseModel):
+    """A board's whole arrangement: every group in order, every metric in its place.
+
+    Retired metrics included: they keep their place for when they come back.
+    """
+
+    groups: list[MetricLayoutGroup]
+    ungrouped: list[uuid.UUID]
 
 
 @dataclass(frozen=True, slots=True)
@@ -382,7 +427,9 @@ class MetricDefinitionRead(BaseModel):
     unit: str
     decimals: int
     direction: Direction
-    group_label: str | None
+    #: The board's group the metric is in, or none: it is then ungrouped.
+    group: MetricGroupRead | None
+    #: Within its group, or among the ungrouped metrics.
     position: int
     owner: OwnerRead | None
     retired: bool

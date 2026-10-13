@@ -10,17 +10,20 @@ from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import exists, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, contains_eager
 
 from app.core.exceptions import (
+    DuplicateMetricGroupNameError,
     DuplicateMetricNameError,
     GlobalMetricAlreadyIncludedError,
     GlobalMetricReadOnlyError,
     MetricCopySourceGlobalError,
     MetricDirectionImmutableError,
+    MetricGroupNotFoundError,
     MetricHasValuesError,
+    MetricLayoutStaleError,
     MetricNotFoundError,
     MetricOwnerNotMemberError,
     MetricRetiredError,
@@ -31,6 +34,7 @@ from app.models import (
     BoardMetric,
     Meeting,
     Metric,
+    MetricGroup,
     MetricThreshold,
     MetricValue,
     Team,
@@ -41,6 +45,9 @@ from app.schemas.metric import (
     MetricChange,
     MetricCopy,
     MetricCreate,
+    MetricGroupCreate,
+    MetricGroupRename,
+    MetricLayout,
     ThresholdCreate,
 )
 from app.services.metric_status import threshold_in_force
@@ -48,6 +55,15 @@ from app.services.metric_status import threshold_in_force
 logger = logging.getLogger(__name__)
 
 METRIC_NAME_UNIQUE_INDEX = "uq_metrics_team_name_lower"
+METRIC_GROUP_NAME_UNIQUE_INDEX = "uq_metric_groups_team_name_lower"
+
+#: The board's order, wherever a board's metrics are listed: its groups in
+#: their order, the ungrouped metrics last, and within each by position.
+BOARD_ORDER = (
+    MetricGroup.position.asc().nulls_last(),
+    BoardMetric.position,
+    func.lower(Metric.name),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +81,7 @@ def add_metric(
     if session.get(Team, team_id) is None:
         raise TeamNotFoundError(team_id)
     _require_member_owner(session, team_id, payload.owner_employee_id)
+    _require_group(session, team_id, payload.group_id)
     lock_boards_and_check_name(session, [team_id], payload.name)
     metric = Metric(
         team_id=team_id,
@@ -76,8 +93,8 @@ def add_metric(
     placement = BoardMetric(
         team_id=team_id,
         metric=metric,
-        position=payload.position,
-        group_label=payload.group_label,
+        group_id=payload.group_id,
+        position=_next_position(session, team_id, payload.group_id),
         owner_employee_id=payload.owner_employee_id,
     )
     session.add(placement)
@@ -98,6 +115,7 @@ def include_global_metric(
     if metric.retired:
         raise MetricRetiredError(metric.id)
     _require_member_owner(session, team_id, payload.owner_employee_id)
+    _require_group(session, team_id, payload.group_id)
     # The metric itself is excluded from the name check so that including it
     # twice reads as that, and checked for only once the board is locked.
     lock_boards_and_check_name(
@@ -108,8 +126,8 @@ def include_global_metric(
     placement = BoardMetric(
         team_id=team_id,
         metric=metric,
-        position=payload.position,
-        group_label=payload.group_label,
+        group_id=payload.group_id,
+        position=_next_position(session, team_id, payload.group_id),
         owner_employee_id=payload.owner_employee_id,
     )
     session.add(placement)
@@ -123,10 +141,10 @@ def copy_metric(
 ) -> BoardMetric:
     """Copy a board's own metric, of any board, onto this one as a metric of its own.
 
-    The definition, the source's group and every threshold version come
-    along; the owner, who belongs to the source's team, and the values do
-    not. No link to the source is kept, so later changes on either side stay
-    there.
+    The definition and every threshold version come along; the source's
+    group and owner, which belong to the source's board, and the values do
+    not. The copy goes last into the group named, or among the ungrouped. No
+    link to the source is kept, so later changes on either side stay there.
     """
     if session.get(Team, team_id) is None:
         raise TeamNotFoundError(team_id)
@@ -135,7 +153,7 @@ def copy_metric(
         raise MetricNotFoundError(payload.source_metric_id)
     if source.team_id is None:
         raise MetricCopySourceGlobalError(source.id)
-    source_placement = session.get(BoardMetric, (source.team_id, source.id))
+    _require_group(session, team_id, payload.group_id)
     name = payload.name or source.name
     lock_boards_and_check_name(session, [team_id], name)
     metric = Metric(
@@ -149,8 +167,8 @@ def copy_metric(
     placement = BoardMetric(
         team_id=team_id,
         metric=metric,
-        position=payload.position,
-        group_label=source_placement.group_label if source_placement else None,
+        group_id=payload.group_id,
+        position=_next_position(session, team_id, payload.group_id),
     )
     session.add(placement)
     versions = session.scalars(
@@ -190,7 +208,7 @@ def copy_metric(
 def list_metrics(
     session: Session, team_id: uuid.UUID, today: datetime.date
 ) -> list[MetricWithThreshold]:
-    """A board's metrics, retired ones included, by position and then name.
+    """A board's metrics, retired ones included, in the board's order.
 
     Each with its threshold in force today. Two statements however many
     metrics there are: the placements with their definitions, then every
@@ -202,9 +220,10 @@ def list_metrics(
         session.scalars(
             select(BoardMetric)
             .join(BoardMetric.metric)
-            .options(contains_eager(BoardMetric.metric))
+            .outerjoin(BoardMetric.group)
+            .options(contains_eager(BoardMetric.metric), contains_eager(BoardMetric.group))
             .where(BoardMetric.team_id == team_id)
-            .order_by(BoardMetric.position, func.lower(Metric.name))
+            .order_by(*BOARD_ORDER)
         )
     )
     versions = versions_by_metric(session, [placement.metric_id for placement in placements])
@@ -224,7 +243,7 @@ def with_threshold(
 
 #: What a change touches on the definition, and what on the board's placement.
 _DEFINITION_KEYS = frozenset({"name", "unit", "decimals"})
-_PLACEMENT_KEYS = frozenset({"group_label", "position", "owner_employee_id"})
+_PLACEMENT_KEYS = frozenset({"group_id", "owner_employee_id"})
 
 
 def change_metric(
@@ -251,6 +270,11 @@ def change_metric(
         _require_member_owner(session, team_id, changes["owner_employee_id"])
     if "name" in changes and changes["name"] != metric.name:
         lock_boards_and_check_name(session, [team_id], changes["name"], exclude_metric_id=metric_id)
+    if "group_id" in changes and changes["group_id"] != placement.group_id:
+        # Moved to another group, or out of every group: last there.
+        _require_group(session, team_id, changes["group_id"])
+        _lock_board(session, team_id)
+        placement.position = _next_position(session, team_id, changes["group_id"])
     retired_before = placement.retired
     for key, value in changes.items():
         if key in _DEFINITION_KEYS:
@@ -386,6 +410,180 @@ def versions_by_metric(
     return grouped
 
 
+def list_groups(session: Session, team_id: uuid.UUID) -> list[MetricGroup]:
+    """A board's groups in their order, empty ones included."""
+    if session.get(Team, team_id) is None:
+        raise TeamNotFoundError(team_id)
+    return list(
+        session.scalars(
+            select(MetricGroup)
+            .where(MetricGroup.team_id == team_id)
+            .order_by(MetricGroup.position, func.lower(MetricGroup.name))
+        )
+    )
+
+
+def add_group(
+    session: Session, team_id: uuid.UUID, payload: MetricGroupCreate, actor_email: str
+) -> MetricGroup:
+    """Add a group to a board, after its other groups, holding no metric yet."""
+    if session.get(Team, team_id) is None:
+        raise TeamNotFoundError(team_id)
+    _lock_board(session, team_id)
+    last = session.scalar(
+        select(func.max(MetricGroup.position)).where(MetricGroup.team_id == team_id)
+    )
+    group = MetricGroup(
+        team_id=team_id, name=payload.name, position=0 if last is None else last + 1
+    )
+    session.add(group)
+    _commit_group(session, payload.name)
+    logger.info("Metric group %s of team %s added by %s", group.id, team_id, actor_email)
+    return group
+
+
+def rename_group(
+    session: Session,
+    team_id: uuid.UUID,
+    group_id: uuid.UUID,
+    payload: MetricGroupRename,
+    actor_email: str,
+) -> MetricGroup:
+    """Rename a board's group; its metrics stay in it, in their order."""
+    group = get_group(session, team_id, group_id)
+    group.name = payload.name
+    _commit_group(session, payload.name)
+    logger.info("Metric group %s of team %s renamed by %s", group_id, team_id, actor_email)
+    return group
+
+
+def delete_group(
+    session: Session, team_id: uuid.UUID, group_id: uuid.UUID, actor_email: str
+) -> None:
+    """Delete a board's group; its metrics follow the ungrouped ones, in their order.
+
+    Moved here rather than left to `ON DELETE SET NULL`, which would give them
+    positions that clash with the ungrouped metrics already there. The groups
+    after it close the gap.
+    """
+    group = get_group(session, team_id, group_id)
+    _lock_board(session, team_id)
+    start = _next_position(session, team_id, None)
+    members = session.scalars(
+        select(BoardMetric)
+        .join(BoardMetric.metric)
+        .where(BoardMetric.team_id == team_id, BoardMetric.group_id == group_id)
+        .order_by(BoardMetric.position, func.lower(Metric.name))
+    ).all()
+    for offset, placement in enumerate(members):
+        placement.group_id = None
+        placement.position = start + offset
+    session.flush()
+    session.execute(
+        update(MetricGroup)
+        .where(MetricGroup.team_id == team_id, MetricGroup.position > group.position)
+        .values(position=MetricGroup.position - 1)
+    )
+    session.delete(group)
+    session.commit()
+    logger.info(
+        "Metric group %s of team %s deleted by %s; %d metrics ungrouped",
+        group_id,
+        team_id,
+        actor_email,
+        len(members),
+    )
+
+
+def arrange_layout(
+    session: Session, team_id: uuid.UUID, payload: MetricLayout, actor_email: str
+) -> None:
+    """Replace a board's layout as one: its groups' order and every metric's place.
+
+    The layout must name each of the board's groups and metrics, retired ones
+    included, exactly once; anything else means the board changed since the
+    client read it, and nothing is applied.
+    """
+    if session.get(Team, team_id) is None:
+        raise TeamNotFoundError(team_id)
+    _lock_board(session, team_id)
+    groups = {
+        group.id: group
+        for group in session.scalars(
+            select(MetricGroup).where(MetricGroup.team_id == team_id).with_for_update()
+        )
+    }
+    placements = {
+        placement.metric_id: placement
+        for placement in session.scalars(
+            # Only the placements: their owner and group are joined eagerly,
+            # and a row on the nullable side of an outer join cannot be locked.
+            select(BoardMetric)
+            .where(BoardMetric.team_id == team_id)
+            .with_for_update(of=BoardMetric)
+        )
+    }
+    group_ids = [entry.id for entry in payload.groups]
+    metric_ids = [
+        *(metric_id for entry in payload.groups for metric_id in entry.metric_ids),
+        *payload.ungrouped,
+    ]
+    if not (_exactly(group_ids, groups.keys()) and _exactly(metric_ids, placements.keys())):
+        raise MetricLayoutStaleError()
+    for group_position, entry in enumerate(payload.groups):
+        groups[entry.id].position = group_position
+        for position, metric_id in enumerate(entry.metric_ids):
+            placements[metric_id].group_id = entry.id
+            placements[metric_id].position = position
+    for position, metric_id in enumerate(payload.ungrouped):
+        placements[metric_id].group_id = None
+        placements[metric_id].position = position
+    session.commit()
+    logger.info("Metric layout of team %s arranged by %s", team_id, actor_email)
+
+
+def _exactly(submitted: list[uuid.UUID], present: Iterable[uuid.UUID]) -> bool:
+    """Whether each identifier present is submitted once, and nothing else is."""
+    return len(submitted) == len(set(submitted)) and set(submitted) == set(present)
+
+
+def get_group(session: Session, team_id: uuid.UUID, group_id: uuid.UUID) -> MetricGroup:
+    """A group of this board; another board's is as unknown as a missing one."""
+    group = session.get(MetricGroup, group_id)
+    if group is None or group.team_id != team_id:
+        raise MetricGroupNotFoundError(group_id)
+    return group
+
+
+def _require_group(session: Session, team_id: uuid.UUID, group_id: uuid.UUID | None) -> None:
+    """A metric is placed only in a group of its own board, reported against `group_id`."""
+    if group_id is None:
+        return
+    group = session.get(MetricGroup, group_id)
+    if group is None or group.team_id != team_id:
+        raise MetricGroupNotFoundError(group_id, field="group_id")
+
+
+def _next_position(session: Session, team_id: uuid.UUID, group_id: uuid.UUID | None) -> int:
+    """The position after the last metric of a group, or of the ungrouped metrics."""
+    in_container = (
+        BoardMetric.group_id.is_(None) if group_id is None else BoardMetric.group_id == group_id
+    )
+    last = session.scalar(
+        select(func.max(BoardMetric.position)).where(BoardMetric.team_id == team_id, in_container)
+    )
+    return 0 if last is None else last + 1
+
+
+def _lock_board(session: Session, team_id: uuid.UUID) -> None:
+    """Make writes that place metrics or groups on this board take turns.
+
+    The same team row the name check locks, so an addition and a layout
+    cannot interleave into an order neither saw.
+    """
+    session.execute(select(Team.id).where(Team.id == team_id).with_for_update())
+
+
 def get_board_metric(session: Session, team_id: uuid.UUID, metric_id: uuid.UUID) -> BoardMetric:
     """A metric's placement on this board, with its definition loaded.
 
@@ -436,6 +634,17 @@ def _require_member_owner(
 ) -> None:
     if employee_id is not None and session.get(TeamMember, (team_id, employee_id)) is None:
         raise MetricOwnerNotMemberError(employee_id)
+
+
+def _commit_group(session: Session, name: str) -> None:
+    """Commit, turning a clash on the unique group name index into its error."""
+    try:
+        session.commit()
+    except IntegrityError as error:
+        session.rollback()
+        if METRIC_GROUP_NAME_UNIQUE_INDEX in str(error.orig):
+            raise DuplicateMetricGroupNameError(name) from error
+        raise
 
 
 def _commit(session: Session, name: str) -> None:

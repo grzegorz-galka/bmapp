@@ -1,24 +1,32 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   addMetric,
+  addMetricGroup,
   addThreshold,
   changeMetric,
   copyMetric,
   deleteMetric,
+  deleteMetricGroup,
+  getMetricGroups,
   getMetrics,
   getThresholds,
   getTrend,
   includeGlobalMetric,
+  putMetricLayout,
+  renameMetricGroup,
   type Metric,
   type MetricChange,
   type MetricCopy,
   type MetricCreate,
+  type MetricGroup,
   type MetricInclusion,
+  type MetricLayout,
   type MetricTrend,
   type Threshold,
   type ThresholdCreate,
 } from '../../api/metrics';
 import { GLOBAL_METRICS_QUERY_KEY } from '../globalMetrics/useGlobalMetrics';
+import { applyLayout } from './layout';
 
 /*
  * Everything about a team's metrics - the list, each metric's thresholds and
@@ -32,6 +40,11 @@ export function metricsQueryKey(teamId: string) {
 
 export function boardQueryKey(teamId: string, meetingId: string) {
   return ['teams', teamId, 'metrics', 'board', meetingId] as const;
+}
+
+/** Under the metrics prefix: a group change reorders the metrics and the board too. */
+export function groupsQueryKey(teamId: string) {
+  return ['teams', teamId, 'metrics', 'groups'] as const;
 }
 
 /** A board's metrics, retired ones included, each with its threshold in force today. */
@@ -117,4 +130,50 @@ export function useAddThreshold(teamId: string) {
     ({ metricId, threshold }: { metricId: string; threshold: ThresholdCreate }) =>
       addThreshold(teamId, metricId, threshold),
   );
+}
+
+/** A board's groups in order, the empty ones included. */
+export function useMetricGroups(teamId: string, enabled = true) {
+  return useQuery<MetricGroup[]>({
+    queryKey: groupsQueryKey(teamId),
+    queryFn: () => getMetricGroups(teamId),
+    enabled,
+  });
+}
+
+export function useAddMetricGroup(teamId: string) {
+  return useMetricsMutation(teamId, (name: string) => addMetricGroup(teamId, name));
+}
+
+export function useRenameMetricGroup(teamId: string) {
+  return useMetricsMutation(teamId, ({ groupId, name }: { groupId: string; name: string }) =>
+    renameMetricGroup(teamId, groupId, name),
+  );
+}
+
+export function useDeleteMetricGroup(teamId: string) {
+  return useMetricsMutation(teamId, (groupId: string) => deleteMetricGroup(teamId, groupId));
+}
+
+/**
+ * Save a whole new arrangement. It is shown at once, before the server
+ * answers; whatever the answer, the board is read again, so a layout refused
+ * as stale gives way to the board as it now is.
+ */
+export function useArrangeMetrics(teamId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (layout: MetricLayout) => putMetricLayout(teamId, layout),
+    onMutate: async (layout: MetricLayout) => {
+      await queryClient.cancelQueries({ queryKey: metricsQueryKey(teamId) });
+      const metrics = queryClient.getQueryData<Metric[]>(metricsQueryKey(teamId));
+      const groups = queryClient.getQueryData<MetricGroup[]>(groupsQueryKey(teamId));
+      if (metrics && groups) {
+        const arranged = applyLayout(metrics, groups, layout);
+        queryClient.setQueryData(metricsQueryKey(teamId), arranged.metrics);
+        queryClient.setQueryData(groupsQueryKey(teamId), arranged.groups);
+      }
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: metricsQueryKey(teamId) }),
+  });
 }

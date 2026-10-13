@@ -1,7 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { en } from '../src/i18n/en';
 import { ADMIN_EMAIL, signInAs } from './auth';
-import { apiAs, uniqueSuffix } from './api';
+import { organizationToday } from '../src/features/board/organizationDate';
+import { addDays, apiAs, uniqueSuffix } from './api';
 
 /*
  * Configuring a board: its leader adds three metrics, one per direction, and
@@ -124,4 +125,66 @@ test('a leader copies a metric with its threshold from another board', async ({
   await expect(row).toBeVisible();
   await expect(row).not.toContainText(en.metrics.global);
   await expect(row).toContainText('Green up to 3.0 d, amber up to 5.0 d');
+});
+
+async function addGroup(page: Page, name: string) {
+  await page.getByRole('button', { name: en.metrics.addGroup }).click();
+  const dialog = page.getByRole('dialog', { name: en.metrics.addGroup });
+  await dialog.getByLabel(en.metrics.groupNameLabel).fill(name);
+  await dialog.getByRole('button', { name: en.metrics.addGroup }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('region', { name, exact: true })).toBeVisible();
+}
+
+test('a leader arranges the board into groups by dragging and from the keyboard', async ({
+  page,
+  request,
+}) => {
+  const suffix = uniqueSuffix();
+  const leader = `e2e.lead.${suffix}@example.com`;
+  const admin = await apiAs(request, ADMIN_EMAIL);
+  const team = await admin.registerTeam(`E2E Groups ${suffix}`, leader);
+  for (const name of ['Revenue', 'Open bugs']) {
+    await admin.addMetric(team.id, {
+      name,
+      unit: 'pcs',
+      decimals: 0,
+      direction: 'higher_is_better',
+    });
+  }
+  await admin.openMeeting(team.id, addDays(organizationToday(), 3));
+
+  await signInAs(page, leader);
+  await page.goto(`/teams/${team.id}/metrics`);
+  await addGroup(page, 'Quality');
+  await addGroup(page, 'Finance');
+  await addGroup(page, 'Spare');
+
+  // Dragged out of the ungrouped metrics into Quality.
+  const quality = page.getByRole('region', { name: 'Quality', exact: true });
+  await page.getByRole('listitem').filter({ hasText: 'Revenue' }).dragTo(quality);
+  await expect(quality.getByRole('listitem').filter({ hasText: 'Revenue' })).toBeVisible();
+
+  // The same arrangement without dragging.
+  await page.getByLabel('Move to group: Open bugs').selectOption({ label: 'Finance' });
+  const finance = page.getByRole('region', { name: 'Finance', exact: true });
+  await expect(finance.getByRole('listitem').filter({ hasText: 'Open bugs' })).toBeVisible();
+  await page.getByRole('button', { name: 'Move group up: Finance' }).click();
+  await expect(page.locator('[aria-live="polite"]')).toContainText(
+    'Group Finance moved to position 1 of 3.',
+  );
+
+  // An empty group goes without asking.
+  await page.getByRole('button', { name: 'Delete group: Spare' }).click();
+  await expect(page.getByRole('region', { name: 'Spare', exact: true })).toBeHidden();
+
+  // The board follows the layout: Finance before Quality, nothing ungrouped.
+  await page.goto(`/teams/${team.id}`);
+  await expect(page.getByRole('heading', { name: 'Revenue', level: 3 })).toBeVisible();
+  const sections = page.locator('section').filter({ has: page.getByRole('heading', { level: 3 }) });
+  await expect(sections.getByRole('heading', { level: 2 })).toHaveText(['Finance', 'Quality']);
+  await expect(page.getByRole('region', { name: 'Finance', exact: true })).toContainText(
+    'Open bugs',
+  );
+  await expect(page.getByRole('region', { name: 'Quality', exact: true })).toContainText('Revenue');
 });

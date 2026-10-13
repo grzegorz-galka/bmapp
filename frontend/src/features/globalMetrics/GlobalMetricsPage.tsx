@@ -61,8 +61,7 @@ const BLANK: MetricCreate = {
   unit: '',
   decimals: 0,
   direction: 'higher_is_better',
-  group_label: null,
-  position: 0,
+  group_id: null,
   owner_employee_id: null,
 };
 

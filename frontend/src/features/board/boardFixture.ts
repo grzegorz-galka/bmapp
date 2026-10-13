@@ -6,6 +6,7 @@ import type {
   MeetingBoard,
   Metric,
   MetricDefinition,
+  MetricGroup,
   MetricTrend,
   Threshold,
 } from '../../api/metrics';
@@ -47,6 +48,8 @@ export const MEETINGS: MeetingList = {
   meetings: ['2026-09-30', '2026-10-07', '2026-10-14', '2026-10-21'].map(meeting),
 };
 
+export const FINANCE: MetricGroup = { id: 'group-finance', name: 'Finance', position: 0 };
+
 export function definition(overrides: Partial<MetricDefinition> = {}): MetricDefinition {
   return {
     id: 'metric-revenue',
@@ -56,8 +59,8 @@ export function definition(overrides: Partial<MetricDefinition> = {}): MetricDef
     unit: '%',
     decimals: 1,
     direction: 'higher_is_better',
-    group_label: 'Finance',
-    position: 1,
+    group: FINANCE,
+    position: 0,
     owner: null,
     retired: false,
     retired_in_catalogue: false,

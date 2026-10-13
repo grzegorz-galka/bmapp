@@ -115,6 +115,31 @@ class Metric(Base):
         return Scope.GLOBAL if self.team_id is None else Scope.BOARD
 
 
+class MetricGroup(Base):
+    """A named, ordered section of one board, in which its metrics are placed.
+
+    A board's own: a global metric included in two boards may sit in a
+    different group on each. A group may hold no metric.
+    """
+
+    __tablename__ = "metric_groups"
+    __table_args__ = (
+        Index("uq_metric_groups_team_name_lower", "team_id", text("lower(name)"), unique=True),
+        CheckConstraint("btrim(name) <> ''", name="ck_metric_groups_name_not_blank"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    team_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(METRIC_GROUP_MAX_LENGTH), nullable=False)
+    #: 0..n-1 on the board; the order the board shows its groups in.
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class BoardMetric(Base):
     """A metric's placement on one board: where it is shown, who owns it, and retirement.
 
@@ -124,7 +149,10 @@ class BoardMetric(Base):
     """
 
     __tablename__ = "board_metrics"
-    __table_args__ = (Index("ix_board_metrics_owner_employee_id", "owner_employee_id"),)
+    __table_args__ = (
+        Index("ix_board_metrics_owner_employee_id", "owner_employee_id"),
+        Index("ix_board_metrics_group_id", "group_id"),
+    )
 
     team_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), primary_key=True
@@ -132,8 +160,12 @@ class BoardMetric(Base):
     metric_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("metrics.id", ondelete="CASCADE"), primary_key=True
     )
+    #: Within the placement's container: its group, or the board's ungrouped metrics.
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    group_label: Mapped[str | None] = mapped_column(String(METRIC_GROUP_MAX_LENGTH), nullable=True)
+    #: A group of this board, or none. The services keep it on the same board.
+    group_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("metric_groups.id", ondelete="SET NULL"), nullable=True
+    )
     # RESTRICT, as for hosts: an owner keeps resolving after leaving the team.
     owner_employee_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=True
@@ -149,6 +181,7 @@ class BoardMetric(Base):
 
     metric: Mapped[Metric] = relationship(lazy="joined", back_populates="placements")
     owner: Mapped[Employee | None] = relationship(lazy="joined")
+    group: Mapped[MetricGroup | None] = relationship(lazy="joined")
 
     @property
     def id(self) -> uuid.UUID:

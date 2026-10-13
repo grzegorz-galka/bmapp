@@ -19,7 +19,13 @@ from tests.integration.global_metrics_seed import (
     seed_global_threshold,
 )
 from tests.integration.meetings_api import error_of
-from tests.integration.metrics_api import add_metric, freeze_today, metrics_of
+from tests.integration.metrics_api import (
+    add_group,
+    add_metric,
+    freeze_today,
+    metrics_of,
+    placement,
+)
 from tests.integration.teams_api import add, member_id, register
 
 LEADER = "lead@pse.pl"
@@ -45,17 +51,18 @@ def test_a_global_metric_is_included(
     owner = member_id(add(client, team["id"], MEMBER), MEMBER)
     availability = seed_global_metric(session, "Service availability", unit="%", decimals=2)
     seed_global_threshold(session, availability, green_lo="99.5", amber_lo="99")
+    operations = add_group(client, team["id"], "Operations")
+    add_metric(client, team["id"], "Incidents", group_id=operations["id"])
 
     included = include(
         client_as(LEADER),
         team["id"],
         availability,
-        position=2,
-        group_label="Operations",
+        group_id=operations["id"],
         owner_employee_id=owner,
     )
 
-    [listed] = metrics_of(client, team["id"])
+    _, listed = metrics_of(client, team["id"])
     assert listed == included
     assert {
         k: listed[k]
@@ -70,25 +77,37 @@ def test_a_global_metric_is_included(
         "direction": "higher_is_better",
         "retired": False,
     }
-    assert (listed["position"], listed["group_label"], listed["owner"]["email"]) == (
-        2,
-        "Operations",
-        MEMBER,
-    )
+    # Second in "Operations", after the metric already there.
+    assert (placement(listed), listed["owner"]["email"]) == (("Operations", 1), MEMBER)
     assert (listed["threshold"]["green_lo"], listed["threshold"]["amber_lo"]) == ("99.5", "99")
 
 
 def test_included_twice(client: TestClient, session: Session) -> None:
     """Scenario: Included twice."""
     team = register(client)
+    operations = add_group(client, team["id"], "Operations")
     availability = seed_global_metric(session)
-    include(client, team["id"], availability, position=1)
+    include(client, team["id"], availability, group_id=operations["id"])
 
-    response = _include(client, team["id"], availability, position=5)
+    response = _include(client, team["id"], availability)
 
     assert response.status_code == 409
     assert error_of(response) == ("global_metric_id", "global_metric.already_included")
-    assert [m["position"] for m in metrics_of(client, team["id"])] == [1]
+    assert [placement(m) for m in metrics_of(client, team["id"])] == [("Operations", 0)]
+
+
+def test_included_into_another_boards_group(client: TestClient, session: Session) -> None:
+    """Scenario: Included into another board's group."""
+    team = register(client)
+    other = register(client, "Other", "lead.other@example.com")
+    theirs = add_group(client, other["id"], "Operations")
+    availability = seed_global_metric(session)
+
+    response = _include(client, team["id"], availability, group_id=theirs["id"])
+
+    assert response.status_code == 404
+    assert error_of(response) == ("group_id", "metric_group.not_found")
+    assert metrics_of(client, team["id"]) == []
 
 
 def test_its_name_is_taken_on_the_board(client: TestClient, session: Session) -> None:

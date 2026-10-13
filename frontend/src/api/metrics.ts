@@ -49,6 +49,24 @@ export interface Threshold extends Bounds {
  */
 export type MetricScope = 'board' | 'global';
 
+/** One of a board's own groups of metrics, named and ordered on that board. */
+export interface MetricGroup {
+  id: string;
+  name: string;
+  /** 0 for the board's first group. */
+  position: number;
+}
+
+/**
+ * A board's whole arrangement: every group in order with its metrics in order,
+ * then the metrics in no group. Retired metrics are named too; a layout that
+ * misses one, or names one the board no longer has, is refused as stale.
+ */
+export interface MetricLayout {
+  groups: { id: string; metric_ids: string[] }[];
+  ungrouped: string[];
+}
+
 export interface MetricDefinition {
   id: string;
   /** The board being read, for a global metric as for an own one. */
@@ -58,7 +76,9 @@ export interface MetricDefinition {
   unit: string;
   decimals: number;
   direction: Direction;
-  group_label: string | null;
+  /** The board's group it sits in, or none: then it is shown among the ungrouped. */
+  group: MetricGroup | null;
+  /** Its place within its group, or among the ungrouped. */
   position: number;
   owner: Employee | null;
   retired: boolean;
@@ -76,16 +96,15 @@ export interface MetricCreate {
   unit: string;
   decimals: number;
   direction: Direction;
-  group_label: string | null;
-  position: number;
+  /** Placed last in this group, or last among the ungrouped when null. */
+  group_id: string | null;
   owner_employee_id: string | null;
 }
 
 /** A global metric placed on a board. Its definition comes from the catalogue. */
 export interface MetricInclusion {
   global_metric_id: string;
-  position: number;
-  group_label: string | null;
+  group_id: string | null;
   owner_employee_id: string | null;
 }
 
@@ -96,10 +115,14 @@ export interface MetricInclusion {
 export interface MetricCopy {
   source_metric_id: string;
   name?: string;
-  position?: number;
+  /** A group of the target board; the source's group is never taken. */
+  group_id?: string | null;
 }
 
-/** A partial change: a key left out is left alone. The direction cannot change. */
+/**
+ * A partial change: a key left out is left alone. The direction cannot change.
+ * A new `group_id` puts the metric last in that group; `null` ungroups it.
+ */
 export type MetricChange = Partial<Omit<MetricCreate, 'direction'>> & { retired?: boolean };
 
 /**
@@ -247,6 +270,46 @@ export function changeMetric(
 
 export function deleteMetric(teamId: string, metricId: string): Promise<void> {
   return request<void>(`${metricsPath(teamId)}/${enc(metricId)}`, { method: 'DELETE' });
+}
+
+function groupsPath(teamId: string): string {
+  return `/teams/${enc(teamId)}/metric-groups`;
+}
+
+/** A board's groups in order, the empty ones included. */
+export function getMetricGroups(teamId: string): Promise<MetricGroup[]> {
+  return request<MetricGroup[]>(groupsPath(teamId));
+}
+
+export function addMetricGroup(teamId: string, name: string): Promise<MetricGroup> {
+  return request<MetricGroup>(groupsPath(teamId), {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function renameMetricGroup(
+  teamId: string,
+  groupId: string,
+  name: string,
+): Promise<MetricGroup> {
+  return request<MetricGroup>(`${groupsPath(teamId)}/${enc(groupId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  });
+}
+
+/** Its metrics move, in order, after the board's ungrouped ones. */
+export function deleteMetricGroup(teamId: string, groupId: string): Promise<void> {
+  return request<void>(`${groupsPath(teamId)}/${enc(groupId)}`, { method: 'DELETE' });
+}
+
+/** Replace the board's whole arrangement; the response is not read. */
+export function putMetricLayout(teamId: string, layout: MetricLayout): Promise<unknown> {
+  return request<unknown>(`/teams/${enc(teamId)}/metric-layout`, {
+    method: 'PUT',
+    body: JSON.stringify(layout),
+  });
 }
 
 export function getThresholds(teamId: string, metricId: string): Promise<Threshold[]> {

@@ -19,6 +19,8 @@ from app.schemas import (
     MetricCopy,
     MetricCreate,
     MetricDefinitionRead,
+    MetricGroupCreate,
+    MetricGroupRename,
     MetricValueWrite,
     ThresholdBounds,
     ThresholdCreate,
@@ -42,10 +44,18 @@ def _metric(**fields: Any) -> dict[str, Any]:
 
 
 def test_a_metric_is_trimmed_and_defaults_its_optional_properties() -> None:
-    metric = MetricCreate(**_metric(name="  Revenue  ", unit=" mln zł ", group_label="  "))
+    metric = MetricCreate(**_metric(name="  Revenue  ", unit=" mln zł "))
 
-    assert (metric.name, metric.unit, metric.group_label) == ("Revenue", "mln zł", None)
-    assert (metric.decimals, metric.position, metric.owner_employee_id) == (0, 0, None)
+    assert (metric.name, metric.unit, metric.group_id) == ("Revenue", "mln zł", None)
+    assert (metric.decimals, metric.owner_employee_id) == (0, None)
+
+
+def test_a_metric_is_placed_by_group_not_by_label_or_position() -> None:
+    assert {"group_label", "position"}.isdisjoint(MetricCreate.model_fields)
+    assert _published_code(MetricCreate, **_metric(group_id="Quality")) == (
+        ("group_id",),
+        "request.invalid_field",
+    )
 
 
 @pytest.mark.parametrize(
@@ -82,11 +92,25 @@ def test_unknown_direction() -> None:
     )
 
 
-def test_a_group_label_over_200_characters_is_malformed() -> None:
-    assert _published_code(MetricCreate, **_metric(group_label="x" * 201)) == (
-        ("group_label",),
-        "request.invalid_field",
-    )
+# Define a board's metric groups
+
+
+def test_a_group_name_is_trimmed() -> None:
+    assert MetricGroupCreate(name="  Quality ").name == "Quality"
+    assert MetricGroupRename(name=" Finance  ").name == "Finance"
+
+
+@pytest.mark.parametrize(
+    ("name", "code"),
+    [("   ", "metric_group_name.blank"), ("x" * 201, "metric_group_name.too_long")],
+)
+@pytest.mark.parametrize("model", [MetricGroupCreate, MetricGroupRename])
+def test_group_name_is_blank_or_too_long(model: type, name: str, code: str) -> None:
+    assert _published_code(model, name=name) == (("name",), code)
+
+
+def test_a_group_name_of_200_characters_is_accepted() -> None:
+    assert len(MetricGroupCreate(name="x" * 200).name) == 200
 
 
 # Change a metric
@@ -96,15 +120,15 @@ def test_a_change_validates_like_an_addition() -> None:
     assert _published_code(MetricChange, name=" ") == (("name",), "metric_name.blank")
 
 
-@pytest.mark.parametrize("field", ["name", "unit", "decimals", "direction", "position", "retired"])
+@pytest.mark.parametrize("field", ["name", "unit", "decimals", "direction", "retired"])
 def test_a_property_that_always_has_a_value_cannot_be_cleared(field: str) -> None:
     assert _published_code(MetricChange, **{field: None}) == ((field,), "request.invalid_field")
 
 
 def test_group_and_owner_can_be_cleared() -> None:
-    change = MetricChange(group_label=None, owner_employee_id=None)
+    change = MetricChange(group_id=None, owner_employee_id=None)
 
-    assert change.model_fields_set == {"group_label", "owner_employee_id"}
+    assert change.model_fields_set == {"group_id", "owner_employee_id"}
 
 
 # The scope of a metric on a board
@@ -118,7 +142,7 @@ def _definition(**fields: Any) -> dict[str, Any]:
         "unit": "",
         "decimals": 0,
         "direction": "higher_is_better",
-        "group_label": None,
+        "group": None,
         "position": 0,
         "owner": None,
         "retired": False,
@@ -159,7 +183,7 @@ def test_a_global_metric_is_validated_like_a_board_metric() -> None:
 
 
 def test_a_global_metric_has_no_placement_to_set() -> None:
-    assert "position" not in GlobalMetricCreate.model_fields
+    assert {"group_id", "position"}.isdisjoint(GlobalMetricCreate.model_fields)
     assert "owner_employee_id" not in GlobalMetricChange.model_fields
 
 
@@ -200,23 +224,9 @@ def test_a_global_metric_reads_its_threshold_and_board_count() -> None:
 def test_an_inclusion_defaults_its_placement() -> None:
     inclusion = GlobalMetricInclusion(
         global_metric_id="00000000-0000-0000-0000-000000000001",  # type: ignore[arg-type]
-        group_label="  ",
     )
 
-    assert (inclusion.position, inclusion.group_label, inclusion.owner_employee_id) == (
-        0,
-        None,
-        None,
-    )
-
-
-def test_an_inclusion_group_over_200_characters_is_malformed() -> None:
-    fields = {"global_metric_id": "00000000-0000-0000-0000-000000000001", "group_label": "x" * 201}
-
-    assert _published_code(GlobalMetricInclusion, **fields) == (
-        ("group_label",),
-        "request.invalid_field",
-    )
+    assert (inclusion.group_id, inclusion.owner_employee_id) == (None, None)
 
 
 # Copy a metric from another board
@@ -227,7 +237,7 @@ SOURCE = "00000000-0000-0000-0000-000000000001"
 def test_a_copy_keeps_the_source_name_unless_given_one() -> None:
     copy = MetricCopy(source_metric_id=SOURCE)  # type: ignore[arg-type]
 
-    assert (copy.name, copy.position) == (None, 0)
+    assert (copy.name, copy.group_id) == (None, None)
     assert MetricCopy(source_metric_id=SOURCE, name="  Revenue (Poland) ").name == (  # type: ignore[arg-type]
         "Revenue (Poland)"
     )

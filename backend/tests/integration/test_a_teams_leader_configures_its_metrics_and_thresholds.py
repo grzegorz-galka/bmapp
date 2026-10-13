@@ -7,7 +7,13 @@ from sqlalchemy.orm import Session
 
 from tests.integration.global_metrics_seed import include, seed_global_metric
 from tests.integration.meetings_api import error_of
-from tests.integration.metrics_api import add_metric, metrics_of, thresholds_of
+from tests.integration.metrics_api import (
+    add_group,
+    add_metric,
+    metrics_of,
+    placement,
+    thresholds_of,
+)
 from tests.integration.teams_api import add, member_id, register
 
 LEADER = "lead@pse.pl"
@@ -101,17 +107,14 @@ def test_a_leader_includes_a_global_metric(
     availability = seed_global_metric(session)
     leader = client_as(LEADER)
 
-    include(leader, team["id"], availability, position=1)
+    operations = add_group(leader, team["id"], "Operations")
+    include(leader, team["id"], availability)
     placed = leader.patch(
         f"/teams/{team['id']}/metrics/{availability}",
-        json={"position": 2, "group_label": "Operations", "owner_employee_id": owner},
+        json={"group_id": operations["id"], "owner_employee_id": owner},
     )
 
     assert placed.status_code == 200, placed.json()
     [listed] = metrics_of(client, team["id"])
-    assert (listed["scope"], listed["position"], listed["group_label"]) == (
-        "global",
-        2,
-        "Operations",
-    )
+    assert (listed["scope"], placement(listed)) == ("global", ("Operations", 0))
     assert listed["owner"]["email"] == MEMBER

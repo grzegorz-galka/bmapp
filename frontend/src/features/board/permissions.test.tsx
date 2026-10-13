@@ -17,6 +17,7 @@ import type { PulseResults } from '../../api/pulse';
 import type { ItemFixtures } from './boardFixture';
 import {
   ADMIN,
+  FINANCE,
   board,
   definition,
   jsonResponse,
@@ -54,9 +55,11 @@ beforeEach(() => {
     write: () => jsonResponse({}),
   });
   const served = fetchMock.getMockImplementation()!;
-  fetchMock.mockImplementation((url: string, init?: RequestInit) =>
-    url.endsWith('/metrics') ? Promise.resolve(jsonResponse(METRICS)) : served(url, init),
-  );
+  fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+    if (url.endsWith('/metrics')) return Promise.resolve(jsonResponse(METRICS));
+    if (url.endsWith('/metric-groups')) return Promise.resolve(jsonResponse([FINANCE]));
+    return served(url, init);
+  });
 });
 
 afterEach(() => {

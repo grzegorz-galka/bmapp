@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DIRECTIONS, type Direction, type MetricCreate } from '../../api/metrics';
+import { DIRECTIONS, type Direction, type MetricCreate, type MetricGroup } from '../../api/metrics';
 import type { Member } from '../../api/teams';
 import { describeFieldFailure, describeOtherFailure } from '../../i18n/apiErrors';
 import teamStyles from '../teams/teams.module.css';
@@ -8,16 +8,19 @@ import meetingStyles from '../meetings/meetings.module.css';
 import styles from './metrics.module.css';
 
 const DEFINITION_FIELDS = ['name', 'unit', 'decimals', 'direction'] as const;
-const PLACEMENT_FIELDS = ['group_label', 'position', 'owner_employee_id'] as const;
+const PLACEMENT_FIELDS = ['group_id', 'owner_employee_id'] as const;
 
 /**
  * The properties of a metric, with the error the API reported against each.
  *
  * A metric has two halves: its definition (name, unit, decimals, direction)
- * and its placement on a board (group, position, owner). A board's own metric
- * edits both; a global metric is defined in the catalogue without a placement
- * and placed on a board without touching its definition, so either half can
- * be left out. The caller owns the request and decides what to send.
+ * and its placement on a board (group, owner). A board's own metric edits
+ * both; a global metric is defined in the catalogue without a placement and
+ * placed on a board without touching its definition, so either half can be
+ * left out. The caller owns the request and decides what to send.
+ *
+ * The group is chosen only where a metric arrives on the board, by passing
+ * `groups`; afterwards it moves between groups on the settings page's layout.
  */
 export function MetricForm({
   idPrefix,
@@ -32,6 +35,7 @@ export function MetricForm({
   directionFixed = false,
   definition = true,
   placement = true,
+  groups,
 }: {
   idPrefix: string;
   draft: MetricCreate;
@@ -45,6 +49,7 @@ export function MetricForm({
   directionFixed?: boolean;
   definition?: boolean;
   placement?: boolean;
+  groups?: MetricGroup[];
 }) {
   const { t } = useTranslation();
   const shown = [...(definition ? DEFINITION_FIELDS : []), ...(placement ? PLACEMENT_FIELDS : [])];
@@ -75,7 +80,7 @@ export function MetricForm({
     );
   }
 
-  function whole(field: 'decimals' | 'position', label: string) {
+  function whole(field: 'decimals', label: string) {
     const message = fieldError(field);
     return (
       <div className={`${teamStyles.field} ${styles.narrow}`}>
@@ -101,7 +106,6 @@ export function MetricForm({
   }
 
   const directionError = fieldError('direction');
-  const groupError = fieldError('group_label');
   const ownerError = fieldError('owner_employee_id');
 
   return (
@@ -146,23 +150,15 @@ export function MetricForm({
       )}
       {placement && (
         <>
-          <div className={teamStyles.field}>
-            <label className={teamStyles.label} htmlFor={id('group')}>
-              {t('metrics.groupLabel')}
-            </label>
-            <input
+          {groups && (
+            <GroupSelect
               id={id('group')}
-              className={teamStyles.input}
-              value={draft.group_label ?? ''}
-              onChange={(event) => onChange({ ...draft, group_label: event.target.value || null })}
+              value={draft.group_id}
+              onChange={(group) => onChange({ ...draft, group_id: group })}
+              groups={groups}
+              error={fieldError('group_id')}
             />
-            {groupError && (
-              <p role="alert" className={teamStyles.error}>
-                {groupError}
-              </p>
-            )}
-          </div>
-          {whole('position', t('metrics.positionLabel'))}
+          )}
           <OwnerSelect
             id={id('owner')}
             value={draft.owner_employee_id}
@@ -221,6 +217,49 @@ export function OwnerSelect({
         {members.map((member) => (
           <option key={member.employee_id} value={member.employee_id}>
             {member.email}
+          </option>
+        ))}
+      </select>
+      {error && (
+        <p role="alert" className={teamStyles.error}>
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Which of the board's groups a metric arrives in, or none: then it is last among the ungrouped. */
+export function GroupSelect({
+  id,
+  value,
+  onChange,
+  groups,
+  error,
+}: {
+  id: string;
+  value: string | null;
+  onChange: (group: string | null) => void;
+  groups: MetricGroup[];
+  error: string | undefined;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className={teamStyles.field}>
+      <label className={teamStyles.label} htmlFor={id}>
+        {t('metrics.groupLabel')}
+      </label>
+      <select
+        id={id}
+        className={meetingStyles.select}
+        value={value ?? ''}
+        onChange={(event) => onChange(event.target.value || null)}
+        aria-invalid={error !== undefined}
+      >
+        <option value="">{t('metrics.noGroupOption')}</option>
+        {groups.map((group) => (
+          <option key={group.id} value={group.id}>
+            {group.name}
           </option>
         ))}
       </select>

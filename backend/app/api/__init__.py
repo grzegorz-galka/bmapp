@@ -5,6 +5,7 @@ from app.api.dashboard import router as dashboard_router
 from app.api.global_metrics import router as global_metrics_router
 from app.api.health import router as health_router
 from app.api.meetings import router as meetings_router
+from app.api.metric_groups import router as metric_groups_router
 from app.api.metric_values import router as metric_values_router
 from app.api.metrics import router as metrics_router
 from app.api.problems import router as problems_router
@@ -18,6 +19,7 @@ __all__ = [
     "global_metrics_router",
     "health_router",
     "meetings_router",
+    "metric_groups_router",
     "metric_values_router",
     "metrics_router",
     "problems_router",

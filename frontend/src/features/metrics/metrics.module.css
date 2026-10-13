@@ -38,3 +38,58 @@
   gap: var(--sp-2);
   margin-bottom: var(--sp-5);
 }
+
+/*
+ * The board's arrangement: each group a section with its metrics, the
+ * ungrouped ones last. Where a dragged item will land is drawn as a line on
+ * the control boundary colour, so it is as visible as any control.
+ */
+.group {
+  margin-bottom: var(--sp-5);
+}
+
+.groupHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+
+.groupName {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.metricList {
+  min-height: var(--sp-6);
+  margin: 0;
+}
+
+.emptyGroup {
+  padding: var(--sp-3);
+  border: 1px dashed var(--line-control);
+  border-radius: var(--r-sm);
+}
+
+.draggable {
+  cursor: grab;
+}
+
+.dragging {
+  opacity: 0.5;
+}
+
+.dropBefore {
+  box-shadow: inset 0 3px 0 var(--line-control);
+}
+
+.dropEnd {
+  box-shadow: inset 0 -3px 0 var(--line-control);
+}
+
+/* As wide as the longest group name needs, not the whole row. */
+.moveTo.moveTo {
+  width: auto;
+}

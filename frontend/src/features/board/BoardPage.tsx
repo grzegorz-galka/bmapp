@@ -383,7 +383,11 @@ function BoardBody({
   );
 }
 
-/** The metrics under their group labels, in the board's own order. */
+/**
+ * The metrics under the board's groups, in the board's order, the ungrouped
+ * ones last. A group with no metric has nothing to show here and is left out;
+ * the settings page is where an empty group is seen.
+ */
 function Tiles({
   board,
   onDetail,
@@ -392,16 +396,29 @@ function Tiles({
   onDetail: (metric: MetricDefinition) => void;
 }) {
   const { t } = useTranslation();
-  const groups = new Map<string, BoardMetric[]>();
+  const groups = new Map<string, { label: string; order: number; entries: BoardMetric[] }>();
   for (const entry of board.metrics) {
-    const label = entry.metric.group_label ?? t('board.noGroup');
-    groups.set(label, [...(groups.get(label) ?? []), entry]);
+    const { group } = entry.metric;
+    const key = group?.id ?? '';
+    const section = groups.get(key) ?? {
+      label: group?.name ?? t('board.noGroup'),
+      order: group?.position ?? Number.POSITIVE_INFINITY,
+      entries: [],
+    };
+    groups.set(key, { ...section, entries: [...section.entries, entry] });
   }
+  const sections = [...groups]
+    .sort(([, a], [, b]) => a.order - b.order)
+    .map(([key, section]) => ({
+      key,
+      ...section,
+      entries: [...section.entries].sort((a, b) => a.metric.position - b.metric.position),
+    }));
 
   return (
     <>
-      {[...groups].map(([label, entries]) => (
-        <section key={label} className={styles.group} aria-label={label}>
+      {sections.map(({ key, label, entries }) => (
+        <section key={key} className={styles.group} aria-label={label}>
           <h2 className={meetingStyles.subheading}>{label}</h2>
           <ul className={styles.tiles}>
             {entries.map((entry) => (
