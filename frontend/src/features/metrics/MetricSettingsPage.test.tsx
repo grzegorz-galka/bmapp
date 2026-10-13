@@ -9,6 +9,7 @@ import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { MetricSettingsPage } from './MetricSettingsPage';
 import { renderWithLanguage } from '../../test/render';
+import { AddressProbe } from '../../test/AddressProbe';
 import { en } from '../../i18n/en';
 import { pl } from '../../i18n/pl';
 import type { Language } from '../../i18n/languages';
@@ -174,6 +175,34 @@ describe('the metric settings page', () => {
     for (const name of [en.teams.boardLink, en.board.meetingsLink]) {
       expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
     }
+  });
+
+  it('Opened from Team metrics, the page leads back there', async () => {
+    await renderWithLanguage(
+      <>
+        <Routes>
+          <Route path="/teams/:teamId/metrics" element={<MetricSettingsPage />} />
+          <Route path="*" element={null} />
+        </Routes>
+        <AddressProbe />
+      </>,
+      'en',
+      {
+        route: {
+          pathname: `/teams/${TEAM_ID}/metrics`,
+          state: { from: { screen: 'teamMetrics', path: '/team-metrics' } },
+        },
+        auth: { email: LEADER },
+      },
+    );
+    await screen.findByRole('heading', {
+      name: en.metrics.heading.replace('{{name}}', 'Platform'),
+    });
+    expect(screen.queryByRole('link', { name: en.metrics.back })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('link', { name: en.back.teamMetrics }));
+
+    expect(screen.getByTestId('address')).toHaveTextContent(/^\/team-metrics$/);
   });
 
   it('A metric is created from the dialog', async () => {

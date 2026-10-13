@@ -23,8 +23,9 @@ import styles from './board.module.css';
 export type RecordingMode = 'edit' | 'correct' | 'readOnly';
 
 /**
- * Every active metric at one meeting, with fields for its number, comment and
- * a colour set by hand. Each row saves itself when a field loses focus, as the
+ * Every active metric at one meeting, one table row each, with fields for its
+ * number, comment and a colour set by hand. A frozen meeting uses the same
+ * columns, so switching between recording and reading moves nothing. Each row saves itself when a field loses focus, as the
  * team's previous tool did; there is no form-wide submit.
  */
 export function RecordingView({
@@ -79,18 +80,31 @@ export function RecordingView({
           </p>
         </div>
       )}
-      <ul className={teamStyles.list}>
-        {board.metrics.map((entry) => (
-          <RecordingRow
-            key={entry.metric.id}
-            teamId={teamId}
-            meetingId={board.meeting.id}
-            entry={entry}
-            mode={mode}
-            reason={reason}
-          />
-        ))}
-      </ul>
+      <table className={styles.recordTable}>
+        <thead>
+          <tr>
+            <th scope="col">{t('recording.metricColumn')}</th>
+            <th scope="col">{t('recording.value')}</th>
+            <th scope="col">{t('recording.status')}</th>
+            <th scope="col">{t('recording.comment')}</th>
+            <th scope="col">
+              <span className="visually-hidden">{t('recording.stateColumn')}</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {board.metrics.map((entry) => (
+            <RecordingRow
+              key={entry.metric.id}
+              teamId={teamId}
+              meetingId={board.meeting.id}
+              entry={entry}
+              mode={mode}
+              reason={reason}
+            />
+          ))}
+        </tbody>
+      </table>
     </section>
   );
 }
@@ -148,21 +162,43 @@ function RecordingRow({
 
   const thresholdText = describeThreshold(t, format, metric, entry.threshold);
   const previous = t('recording.previous', { value: show(entry.previous) });
+  // The column captions, shown before each cell when a narrow screen stacks the row.
+  const captions = {
+    metric: t('recording.metricColumn'),
+    value: t('recording.value'),
+    status: t('recording.status'),
+    comment: t('recording.comment'),
+    state: t('recording.stateColumn'),
+  };
+  const metricCell = (
+    <th scope="row" data-label={captions.metric} className={styles.metricCell}>
+      <span className={teamStyles.itemMain}>
+        <span className={teamStyles.itemName}>{metric.name}</span>
+        {metric.unit && (
+          <span className={teamStyles.itemMeta}>{t('recording.unit', { unit: metric.unit })}</span>
+        )}
+        <span className={teamStyles.itemMeta}>
+          {thresholdText} · {previous}
+        </span>
+      </span>
+    </th>
+  );
 
   if (mode === 'readOnly') {
     return (
-      <li className={teamStyles.item}>
-        <span className={teamStyles.itemMain}>
-          <span className={teamStyles.itemName}>{metric.name}</span>
-          <span className={teamStyles.itemMeta}>
-            {thresholdText} · {previous}
-          </span>
-        </span>
-        <span className={styles.readValue}>
-          {show(entry.value)} <StatusBadge status={entry.status} setByHand={entry.set_by_hand} />
-        </span>
-        {entry.comment && <p className={styles.rowComment}>{entry.comment}</p>}
-      </li>
+      <tr>
+        {metricCell}
+        <td data-label={captions.value} className={styles.readValue}>
+          {show(entry.value)}
+        </td>
+        <td data-label={captions.status}>
+          <StatusBadge status={entry.status} setByHand={entry.set_by_hand} />
+        </td>
+        <td data-label={captions.comment} className={styles.rowComment}>
+          {entry.comment}
+        </td>
+        <td data-label={captions.state} />
+      </tr>
     );
   }
 
@@ -174,45 +210,35 @@ function RecordingRow({
         : undefined;
 
   return (
-    <li className={teamStyles.item}>
-      <span className={teamStyles.itemMain}>
-        <span className={teamStyles.itemName}>{metric.name}</span>
-        <span className={teamStyles.itemMeta}>
-          {thresholdText} · {previous}
-        </span>
-      </span>
-      <StatusBadge status={entry.status} setByHand={entry.set_by_hand} />
-      <span className={styles.recordFields}>
-        <span className={`${teamStyles.field} ${styles.valueField}`}>
-          <label className={teamStyles.label} htmlFor={id('number')}>
-            {t('recording.value')}
-          </label>
-          <input
-            id={id('number')}
-            aria-label={t('recording.valueLabel', { name: metric.name })}
-            inputMode="decimal"
-            size={10}
-            className={teamStyles.input}
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            onBlur={save}
-            aria-invalid={state === 'notANumber'}
-          />
-        </span>
-        {metric.unit && <span className={styles.unit}>{metric.unit}</span>}
+    <tr>
+      {metricCell}
+      <td data-label={captions.value}>
+        <input
+          id={id('number')}
+          aria-label={t('recording.valueLabel', { name: metric.name })}
+          inputMode="decimal"
+          size={10}
+          className={`${teamStyles.input} ${styles.valueInput}`}
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          onBlur={save}
+          aria-invalid={state === 'notANumber'}
+        />
+      </td>
+      <td data-label={captions.status}>
         <fieldset
+          role="radiogroup"
           className={styles.statusField}
           // Saved when focus leaves the toggle, as the other fields save on blur.
           onBlur={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget as Node | null)) save();
           }}
         >
-          <legend className={teamStyles.label}>{t('recording.status')}</legend>
-          <span
-            role="radiogroup"
-            aria-label={t('recording.statusLabel', { name: metric.name })}
-            className={styles.statusToggle}
-          >
+          <legend className="visually-hidden">
+            {t('recording.statusLabel', { name: metric.name })}
+          </legend>
+          <StatusBadge status={entry.status} setByHand={entry.set_by_hand} />
+          <span className={styles.statusToggle}>
             {(['', ...COLOURS] as const).map((option) => (
               <label key={option || 'automatic'} className={styles.statusOption}>
                 <input
@@ -227,29 +253,28 @@ function RecordingRow({
             ))}
           </span>
         </fieldset>
-        <span className={`${teamStyles.field} ${styles.commentField}`}>
-          <label className={teamStyles.label} htmlFor={id('comment')}>
-            {t('recording.comment')}
-          </label>
-          <input
-            id={id('comment')}
-            aria-label={t('recording.commentLabel', { name: metric.name })}
-            className={teamStyles.input}
-            value={comment}
-            onChange={(event) => setComment(event.target.value)}
-            onBlur={save}
-          />
+      </td>
+      <td data-label={captions.comment}>
+        <input
+          id={id('comment')}
+          aria-label={t('recording.commentLabel', { name: metric.name })}
+          className={teamStyles.input}
+          value={comment}
+          onChange={(event) => setComment(event.target.value)}
+          onBlur={save}
+        />
+      </td>
+      <td data-label={captions.state} className={styles.rowState}>
+        <span aria-live="polite">
+          {state === 'saving' && t('recording.saving')}
+          {state === 'saved' && t('recording.saved')}
         </span>
-      </span>
-      <span className={styles.rowState} aria-live="polite">
-        {state === 'saving' && t('recording.saving')}
-        {state === 'saved' && t('recording.saved')}
-      </span>
-      {message && (
-        <p role="alert" className={teamStyles.itemError}>
-          {message}
-        </p>
-      )}
-    </li>
+        {message && (
+          <p role="alert" className={teamStyles.itemError}>
+            {message}
+          </p>
+        )}
+      </td>
+    </tr>
   );
 }

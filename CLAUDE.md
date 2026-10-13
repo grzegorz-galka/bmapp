@@ -212,9 +212,21 @@ My meetings (`/my-meetings`), My pulse check (`/my-pulse`) - and groups the set-
 pages under a Configuration disclosure: Teams (`/teams`), Team metrics
 (`/team-metrics`, a chooser into `/teams/:teamId/metrics`) and Global metrics.
 The personal pages read the dashboard summary and the per-team endpoints; there
-is no `/me/*` API. Forms that are rarely needed (registering a team, creating,
-copying or including a metric) open in `components/Modal.tsx`, a native
-`<dialog>` in the top layer, which every new dialog should reuse.
+is no `/me/*` API. Forms that are rarely needed (creating, copying or including
+a metric, adding a global metric) open in `components/Modal.tsx`, a native
+`<dialog>` in the top layer, which every new dialog should reuse. Two add forms
+are deliberately in the page instead: registering a team is a section of the
+teams page opened by "Register team", and adding a member is an always-visible
+field on the members page.
+
+A team's pages - the board, its meetings, members and metric settings - lead
+back to where they were opened from. The entry link records its origin in
+react-router location state, the back link names it ("Back to My meetings"),
+the board carries it across its own views, and a page with no recorded origin
+(a bookmark, a new tab) falls back to its fixed target. Nothing under the
+routes renders without a session: after signing out, or when the session
+ends, a "Signed out" panel takes the page's place, and in development mode the
+login window opens again.
 `team-membership` is implemented as well: employees are identified by a lower-cased email and recorded the first time
 they are assigned to a team; a team has members and exactly one leader, who is
 always one of them, set when the team is registered and handed over between

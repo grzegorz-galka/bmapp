@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { useHere } from '../../components/origin';
 import { useTranslation } from 'react-i18next';
 import { useFormat } from '../../i18n/format';
 import { useDashboardSummary } from '../dashboard/useDashboardSummary';
@@ -11,6 +12,7 @@ import styles from '../teams/teams.module.css';
  */
 export function MyTeamsPage() {
   const { t } = useTranslation();
+  const here = useHere('myTeams');
   const format = useFormat();
   const summary = useDashboardSummary();
 
@@ -46,23 +48,30 @@ export function MyTeamsPage() {
                   </span>
                 </span>
                 <span className={styles.actions}>
-                  <Link to={path} aria-label={t('teams.boardLinkLabel', { name: team.name })}>
+                  <Link
+                    to={path}
+                    state={here}
+                    aria-label={t('teams.boardLinkLabel', { name: team.name })}
+                  >
                     {t('teams.boardLink')}
                   </Link>
                   <Link
                     to={`${path}/meetings`}
+                    state={here}
                     aria-label={t('teams.meetingsLinkLabel', { name: team.name })}
                   >
                     {t('teams.meetingsLink')}
                   </Link>
                   <Link
                     to={`${path}/members`}
+                    state={here}
                     aria-label={t('teams.membersLinkLabel', { name: team.name })}
                   >
                     {t('teams.membersLink')}
                   </Link>
                   <Link
                     to={`${path}/metrics`}
+                    state={here}
                     aria-label={t('personal.metricsLinkLabel', { name: team.name })}
                   >
                     {t('personal.metricsLink')}

@@ -80,9 +80,9 @@ async function prepareAMeeting(page: Page, language: Language) {
   // The administrator registers the team and puts the member on it.
   await signInAs(page, ADMIN_EMAIL);
   await page.goto('/teams');
-  // The form opens in a dialog from the page's own button.
+  // The form opens in a section of the page from the page's own button.
   await page.getByRole('button', { name: catalogue.teams.register }).click();
-  const registration = page.getByRole('dialog', { name: catalogue.teams.register });
+  const registration = page.getByRole('region', { name: catalogue.teams.register });
   await registration.getByLabel(catalogue.teams.nameLabel).fill(name);
   await registration.getByLabel(catalogue.teams.leaderEmailLabel).fill(leader);
   await registration.getByRole('button', { name: catalogue.teams.registerSubmit }).click();

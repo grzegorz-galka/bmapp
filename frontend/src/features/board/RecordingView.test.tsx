@@ -113,8 +113,7 @@ describe('the recording view has its own address', () => {
 });
 
 describe('the recording view', () => {
-  it('records a number typed in the Polish format, and shows it that way', async () => {
-    // Scenario: A number is typed in the Polish format.
+  it('A number is typed in the Polish format', async () => {
     fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
       metrics: [tile({ value: null, status: 'no_data', change: null, improvement: null })],
     });
@@ -139,8 +138,7 @@ describe('the recording view', () => {
     expect(tileItem).toHaveTextContent(pl.status.green);
   });
 
-  it('shows a frozen meeting read-only to someone who is not an administrator', async () => {
-    // Scenario: A frozen meeting is read-only.
+  it('A frozen meeting is read-only', async () => {
     fixtures.boards['m-2026-09-30'] = board('2026-09-30', {
       metrics: [tile({ comment: 'Late invoice' })],
     });
@@ -152,6 +150,125 @@ describe('the recording view', () => {
     expect(view).toHaveTextContent('90.0 %');
     expect(view).toHaveTextContent('Late invoice');
     expect(view).toHaveTextContent(en.recording.readOnly);
+  });
+
+  it('The fields line up in columns', async () => {
+    await renderWithLanguage(
+      <RecordingView
+        teamId={TEAM_ID}
+        mode="edit"
+        board={board('2026-10-14', {
+          metrics: [
+            tile(),
+            tile({
+              metric: definition({
+                id: 'metric-lead',
+                name: 'Lead time from commit to production',
+                unit: 'working days',
+              }),
+            }),
+          ],
+        })}
+      />,
+      'en',
+    );
+
+    const table = screen.getByRole('table');
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((header) => header.textContent),
+    ).toEqual([
+      en.recording.metricColumn,
+      en.recording.value,
+      en.recording.status,
+      en.recording.comment,
+      en.recording.stateColumn,
+    ]);
+    for (const name of ['Revenue', 'Lead time from commit to production']) {
+      const row = within(table).getByRole('row', { name: new RegExp(name) });
+      const cells = within(row).getAllByRole('cell');
+      expect(
+        within(cells[0]!).getByRole('textbox', { name: `Value: ${name}` }),
+      ).toBeInTheDocument();
+      expect(
+        within(cells[1]!).getByRole('radiogroup', { name: `Status: ${name}` }),
+      ).toBeInTheDocument();
+      expect(
+        within(cells[2]!).getByRole('textbox', { name: `Comment: ${name}` }),
+      ).toBeInTheDocument();
+    }
+  });
+
+  it('Each field is named after its metric', async () => {
+    await renderWithLanguage(
+      <RecordingView
+        teamId={TEAM_ID}
+        mode="edit"
+        board={board('2026-10-14', {
+          metrics: [
+            tile(),
+            tile({ metric: definition({ id: 'metric-nps', name: 'NPS', unit: '' }) }),
+          ],
+        })}
+      />,
+      'pl',
+    );
+
+    for (const name of ['Revenue', 'NPS']) {
+      expect(screen.getByRole('textbox', { name: `Wartość: ${name}` })).toBeInTheDocument();
+      expect(screen.getByRole('radiogroup', { name: `Status: ${name}` })).toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: `Komentarz: ${name}` })).toBeInTheDocument();
+    }
+    // The bare captions appear once, as column headers, not on every row.
+    for (const caption of [pl.recording.value, pl.recording.comment]) {
+      expect(screen.getAllByText(caption, { exact: true })).toHaveLength(1);
+      expect(screen.queryByLabelText(caption, { exact: true })).not.toBeInTheDocument();
+    }
+  });
+
+  it('A frozen meeting uses the same columns', async () => {
+    await renderWithLanguage(
+      <RecordingView
+        teamId={TEAM_ID}
+        mode="readOnly"
+        board={board('2026-09-30', { metrics: [tile({ comment: 'Late invoice' })] })}
+      />,
+      'en',
+    );
+
+    const table = screen.getByRole('table');
+    expect(within(table).getAllByRole('columnheader')).toHaveLength(5);
+    const row = within(table).getByRole('row', { name: /Revenue/ });
+    const cells = within(row).getAllByRole('cell');
+    expect(cells).toHaveLength(4);
+    expect(cells[0]).toHaveTextContent('90.0 %');
+    expect(cells[1]).toHaveTextContent(en.status.amber);
+    expect(cells[2]).toHaveTextContent('Late invoice');
+    expect(within(table).queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('A narrow screen stacks each metric', async () => {
+    await renderWithLanguage(
+      <RecordingView teamId={TEAM_ID} mode="edit" board={board('2026-10-14')} />,
+      'pl',
+    );
+
+    const row = within(screen.getByRole('table')).getByRole('row', { name: /Revenue/ });
+    expect(within(row).getByRole('rowheader')).toHaveAttribute(
+      'data-label',
+      pl.recording.metricColumn,
+    );
+    expect(
+      within(row)
+        .getAllByRole('cell')
+        .map((cell) => cell.dataset.label),
+    ).toEqual([
+      pl.recording.value,
+      pl.recording.status,
+      pl.recording.comment,
+      pl.recording.stateColumn,
+    ]);
   });
 
   it('heads the list with how complete the recording is, and who is still missing', async () => {

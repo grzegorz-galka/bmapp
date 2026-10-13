@@ -197,7 +197,10 @@ describe('the header', () => {
       auth: { email: null },
     });
 
-    expect(await screen.findByRole('button', { name: en.auth.signIn })).toBeInTheDocument();
+    // In the header; the signed-out panel offers it too, in the page's place.
+    expect(
+      within(screen.getByRole('banner')).getByRole('button', { name: en.auth.signIn }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('jan.kowalski@pse.pl')).not.toBeInTheDocument();
   });
 });
@@ -280,5 +283,80 @@ describe('the navigation menu', () => {
     await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', { route });
 
     expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
+  });
+});
+
+describe("the back links of a team's pages", () => {
+  const TEAM = {
+    id: 'platform-core',
+    name: 'Platform Core',
+    board: { id: 'board-1', name: 'Platform Core', schedule: null },
+    members: [
+      { employee_id: 'emp-1', email: 'jan.kowalski@pse.pl', is_leader: true, is_deputy: false },
+    ],
+  };
+
+  beforeEach(() => {
+    fetchMock.mockImplementation((url: string) => {
+      const path = String(url);
+      let body: unknown = [];
+      if (path.endsWith('/dashboard')) body = dashboardSummary();
+      else if (path.endsWith('/teams/platform-core')) body = TEAM;
+      else if (path.endsWith('/meetings')) body = { schedule: null, meetings: [] };
+      return Promise.resolve({ ok: true, status: 200, json: async () => body } as Response);
+    });
+  });
+
+  const heading = (name: string) => screen.findByRole('heading', { name });
+
+  it('A page opened from the board leads back to the board, which still knows its origin', async () => {
+    await renderWithLanguage(
+      <>
+        <AppRoutes completeSignIn={async () => true} />
+        <AddressProbe />
+      </>,
+      'en',
+      { route: '/my-teams' },
+    );
+    await userEvent.click(await screen.findByRole('link', { name: 'Board of Platform Core' }));
+    await heading('Board of Platform Core');
+
+    await userEvent.click(screen.getByRole('link', { name: en.board.meetingsLink }));
+    await heading('Meetings of Platform Core');
+
+    await userEvent.click(screen.getByRole('link', { name: en.back.board }));
+    await heading('Board of Platform Core');
+    expect(screen.getByTestId('address')).toHaveTextContent(/^\/teams\/platform-core$/);
+
+    await userEvent.click(screen.getByRole('link', { name: en.back.myTeams }));
+    expect(await heading(en.personal.teamsHeading)).toBeInTheDocument();
+    expect(screen.getByTestId('address')).toHaveTextContent(/^\/my-teams$/);
+  });
+
+  it('A page with no recorded origin falls back to its default', async () => {
+    const pages = [
+      ['/teams/platform-core', 'Board of Platform Core', en.board.back, '/teams'],
+      ['/teams/platform-core/meetings', 'Meetings of Platform Core', en.meetings.back, '/teams'],
+      ['/teams/platform-core/members', 'Members of Platform Core', en.members.back, '/teams'],
+      [
+        '/teams/platform-core/metrics',
+        'Metrics of Platform Core',
+        en.metrics.back,
+        '/teams/platform-core',
+      ],
+    ] as const;
+
+    // Each opened as from a bookmark: an address, and no state.
+    for (const [route, name, caption, target] of pages) {
+      const { unmount } = await renderWithLanguage(
+        <AppRoutes completeSignIn={async () => true} />,
+        'en',
+        { route },
+      );
+      await heading(name);
+
+      expect(screen.getByRole('link', { name: caption })).toHaveAttribute('href', target);
+      unmount();
+    }
   });
 });

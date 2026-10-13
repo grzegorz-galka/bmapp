@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import type { MetricCreate, MetricGroup } from '../../api/metrics';
 import type { Member } from '../../api/teams';
 import { isNotFound } from '../../i18n/apiErrors';
@@ -12,6 +12,7 @@ import { ArrangedMetrics, GroupNameDialog } from './ArrangedMetrics';
 import { CopyMetricDialog, IncludeGlobalMetricDialog } from './BringMetricDialogs';
 import { MetricForm } from './MetricForm';
 import { Modal } from '../../components/Modal';
+import { BackLink } from '../../components/BackLink';
 import { useAddMetric, useMetricGroups, useMetrics } from './useMetrics';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
@@ -27,9 +28,10 @@ export function MetricSettingsPage() {
   const groups = useMetricGroups(teamId);
 
   const back = (
-    <Link className={teamStyles.back} to={`/teams/${encodeURIComponent(teamId)}`}>
-      {t('metrics.back')}
-    </Link>
+    <BackLink
+      className={teamStyles.back}
+      fallback={{ to: `/teams/${encodeURIComponent(teamId)}`, label: t('metrics.back') }}
+    />
   );
 
   if (team.isPending || metrics.isPending || groups.isPending) {

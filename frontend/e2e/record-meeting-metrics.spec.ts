@@ -71,6 +71,28 @@ test('a member records values in Polish and sees them judged', async ({ page, re
     ),
   ).toBeVisible();
 
+  // The recording view is a table: the value fields share one left edge,
+  // however long each metric's name and unit.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const recording = page.getByRole('table');
+  await expect(recording.getByRole('columnheader')).toHaveCount(5);
+  const lefts = await Promise.all(
+    ['Przychód', 'Otwarte błędy'].map(async (name) => {
+      const box = await recording.getByRole('textbox', { name: `Wartość: ${name}` }).boundingBox();
+      return box?.x ?? -1;
+    }),
+  );
+  expect(lefts[0]).toBeGreaterThan(0);
+  expect(Math.abs(lefts[0]! - lefts[1]!)).toBeLessThan(1);
+  // On a phone each metric stacks as a card, and the page does not scroll sideways.
+  await page.setViewportSize({ width: 375, height: 800 });
+  await expect(recording.getByRole('textbox', { name: 'Wartość: Przychód' })).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
   // Back on the board: the colours, the change, and the colour set by hand.
   await page.getByRole('button', { name: pl.board.showTiles }).click();
   const tile = (name: string) =>

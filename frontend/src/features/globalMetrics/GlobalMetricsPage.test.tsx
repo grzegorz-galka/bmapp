@@ -122,8 +122,7 @@ const controls = [
 ];
 
 describe('the global metrics page', () => {
-  it('shows the catalogue with unit, direction, threshold, retirement and boards', async () => {
-    // Scenario: The catalogue is shown.
+  it('The catalogue is shown', async () => {
     const list = await renderPage('en', { email: LEADER });
 
     const [availability, security] = within(list).getAllByRole('listitem');
@@ -138,35 +137,62 @@ describe('the global metrics page', () => {
     expect(security).toHaveTextContent(en.threshold.none);
   });
 
-  it('adds a global metric with its definition and no placement', async () => {
-    const user = userEvent.setup();
+  it('The add form is hidden until asked for', async () => {
     await renderPage();
 
-    expect(screen.queryByLabelText(en.metrics.groupLabel)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(en.metrics.ownerLabel)).not.toBeInTheDocument();
-    await user.type(screen.getByLabelText(en.metrics.nameLabel), 'Service availability');
-    await user.type(screen.getByLabelText(en.metrics.unitLabel), '%');
-    const decimals = screen.getByLabelText(en.metrics.decimalsLabel);
+    expect(screen.getByRole('button', { name: en.globalMetrics.add })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(en.metrics.nameLabel)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(en.metrics.unitLabel)).not.toBeInTheDocument();
+  });
+
+  it('A global metric is added from the dialog', async () => {
+    serve((url) => {
+      if (url !== '/api/global-metrics') return undefined;
+      const added = globalMetric({ id: 'gm-uptime', name: 'Service availability', boards: 0 });
+      catalogue = [...catalogue, added];
+      return jsonResponse(added, 201);
+    });
+    const user = userEvent.setup();
+    const list = await renderPage();
+
+    await user.click(screen.getByRole('button', { name: en.globalMetrics.add }));
+    const dialog = within(screen.getByRole('dialog', { name: en.globalMetrics.add }));
+    // A definition only: the placement belongs to each including board.
+    expect(dialog.queryByLabelText(en.metrics.groupLabel)).not.toBeInTheDocument();
+    expect(dialog.queryByLabelText(en.metrics.ownerLabel)).not.toBeInTheDocument();
+    await user.type(dialog.getByLabelText(en.metrics.nameLabel), 'Service availability');
+    await user.type(dialog.getByLabelText(en.metrics.unitLabel), '%');
+    const decimals = dialog.getByLabelText(en.metrics.decimalsLabel);
     await user.clear(decimals);
     await user.type(decimals, '2');
-    await user.click(screen.getByRole('button', { name: en.globalMetrics.add }));
+    await user.click(dialog.getByRole('button', { name: en.metrics.add }));
 
     expect(lastWrite()).toEqual([
       '/api/global-metrics',
       'POST',
       { name: 'Service availability', unit: '%', decimals: 2, direction: 'higher_is_better' },
     ]);
+    expect(await within(list).findByText('Service availability')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('shows a taken name against the name field', async () => {
+  it('A rejection keeps the dialog open', async () => {
     serve(() => errorResponse(409, 'name', 'metric_name.duplicate'));
     const user = userEvent.setup();
     await renderPage();
 
-    await user.type(screen.getByLabelText(en.metrics.nameLabel), 'availability');
     await user.click(screen.getByRole('button', { name: en.globalMetrics.add }));
+    const dialog = within(screen.getByRole('dialog', { name: en.globalMetrics.add }));
+    await user.type(dialog.getByLabelText(en.metrics.nameLabel), 'availability');
+    await user.type(dialog.getByLabelText(en.metrics.unitLabel), '%');
+    await user.click(dialog.getByRole('button', { name: en.metrics.add }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(en.errors['metric_name.duplicate']);
+    expect(await dialog.findByRole('alert')).toHaveTextContent(en.errors['metric_name.duplicate']);
+    const name = dialog.getByLabelText(en.metrics.nameLabel);
+    expect(name).toHaveValue('availability');
+    expect(name).toHaveAttribute('aria-invalid', 'true');
+    expect(dialog.getByLabelText(en.metrics.unitLabel)).toHaveValue('%');
   });
 
   it('changes a global metric without sending its direction, which it shows as fixed', async () => {

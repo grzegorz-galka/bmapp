@@ -6,6 +6,7 @@ import type { DashboardMeeting } from '../../api/dashboard';
 import { useFormat } from '../../i18n/format';
 import { describeFailure } from '../../i18n/apiErrors';
 import { CalendarIcon, ClipboardIcon, PlayIcon, PulseIcon } from '../../components/icons';
+import { useHere } from '../../components/origin';
 import { useOpenMeeting } from '../meetings/useMeetings';
 import { DASHBOARD_QUERY_KEY } from './useDashboardSummary';
 import styles from './MeetingsTile.module.css';
@@ -66,6 +67,7 @@ function MeetingRow({ meeting }: { meeting: DashboardMeeting }) {
   const { t } = useTranslation();
   const format = useFormat();
   const navigate = useNavigate();
+  const here = useHere('dashboard');
   const queryClient = useQueryClient();
   const open = useOpenMeeting(meeting.team_id);
   // An ISO time of day may carry seconds; meetings are to the minute.
@@ -82,7 +84,7 @@ function MeetingRow({ meeting }: { meeting: DashboardMeeting }) {
         return;
       }
     }
-    void navigate(ADDRESSES[action](meeting.team_id, meetingId));
+    void navigate(ADDRESSES[action](meeting.team_id, meetingId), { state: here });
   };
 
   const button = (action: Action, icon: ReactNode, caption: string) => (
