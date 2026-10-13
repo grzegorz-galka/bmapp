@@ -11,6 +11,7 @@ import { useTeam } from '../teams/useTeams';
 import { CopyMetricDialog, IncludeGlobalMetricDialog } from './BringMetricDialogs';
 import { describeThreshold, GlobalMark } from './display';
 import { MetricForm } from './MetricForm';
+import { Modal } from '../../components/Modal';
 import { ThresholdDialog, ThresholdHistory } from './thresholds';
 import {
   useAddMetric,
@@ -22,6 +23,7 @@ import {
 } from './useMetrics';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
+import styles from './metrics.module.css';
 
 export function MetricSettingsPage() {
   const { teamId = '' } = useParams();
@@ -68,24 +70,12 @@ export function MetricSettingsPage() {
     <main className={teamStyles.page}>
       {back}
       <h1 className={teamStyles.heading}>{t('metrics.heading', { name: team.data.name })}</h1>
-      <nav className={`${teamStyles.actions} ${meetingStyles.section}`} aria-label={t('nav.label')}>
-        <Link className={teamStyles.button} to={`/teams/${encodeURIComponent(teamId)}`}>
-          {t('teams.boardLink')}
-        </Link>
-        <Link className={teamStyles.button} to={`/teams/${encodeURIComponent(teamId)}/meetings`}>
-          {t('board.meetingsLink')}
-        </Link>
-      </nav>
-
       {mayConfigure && (
-        <>
-          <AddMetric teamId={teamId} members={team.data.members} />
-          <BringMetric
-            teamId={teamId}
-            members={team.data.members}
-            onBoard={metrics.data.map((metric) => metric.id)}
-          />
-        </>
+        <AddMetric
+          teamId={teamId}
+          members={team.data.members}
+          onBoard={metrics.data.map((metric) => metric.id)}
+        />
       )}
 
       {metrics.data.length === 0 ? (
@@ -117,34 +107,14 @@ const BLANK_METRIC: MetricCreate = {
   owner_employee_id: null,
 };
 
-function AddMetric({ teamId, members }: { teamId: string; members: Member[] }) {
-  const { t } = useTranslation();
-  const addMetric = useAddMetric(teamId);
-  const [draft, setDraft] = useState<MetricCreate>(BLANK_METRIC);
+type Adding = 'none' | 'create' | 'copy' | 'include';
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    addMetric.mutate(draft, { onSuccess: () => setDraft(BLANK_METRIC) });
-  }
-
-  return (
-    <MetricForm
-      idPrefix="new-metric"
-      draft={draft}
-      onChange={setDraft}
-      onSubmit={handleSubmit}
-      members={members}
-      error={addMetric.error}
-      submitLabel={addMetric.isPending ? t('metrics.adding') : t('metrics.add')}
-      pending={addMetric.isPending}
-    />
-  );
-}
-
-type Bringing = 'none' | 'copy' | 'include';
-
-/** The other two ways onto the board: a copy of another board's metric, or a global one. */
-function BringMetric({
+/**
+ * The three ways onto the board, side by side above the list: typed in, copied
+ * from another board, or included from the global catalogue. Each opens its
+ * form in a dialog, so the page itself stays a list of what is measured.
+ */
+function AddMetric({
   teamId,
   members,
   onBoard,
@@ -154,32 +124,31 @@ function BringMetric({
   onBoard: string[];
 }) {
   const { t } = useTranslation();
-  const [bringing, setBringing] = useState<Bringing>('none');
-  const close = () => setBringing('none');
-  const toggle = (next: Bringing) => setBringing(bringing === next ? 'none' : next);
+  const [adding, setAdding] = useState<Adding>('none');
+  const close = () => setAdding('none');
+  const opener = (what: Adding, caption: string) => (
+    <button
+      type="button"
+      className={what === 'create' ? teamStyles.primary : teamStyles.button}
+      aria-haspopup="dialog"
+      onClick={() => setAdding(what)}
+    >
+      {caption}
+    </button>
+  );
 
   return (
-    <div className={meetingStyles.section}>
-      <span className={teamStyles.actions}>
-        <button
-          type="button"
-          className={teamStyles.button}
-          aria-expanded={bringing === 'copy'}
-          onClick={() => toggle('copy')}
-        >
-          {t('metrics.copy')}
-        </button>
-        <button
-          type="button"
-          className={teamStyles.button}
-          aria-expanded={bringing === 'include'}
-          onClick={() => toggle('include')}
-        >
-          {t('metrics.include')}
-        </button>
-      </span>
-      {bringing === 'copy' && <CopyMetricDialog teamId={teamId} onClose={close} />}
-      {bringing === 'include' && (
+    <>
+      <div className={styles.addRow}>
+        {opener('create', t('metrics.create'))}
+        {opener('copy', t('metrics.copy'))}
+        {opener('include', t('metrics.include'))}
+      </div>
+      {adding === 'create' && (
+        <CreateMetricDialog teamId={teamId} members={members} onClose={close} />
+      )}
+      {adding === 'copy' && <CopyMetricDialog teamId={teamId} onClose={close} />}
+      {adding === 'include' && (
         <IncludeGlobalMetricDialog
           teamId={teamId}
           members={members}
@@ -187,7 +156,51 @@ function BringMetric({
           onClose={close}
         />
       )}
-    </div>
+    </>
+  );
+}
+
+function CreateMetricDialog({
+  teamId,
+  members,
+  onClose,
+}: {
+  teamId: string;
+  members: Member[];
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const addMetric = useAddMetric(teamId);
+  const [draft, setDraft] = useState<MetricCreate>(BLANK_METRIC);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    // A rejection keeps the dialog open with what was typed.
+    addMetric.mutate(draft, { onSuccess: onClose });
+  }
+
+  return (
+    <Modal labelledBy="new-metric-heading" onClose={onClose}>
+      <section className={styles.dialogBody}>
+        <h2
+          id="new-metric-heading"
+          className={`${meetingStyles.subheading} ${styles.dialogHeading}`}
+        >
+          {t('metrics.create')}
+        </h2>
+        <MetricForm
+          idPrefix="new-metric"
+          draft={draft}
+          onChange={setDraft}
+          onSubmit={handleSubmit}
+          onCancel={onClose}
+          members={members}
+          error={addMetric.error}
+          submitLabel={addMetric.isPending ? t('metrics.adding') : t('metrics.add')}
+          pending={addMetric.isPending}
+        />
+      </section>
+    </Modal>
   );
 }
 

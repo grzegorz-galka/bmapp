@@ -4,7 +4,7 @@
  * board sees.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { MetricSettingsPage } from './MetricSettingsPage';
@@ -146,20 +146,41 @@ describe('the metric settings page', () => {
     expect(screen.getByRole('listitem')).toHaveTextContent(
       'Zielony od 95,0 mln zł, żółty od 85,0 mln zł',
     );
-    expect(screen.getByRole('button', { name: pl.metrics.add })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: pl.metrics.create })).toBeInTheDocument();
   });
 
-  it('adds a metric with every property', async () => {
+  it('The three ways to add a metric are offered at the top', async () => {
+    await renderSettings();
+
+    const create = screen.getByRole('button', { name: en.metrics.create });
+    const copy = screen.getByRole('button', { name: en.metrics.copy });
+    const include = screen.getByRole('button', { name: en.metrics.include });
+    // One row, in this order, above the list of metrics.
+    expect(create.parentElement).toBe(copy.parentElement);
+    expect(copy.parentElement).toBe(include.parentElement);
+    expect([...create.parentElement!.children]).toEqual([create, copy, include]);
+    const list = screen.getByRole('list', { name: en.metrics.listLabel });
+    expect(create.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByLabelText(en.metrics.nameLabel)).not.toBeInTheDocument();
+    for (const name of [en.teams.boardLink, en.board.meetingsLink]) {
+      expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
+    }
+  });
+
+  it('A metric is created from the dialog', async () => {
     const user = userEvent.setup();
     await renderSettings();
 
-    await user.type(screen.getByLabelText(en.metrics.nameLabel), 'Open bugs');
-    await user.type(screen.getByLabelText(en.metrics.unitLabel), 'pcs');
-    await user.selectOptions(screen.getByLabelText(en.metrics.directionLabel), 'lower_is_better');
-    await user.type(screen.getByLabelText(en.metrics.groupLabel), 'Quality');
-    await user.selectOptions(screen.getByLabelText(en.metrics.ownerLabel), 'emp-bartek');
-    await user.click(screen.getByRole('button', { name: en.metrics.add }));
+    await user.click(screen.getByRole('button', { name: en.metrics.create }));
+    const dialog = within(screen.getByRole('dialog', { name: en.metrics.create }));
+    await user.type(dialog.getByLabelText(en.metrics.nameLabel), 'Open bugs');
+    await user.type(dialog.getByLabelText(en.metrics.unitLabel), 'pcs');
+    await user.selectOptions(dialog.getByLabelText(en.metrics.directionLabel), 'lower_is_better');
+    await user.type(dialog.getByLabelText(en.metrics.groupLabel), 'Quality');
+    await user.selectOptions(dialog.getByLabelText(en.metrics.ownerLabel), 'emp-bartek');
+    await user.click(dialog.getByRole('button', { name: en.metrics.add }));
 
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(writes()[0]?.[0]).toBe(`/api/teams/${TEAM_ID}/metrics`);
     expect(lastBody()).toEqual({
       name: 'Open bugs',
@@ -172,15 +193,31 @@ describe('the metric settings page', () => {
     });
   });
 
-  it('shows a rejected name against the name field', async () => {
+  it('A rejection keeps the dialog open', async () => {
     serve(() => errorResponse(409, 'name', 'metric_name.duplicate'));
     const user = userEvent.setup();
     await renderSettings();
 
-    await user.type(screen.getByLabelText(en.metrics.nameLabel), 'revenue');
-    await user.click(screen.getByRole('button', { name: en.metrics.add }));
+    await user.click(screen.getByRole('button', { name: en.metrics.create }));
+    const dialog = within(screen.getByRole('dialog', { name: en.metrics.create }));
+    await user.type(dialog.getByLabelText(en.metrics.nameLabel), 'revenue');
+    await user.click(dialog.getByRole('button', { name: en.metrics.add }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(en.errors['metric_name.duplicate']);
+    expect(await dialog.findByRole('alert')).toHaveTextContent(en.errors['metric_name.duplicate']);
+    expect(dialog.getByLabelText(en.metrics.nameLabel)).toHaveValue('revenue');
+  });
+
+  it('Cancelling leaves the board unchanged', async () => {
+    const user = userEvent.setup();
+    await renderSettings();
+
+    await user.click(screen.getByRole('button', { name: en.metrics.create }));
+    const dialog = within(screen.getByRole('dialog', { name: en.metrics.create }));
+    await user.type(dialog.getByLabelText(en.metrics.nameLabel), 'Open bugs');
+    await user.click(dialog.getByRole('button', { name: en.metrics.cancel }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(writes()).toEqual([]);
   });
 
   it('edits a metric without sending its direction, which it shows as fixed', async () => {
@@ -328,7 +365,13 @@ describe('the metric settings page', () => {
     await renderSettings('en', { email: MEMBER });
 
     expect(screen.getByRole('listitem')).toHaveTextContent('Green from 95.0');
-    for (const name of [en.metrics.add, /^Edit:/, /^Retire:/, /^Delete:/, /^Change threshold:/]) {
+    for (const name of [
+      en.metrics.create,
+      /^Edit:/,
+      /^Retire:/,
+      /^Delete:/,
+      /^Change threshold:/,
+    ]) {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
     }
   });
@@ -336,7 +379,7 @@ describe('the metric settings page', () => {
   it('offers every control to an administrator outside the team', async () => {
     await renderSettings('en', { email: 'admin@example.com', isAdmin: true });
 
-    expect(screen.getByRole('button', { name: en.metrics.add })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: en.metrics.create })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Change threshold: Revenue' })).toBeInTheDocument();
   });
 });

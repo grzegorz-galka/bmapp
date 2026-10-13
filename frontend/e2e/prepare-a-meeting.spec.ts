@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { en, type Translations } from '../src/i18n/en';
 import { pl } from '../src/i18n/pl';
 import { formatMeetingDate } from '../src/i18n/format';
@@ -48,12 +48,19 @@ function meetingRow(page: Page, language: Language, date: string) {
   return page.getByRole('listitem').filter({ hasText: formatMeetingDate(date, language, '') });
 }
 
+/** A field sized to what it holds rather than to the page: no wider than 14rem. */
+async function expectNarrow(field: Locator) {
+  const box = await field.boundingBox();
+  expect(box?.width).toBeLessThanOrEqual(14 * 16);
+}
+
 async function prepareFromProposal(page: Page, catalogue: Translations): Promise<string> {
   await page.getByRole('button', { name: catalogue.meetings.prepare }).click();
   const date = await prepareForm(page, catalogue)
     .getByLabel(catalogue.meetings.dateLabel)
     .inputValue();
   expect(date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  await expectNarrow(prepareForm(page, catalogue).getByLabel(catalogue.meetings.dateLabel));
   await expect(prepareForm(page, catalogue).getByLabel(catalogue.meetings.timeLabel)).toHaveValue(
     '13:00',
   );
@@ -73,27 +80,37 @@ async function prepareAMeeting(page: Page, language: Language) {
   // The administrator registers the team and puts the member on it.
   await signInAs(page, ADMIN_EMAIL);
   await page.goto('/teams');
-  await page.getByLabel(catalogue.teams.nameLabel).fill(name);
-  await page.getByLabel(catalogue.teams.leaderEmailLabel).fill(leader);
+  // The form opens in a dialog from the page's own button.
   await page.getByRole('button', { name: catalogue.teams.register }).click();
+  const registration = page.getByRole('dialog', { name: catalogue.teams.register });
+  await registration.getByLabel(catalogue.teams.nameLabel).fill(name);
+  await registration.getByLabel(catalogue.teams.leaderEmailLabel).fill(leader);
+  await registration.getByRole('button', { name: catalogue.teams.registerSubmit }).click();
   await page.getByRole('link', { name: fill(catalogue.teams.membersLinkLabel, { name }) }).click();
   await page.getByLabel(catalogue.members.emailLabel).fill(member);
   await page.getByRole('button', { name: catalogue.members.add, exact: true }).click();
   await expect(page.getByText(member)).toBeVisible();
   const meetingsPath = page.url().replace(/\/members$/, '/meetings');
 
-  // The leader sets the schedule.
+  // The leader sets the schedule, whose fields appear only when asked for.
   await signInAs(page, leader);
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(meetingsPath);
+  await expect(page.getByLabel(catalogue.meetings.weekdayLabel)).toBeHidden();
+  await page.getByRole('button', { name: catalogue.meetings.setSchedule }).click();
+  await expectNarrow(page.getByLabel(catalogue.meetings.weekdayLabel));
+  await expectNarrow(page.getByLabel(catalogue.meetings.timeLabel));
   await page.getByLabel(catalogue.meetings.weekdayLabel).selectOption('3');
   await page.getByLabel(catalogue.meetings.timeLabel).fill('13:00');
   await page.getByRole('button', { name: catalogue.meetings.saveSchedule }).click();
   await expect(page.getByText(catalogue.meetings.scheduleNone)).toBeHidden();
+  await expect(page.getByLabel(catalogue.meetings.weekdayLabel)).toBeHidden();
+  await expect(page.getByRole('button', { name: catalogue.meetings.changeSchedule })).toBeVisible();
 
   // A member prepares the next meeting from the proposal and names its host.
   await signInAs(page, member);
   await page.goto(meetingsPath);
-  await expect(page.getByRole('button', { name: catalogue.meetings.saveSchedule })).toBeHidden();
+  await expect(page.getByRole('button', { name: catalogue.meetings.changeSchedule })).toBeHidden();
   const first = await prepareFromProposal(page, catalogue);
   const row = meetingRow(page, language, first);
   await expect(row).toContainText(catalogue.meetings.noHost);

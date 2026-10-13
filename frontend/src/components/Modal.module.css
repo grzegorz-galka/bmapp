@@ -1,0 +1,18 @@
+.dialog {
+  width: min(40rem, calc(100vw - 2 * var(--sp-4)));
+  max-height: calc(100vh - 2 * var(--sp-6));
+  padding: 0;
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.wide {
+  width: min(56rem, calc(100vw - 2 * var(--sp-4)));
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 55%);
+}

@@ -45,16 +45,17 @@ def test_prose_carries_both_languages(client: TestClient) -> None:
     """Scenario: Prose carries both languages."""
     declarations = dashboard_of(client)["declarations"]
 
+    strategy = declarations["strategy"]
     texts = [
-        declarations["mission"]["headline"],
-        declarations["mission"]["body"],
-        declarations["vision"]["headline"],
-        declarations["vision"]["body"],
-        *declarations["goals"],
+        declarations["mission"],
+        declarations["vision"],
         *(value["name"] for value in declarations["values"]),
-        *(value["description"] for value in declarations["values"]),
+        strategy["horizon"],
+        *strategy["statements"],
+        *(group["horizon"] for group in declarations["goals"]),
+        *(item for group in declarations["goals"] for item in group["items"]),
     ]
-    assert len(texts) == 4 + 3 + 2 * 4
+    assert len(texts) == 2 + 4 + 1 + 2 + 2 + 4
     for text in texts:
         assert set(text) == {"en", "pl"}, text
         assert text["en"].strip(), text

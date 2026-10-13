@@ -247,7 +247,12 @@ export function BoardPage() {
               aria-pressed={view === 'metrics'}
               onClick={() => show(shown, 'metrics')}
             >
-              {t('pulse.metricsView')}
+              {board.data
+                ? t('pulse.metricsCount', {
+                    recorded: board.data.completeness.recorded,
+                    total: board.data.completeness.total,
+                  })
+                : t('pulse.metricsView')}
             </button>
             <button
               type="button"

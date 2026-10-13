@@ -12,8 +12,9 @@ from app.schemas.dashboard import (
     Declarations,
     Funnel,
     FunnelStage,
+    GoalGroup,
     LocalizedText,
-    Statement,
+    Strategy,
     Value,
 )
 from app.schemas.employee import EmployeeEmail, normalise_email
@@ -108,6 +109,7 @@ __all__ = [
     "GlobalMetricCreate",
     "GlobalMetricInclusion",
     "GlobalMetricRead",
+    "GoalGroup",
     "HostRead",
     "ItemMeeting",
     "ItemMetric",
@@ -145,7 +147,7 @@ __all__ = [
     "ScheduleRead",
     "ScheduleSet",
     "SparklinePoint",
-    "Statement",
+    "Strategy",
     "TaskChange",
     "TaskCreate",
     "TaskProblem",

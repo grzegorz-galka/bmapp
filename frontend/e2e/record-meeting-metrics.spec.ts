@@ -8,7 +8,9 @@ import { addDays, apiAs, uniqueSuffix } from './api';
 /*
  * Recording at a meeting, in Polish: a member types values in the Polish
  * format, sees each one's colour and its change since the last meeting, and
- * sets a colour by hand with a comment. An older meeting is read-only.
+ * sets a status by hand with a comment. An older meeting is read-only. Along
+ * the way, the board's layout: the navigator on one line, the wider problems
+ * and tasks column, and the metric detail clear of the sticky header.
  *
  * The meetings are placed around today, since the editing window is: two
  * weeks ago (frozen), last week (the latest held) and in three days (next).
@@ -57,7 +59,10 @@ test('a member records values in Polish and sees them judged', async ({ page, re
   await page.getByRole('textbox', { name: 'Komentarz: Przychód' }).click();
   await expect(page.getByText(pl.recording.saved).first()).toBeVisible();
   await page.getByRole('textbox', { name: 'Wartość: Otwarte błędy' }).fill('3');
-  await page.getByRole('combobox', { name: 'Kolor: Otwarte błędy' }).selectOption('red');
+  await page
+    .getByRole('radiogroup', { name: 'Status: Otwarte błędy' })
+    .getByText(pl.status.red, { exact: true })
+    .click();
   await page.getByRole('textbox', { name: 'Komentarz: Otwarte błędy' }).fill('Krytyczny błąd');
   await page.getByRole('textbox', { name: 'Wartość: Przychód' }).click();
   await expect(
@@ -75,6 +80,54 @@ test('a member records values in Polish and sees them judged', async ({ page, re
   await expect(tile('Przychód')).toContainText('+10,3 % od ostatniego spotkania · lepiej');
   await expect(tile('Otwarte błędy')).toContainText(`${pl.status.red}${pl.status.setByHand}`);
   await expect(tile('Otwarte błędy')).toContainText('Krytyczny błąd');
+
+  // The metrics switch counts what has a number, as the pulse check counts answers.
+  await expect(page.getByRole('button', { name: 'Wskaźniki 2/2' })).toBeVisible();
+
+  // The navigator stays on one line, its chooser only as wide as it needs.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const navigator = page.getByRole('group', { name: pl.board.navigatorLabel });
+  const middles = await navigator.locator(':scope > button, :scope > select').evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const box = node.getBoundingClientRect();
+      return box.top + box.height / 2;
+    }),
+  );
+  expect(middles).toHaveLength(3);
+  // On one line: every control centred on the same row, whatever its height.
+  expect(Math.max(...middles) - Math.min(...middles)).toBeLessThan(2);
+
+  // A wide window gives the problems and tasks their wider column.
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  const side = await page
+    .locator('[class*="_layout_"]')
+    .evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.split(' ').at(-1));
+  // 31.2rem, give or take the browser's sub-pixel rounding.
+  expect(parseFloat(side ?? '0')).toBeCloseTo(31.2 * 16, 0);
+  // The board stays within the shared page width, centred, not stretched.
+  const boardWidth = await page
+    .locator('[class*="_layout_"]')
+    .evaluate((grid) => grid.getBoundingClientRect().width);
+  expect(boardWidth).toBeLessThanOrEqual(1420);
+
+  // The detail opens above the sticky header, even scrolled down, and lists
+  // the values as a grid dated in ISO.
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await page.mouse.wheel(0, 400);
+  await page.getByRole('button', { name: 'Szczegóły: Przychód' }).click();
+  const detail = page.getByRole('dialog', { name: 'Przychód' });
+  const heading = detail.getByRole('heading', { name: 'Przychód', level: 2 });
+  await expect(heading).toBeVisible();
+  const uncovered = await heading.evaluate((node) => {
+    const box = node.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.left + 4, box.top + box.height / 2);
+    return hit !== null && node.contains(hit);
+  });
+  expect(uncovered).toBe(true);
+  const grid = detail.getByRole('table', { name: pl.detail.valuesHeading });
+  await expect(grid.getByRole('row').nth(1)).toContainText(/^\d{4}-\d{2}-\d{2}95,3\s%/);
+  await page.keyboard.press('Escape');
+  await expect(detail).toBeHidden();
 
   // An older meeting is frozen: listed, not recorded.
   await page.getByLabel(pl.board.meetingSelectLabel, { exact: true }).selectOption(older.id);

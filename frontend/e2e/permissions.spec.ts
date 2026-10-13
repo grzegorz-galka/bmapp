@@ -19,9 +19,12 @@ function uniqueEmail(prefix: string) {
 /** Register a team as the administrator and return its members-page address. */
 async function registerTeam(page: Page, name: string, leaderEmail: string): Promise<string> {
   await page.goto('/teams');
-  await page.getByLabel(en.teams.nameLabel).fill(name);
-  await page.getByLabel(en.teams.leaderEmailLabel).fill(leaderEmail);
+  // The form opens in a dialog from the page's own button.
   await page.getByRole('button', { name: en.teams.register }).click();
+  const registration = page.getByRole('dialog', { name: en.teams.register });
+  await registration.getByLabel(en.teams.nameLabel).fill(name);
+  await registration.getByLabel(en.teams.leaderEmailLabel).fill(leaderEmail);
+  await registration.getByRole('button', { name: en.teams.registerSubmit }).click();
 
   const link = page.getByRole('link', {
     name: en.teams.membersLinkLabel.replace('{{name}}', name),

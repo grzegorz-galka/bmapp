@@ -21,3 +21,20 @@
   border-radius: var(--r-md);
   background: var(--panel-2);
 }
+
+/* The inside of a modal dialog: creating, copying or including a metric. */
+.dialogBody {
+  padding: var(--sp-5);
+}
+
+.dialogBody .dialogHeading {
+  margin-top: 0;
+}
+
+/* The three ways to add a metric, in one row above the list. */
+.addRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-5);
+}

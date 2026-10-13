@@ -3,3 +3,8 @@
 process.env.TZ = 'UTC';
 
 import '@testing-library/jest-dom/vitest';
+
+// jsdom has <dialog> without showModal() or close(); every modal goes through them.
+import { stubDialog } from './src/features/auth/dialogStub';
+
+stubDialog();

@@ -74,7 +74,8 @@ async function renderMeetings(auth: { email?: string | null; isAdmin?: boolean }
 
 function controls() {
   return {
-    schedule: screen.queryByRole('button', { name: en.meetings.saveSchedule }),
+    // Shown as a link-styled button; the fields appear only once it is chosen.
+    schedule: screen.queryByRole('button', { name: en.meetings.changeSchedule }),
     prepare: screen.queryByRole('button', { name: en.meetings.prepare }),
     change: screen.queryByRole('button', { name: /^Change: meeting on/ }),
     delete: screen.queryByRole('button', { name: /^Delete: meeting on/ }),

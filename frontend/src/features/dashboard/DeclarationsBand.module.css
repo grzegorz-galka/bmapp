@@ -27,7 +27,7 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr) minmax(0, 1.1fr) minmax(0, 1.1fr);
   gap: var(--sp-6);
 }
 
@@ -35,8 +35,7 @@
   min-width: 0;
 }
 
-.columnHeading,
-.valuesHeading {
+.columnHeading {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -53,7 +52,7 @@
 }
 
 .headline {
-  margin: 0 0 var(--sp-2);
+  margin: 0 0 var(--sp-4);
   font-size: var(--fs-lg);
   font-weight: 600;
   line-height: 1.3;
@@ -61,12 +60,26 @@
   text-wrap: pretty;
 }
 
-.prose {
-  margin: 0;
+.headline:last-child {
+  margin-bottom: 0;
+}
+
+.horizon {
+  margin: 0 0 var(--sp-1);
   font-size: var(--fs-sm);
-  line-height: 1.55;
+  font-weight: 600;
+}
+
+.prose {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
   color: var(--ink-2);
   text-wrap: pretty;
+}
+
+.goalGroup + .goalGroup {
+  margin-top: var(--sp-3);
 }
 
 .goals,
@@ -79,7 +92,7 @@
 .goals {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 5px;
 }
 
 .goal {
@@ -101,48 +114,31 @@
   transform: rotate(45deg);
 }
 
-.valuesHeading {
-  margin-top: var(--sp-6);
-  margin-bottom: var(--sp-3);
-}
-
 .values {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
 }
 
 .value {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
   min-width: 0;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: auto 1fr;
-  column-gap: var(--sp-3);
-  align-items: start;
 }
 
 .hexagon {
-  grid-row: span 2;
+  flex: none;
   color: var(--accent);
 }
 
 .valueName {
-  margin: 4px 0 3px;
   font-size: var(--fs-base);
   font-weight: 600;
 }
 
-.valueText {
-  margin: 0;
-  font-size: var(--fs-xs);
-  line-height: 1.5;
-  color: var(--ink-2);
-  text-wrap: pretty;
-}
-
 @media (max-width: 1000px) {
-  .grid,
-  .values {
+  .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -152,8 +148,7 @@
     padding: var(--sp-4);
   }
 
-  .grid,
-  .values {
+  .grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

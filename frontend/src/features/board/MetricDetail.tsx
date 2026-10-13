@@ -6,11 +6,9 @@ import { describeFailure } from '../../i18n/apiErrors';
 import { useFormat } from '../../i18n/format';
 import { describeThreshold, GlobalMark, StatusBadge, ThresholdList } from '../metrics/display';
 import { useThresholds, useTrend } from '../metrics/useMetrics';
+import { Modal } from '../../components/Modal';
 import { StatusDot } from './Sparkline';
 import styles from './board.module.css';
-
-/** How many of the most recent meetings the detail lists beneath the chart. */
-const RECENT = 8;
 
 /** One meeting as the chart plots it: the number, and each boundary in force then. */
 export interface TrendRow {
@@ -70,25 +68,14 @@ export function MetricDetail({
   const close = useRef<HTMLButtonElement>(null);
   const headingId = `detail-${metric.id}-heading`;
 
-  useEffect(() => {
-    close.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  useEffect(() => close.current?.focus(), []);
 
   const show = (value: string | null) => format.metricValue(value, metric.decimals, metric.unit);
 
   return (
-    <div className={styles.overlay}>
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={headingId}
-        className={styles.detail}
-      >
+    // A modal in the top layer: above the sticky header, whatever the scroll.
+    <Modal labelledBy={headingId} onClose={onClose} wide>
+      <section className={styles.detail}>
         <header className={styles.detailHeader}>
           <span className={styles.detailTitle}>
             <h2 id={headingId} className={styles.detailHeading}>
@@ -134,8 +121,10 @@ export function MetricDetail({
               </tbody>
             </table>
 
-            <h3 className={styles.detailSubheading}>{t('detail.recentHeading')}</h3>
-            <RecentValues points={trend.data.points} show={show} />
+            <h3 id={`${headingId}-values`} className={styles.detailSubheading}>
+              {t('detail.valuesHeading')}
+            </h3>
+            <ValuesGrid labelledBy={`${headingId}-values`} points={trend.data.points} show={show} />
 
             <h3 className={styles.detailSubheading}>{t('detail.correctionsHeading')}</h3>
             {trend.data.corrections.length === 0 ? (
@@ -179,7 +168,7 @@ export function MetricDetail({
           <ThresholdList metric={metric} versions={thresholds.data} format={format} />
         )}
       </section>
-    </div>
+    </Modal>
   );
 }
 
@@ -248,29 +237,51 @@ function TrendChart({
   );
 }
 
-function RecentValues({
+/**
+ * Every meeting with something recorded, newest first, as a grid. The date is
+ * the meeting's ISO date as the API sends it, the same in both languages, so
+ * it sorts and compares at a glance; the number follows the active language.
+ */
+function ValuesGrid({
+  labelledBy,
   points,
   show,
 }: {
+  labelledBy: string;
   points: TrendPoint[];
   show: (value: string | null) => string;
 }) {
   const { t } = useTranslation();
-  const format = useFormat();
   const recorded = points
     .filter((point) => point.value !== null || point.manual_status !== null || point.comment)
-    .slice(-RECENT)
     .reverse();
   if (recorded.length === 0) return <p>{t('detail.noValues')}</p>;
   return (
-    <ul className={styles.plainList}>
-      {recorded.map((point) => (
-        <li key={point.meeting_id}>
-          <strong>{format.meetingDate(point.date)}</strong> {show(point.value)}{' '}
-          <StatusBadge status={point.status} setByHand={point.set_by_hand} />
-          {point.comment && <span className={styles.muted}>{point.comment}</span>}
-        </li>
-      ))}
-    </ul>
+    <div className={styles.gridScroll}>
+      <table className={styles.valuesGrid} aria-labelledby={labelledBy}>
+        <thead>
+          <tr>
+            <th scope="col">{t('detail.date')}</th>
+            <th scope="col">{t('detail.value')}</th>
+            <th scope="col">{t('detail.status')}</th>
+            <th scope="col">{t('detail.commentColumn')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {recorded.map((point) => (
+            <tr key={point.meeting_id}>
+              <th scope="row" className={styles.gridDate}>
+                {point.date}
+              </th>
+              <td className={styles.gridNumber}>{show(point.value)}</td>
+              <td>
+                <StatusBadge status={point.status} setByHand={point.set_by_hand} />
+              </td>
+              <td>{point.comment}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

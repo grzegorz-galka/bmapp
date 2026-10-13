@@ -48,8 +48,9 @@ docker compose up -d          # PostgreSQL + backend + frontend
 docker compose exec backend alembic upgrade head
 ```
 
-Then open <http://localhost:5173>. You land on the dashboard; the team registration
-page is at `/teams`, reachable from the header. The header also carries the
+Then open <http://localhost:5173>. You land on the dashboard. The header leads to
+your teams, meetings and pulse checks, and its Configuration group to the team
+registration page at `/teams`, the team metrics and the global metrics. The header also carries the
 English/Polish language toggle, the dark/light theme toggle — dark by default, and
 your choice is remembered — and the account control.
 

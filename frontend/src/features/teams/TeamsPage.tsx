@@ -6,6 +6,7 @@ import { translateErrorCode } from '../../i18n/apiErrors';
 import { useFormat } from '../../i18n/format';
 import { useRegisterTeam, useTeams } from './useTeams';
 import { useIsAdmin } from '../auth/useCurrentUser';
+import { Modal } from '../../components/Modal';
 import styles from './teams.module.css';
 
 export function TeamsPage() {
@@ -13,91 +14,28 @@ export function TeamsPage() {
   // team exists, so there is nobody else it could belong to. Everyone else
   // still sees the list, because reading is open to anyone signed in.
   const isAdmin = useIsAdmin();
-  // Local UI state only. The team list is server state and lives in the query.
-  const [name, setName] = useState('');
-  const [leaderEmail, setLeaderEmail] = useState('');
+  const [registering, setRegistering] = useState(false);
   const { t } = useTranslation();
   const format = useFormat();
   const teams = useTeams();
-  const registerTeam = useRegisterTeam();
-
-  // The API says why; the wording is ours, in the language being read.
-  function errorOn(field: string): string | undefined {
-    const failure =
-      registerTeam.error instanceof ApiError ? registerTeam.error.errorFor(field) : undefined;
-    return failure ? translateErrorCode(t, failure) : undefined;
-  }
-  const nameError = errorOn('name');
-  const leaderEmailError = errorOn('leader_email');
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    registerTeam.mutate(
-      { name, leaderEmail },
-      {
-        onSuccess: () => {
-          setName('');
-          setLeaderEmail('');
-        },
-      },
-    );
-  }
 
   return (
     <main className={styles.page}>
       <h1 className={styles.heading}>{t('teams.heading')}</h1>
 
       {isAdmin && (
-        <form className={styles.form} onSubmit={handleSubmit} noValidate>
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="team-name">
-              {t('teams.nameLabel')}
-            </label>
-            <input
-              id="team-name"
-              name="name"
-              className={styles.input}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              aria-invalid={nameError !== undefined}
-              aria-describedby={nameError ? 'team-name-error' : undefined}
-            />
-            {nameError && (
-              <p id="team-name-error" role="alert" className={styles.error}>
-                {nameError}
-              </p>
-            )}
-          </div>
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="team-leader-email">
-              {t('teams.leaderEmailLabel')}
-            </label>
-            <input
-              id="team-leader-email"
-              name="leader_email"
-              type="email"
-              autoComplete="off"
-              className={styles.input}
-              value={leaderEmail}
-              onChange={(event) => setLeaderEmail(event.target.value)}
-              aria-invalid={leaderEmailError !== undefined}
-              aria-describedby={leaderEmailError ? 'team-leader-email-error' : undefined}
-            />
-            {leaderEmailError && (
-              <p id="team-leader-email-error" role="alert" className={styles.error}>
-                {leaderEmailError}
-              </p>
-            )}
-          </div>
+        <p className={styles.form}>
           <button
-            type="submit"
-            className={`${styles.primary} ${styles.submit}`}
-            disabled={registerTeam.isPending}
+            type="button"
+            className={styles.primary}
+            aria-haspopup="dialog"
+            onClick={() => setRegistering(true)}
           >
-            {registerTeam.isPending ? t('teams.registering') : t('teams.register')}
+            {t('teams.register')}
           </button>
-        </form>
+        </p>
       )}
+      {registering && <RegisterTeamDialog onClose={() => setRegistering(false)} />}
 
       {teams.isPending && <p>{t('teams.loading')}</p>}
       {teams.isError && <p role="alert">{t('teams.loadFailed')}</p>}
@@ -148,5 +86,92 @@ export function TeamsPage() {
           </ul>
         ))}
     </main>
+  );
+}
+
+/**
+ * The registration form, in a dialog: the page is mostly read, so the form
+ * stays out of the way until it is asked for. A rejection keeps the dialog
+ * open with what was typed, so it can be corrected rather than retyped.
+ */
+function RegisterTeamDialog({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
+  // Local UI state only. The team list is server state and lives in the query.
+  const [name, setName] = useState('');
+  const [leaderEmail, setLeaderEmail] = useState('');
+  const registerTeam = useRegisterTeam();
+
+  // The API says why; the wording is ours, in the language being read.
+  function errorOn(field: string): string | undefined {
+    const failure =
+      registerTeam.error instanceof ApiError ? registerTeam.error.errorFor(field) : undefined;
+    return failure ? translateErrorCode(t, failure) : undefined;
+  }
+  const nameError = errorOn('name');
+  const leaderEmailError = errorOn('leader_email');
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    registerTeam.mutate({ name, leaderEmail }, { onSuccess: onClose });
+  }
+
+  return (
+    <Modal labelledBy="register-team-heading" onClose={onClose}>
+      <section className={styles.dialogBody}>
+        <h2 id="register-team-heading" className={styles.dialogHeading}>
+          {t('teams.register')}
+        </h2>
+        <form className={styles.form} onSubmit={handleSubmit} noValidate>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="team-name">
+              {t('teams.nameLabel')}
+            </label>
+            <input
+              id="team-name"
+              name="name"
+              className={styles.input}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              aria-invalid={nameError !== undefined}
+              aria-describedby={nameError ? 'team-name-error' : undefined}
+            />
+            {nameError && (
+              <p id="team-name-error" role="alert" className={styles.error}>
+                {nameError}
+              </p>
+            )}
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="team-leader-email">
+              {t('teams.leaderEmailLabel')}
+            </label>
+            <input
+              id="team-leader-email"
+              name="leader_email"
+              type="email"
+              autoComplete="off"
+              className={styles.input}
+              value={leaderEmail}
+              onChange={(event) => setLeaderEmail(event.target.value)}
+              aria-invalid={leaderEmailError !== undefined}
+              aria-describedby={leaderEmailError ? 'team-leader-email-error' : undefined}
+            />
+            {leaderEmailError && (
+              <p id="team-leader-email-error" role="alert" className={styles.error}>
+                {leaderEmailError}
+              </p>
+            )}
+          </div>
+          <span className={`${styles.actions} ${styles.submit}`}>
+            <button type="submit" className={styles.primary} disabled={registerTeam.isPending}>
+              {registerTeam.isPending ? t('teams.registering') : t('teams.registerSubmit')}
+            </button>
+            <button type="button" className={styles.button} onClick={onClose}>
+              {t('teams.cancel')}
+            </button>
+          </span>
+        </form>
+      </section>
+    </Modal>
   );
 }

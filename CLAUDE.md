@@ -205,9 +205,16 @@ and list the registered teams. `localization` is implemented on top of it: the
 interface reads in English or Polish, and API rejections arrive as codes the
 frontend translates, and dates, times and numbers are formatted for the active
 language. `dashboard` and `appearance` are implemented too: the application opens on
-the dashboard at `/` with the team page at `/teams`, and the interface has a dark and
-a light theme with dark the default. `team-membership` is implemented as well:
-employees are identified by a lower-cased email and recorded the first time
+the dashboard at `/`, and the interface has a dark and a light theme with dark the
+default. The header names what a person does - Dashboard, My teams (`/my-teams`),
+My meetings (`/my-meetings`), My pulse check (`/my-pulse`) - and groups the set-up
+pages under a Configuration disclosure: Teams (`/teams`), Team metrics
+(`/team-metrics`, a chooser into `/teams/:teamId/metrics`) and Global metrics.
+The personal pages read the dashboard summary and the per-team endpoints; there
+is no `/me/*` API. Forms that are rarely needed (registering a team, creating,
+copying or including a metric) open in `components/Modal.tsx`, a native
+`<dialog>` in the top layer, which every new dialog should reuse.
+`team-membership` is implemented as well: employees are identified by a lower-cased email and recorded the first time
 they are assigned to a team; a team has members and exactly one leader, who is
 always one of them, set when the team is registered and handed over between
 members on the members page at `/teams/:teamId/members`. One employee may lead
@@ -227,7 +234,9 @@ check, the problem/task funnel and the items assigned to them. "Editable",
 "proposed" and "today" come from the functions the board and the meetings page
 use, so the pages cannot disagree. The company declarations are still constants
 in `app/services/dashboard.py`, in English and Polish, until the targets
-capability makes them editable. An action on a proposed row opens the meeting
+capability makes them editable: headlines only - the mission, the vision, the
+values by name, a strategic declaration and goals grouped by horizon, each
+horizon travelling with the text. An action on a proposed row opens the meeting
 through `POST /teams/:id/meetings` first; the summary itself never writes. The
 board's address opens the recording view (`?meeting=…&mode=record`), the pulse
 answer form (`?meeting=…&view=pulse&mode=answer`) and a list (`#problems`,

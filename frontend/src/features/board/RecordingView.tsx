@@ -191,6 +191,7 @@ function RecordingRow({
             id={id('number')}
             aria-label={t('recording.valueLabel', { name: metric.name })}
             inputMode="decimal"
+            size={10}
             className={teamStyles.input}
             value={value}
             onChange={(event) => setValue(event.target.value)}
@@ -199,7 +200,34 @@ function RecordingRow({
           />
         </span>
         {metric.unit && <span className={styles.unit}>{metric.unit}</span>}
-        <span className={teamStyles.field}>
+        <fieldset
+          className={styles.statusField}
+          // Saved when focus leaves the toggle, as the other fields save on blur.
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) save();
+          }}
+        >
+          <legend className={teamStyles.label}>{t('recording.status')}</legend>
+          <span
+            role="radiogroup"
+            aria-label={t('recording.statusLabel', { name: metric.name })}
+            className={styles.statusToggle}
+          >
+            {(['', ...COLOURS] as const).map((option) => (
+              <label key={option || 'automatic'} className={styles.statusOption}>
+                <input
+                  type="radio"
+                  name={id('status')}
+                  value={option}
+                  checked={colour === option}
+                  onChange={() => setColour(option)}
+                />
+                <span>{option ? t(`status.${option}`) : t('recording.automatic')}</span>
+              </label>
+            ))}
+          </span>
+        </fieldset>
+        <span className={`${teamStyles.field} ${styles.commentField}`}>
           <label className={teamStyles.label} htmlFor={id('comment')}>
             {t('recording.comment')}
           </label>
@@ -211,26 +239,6 @@ function RecordingRow({
             onChange={(event) => setComment(event.target.value)}
             onBlur={save}
           />
-        </span>
-        <span className={`${teamStyles.field} ${styles.colourField}`}>
-          <label className={teamStyles.label} htmlFor={id('colour')}>
-            {t('recording.colour')}
-          </label>
-          <select
-            id={id('colour')}
-            aria-label={t('recording.colourLabel', { name: metric.name })}
-            className={meetingStyles.select}
-            value={colour}
-            onChange={(event) => setColour(event.target.value as Colour | '')}
-            onBlur={save}
-          >
-            <option value="">{t('recording.automatic')}</option>
-            {COLOURS.map((option) => (
-              <option key={option} value={option}>
-                {t(`status.${option}`)}
-              </option>
-            ))}
-          </select>
         </span>
       </span>
       <span className={styles.rowState} aria-live="polite">

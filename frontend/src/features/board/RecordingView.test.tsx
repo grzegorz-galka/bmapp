@@ -69,6 +69,13 @@ async function openRecording(
   return user;
 }
 
+/** One option of a metric's status toggle. */
+function statusOption(metric: string, option: string): HTMLElement {
+  return within(screen.getByRole('radiogroup', { name: `Status: ${metric}` })).getByRole('radio', {
+    name: option,
+  });
+}
+
 function lastWrite(): { url: string; body: unknown } {
   const [url, init] = writesOf(fetchMock).at(-1) ?? ['', {}];
   return { url, body: JSON.parse(String(init.body)) };
@@ -174,7 +181,7 @@ describe('the recording view', () => {
   it('sends the number, the comment and the colour together', async () => {
     const user = await openRecording();
 
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Colour: Revenue' }), 'red');
+    await user.click(statusOption('Revenue', en.status.red));
     await user.type(screen.getByRole('textbox', { name: 'Comment: Revenue' }), 'Release slipped');
     await user.tab();
 
@@ -183,6 +190,45 @@ describe('the recording view', () => {
       manual_status: 'red',
       comment: 'Release slipped',
     });
+  });
+
+  it('A status is set by hand with the toggle', async () => {
+    const user = await openRecording();
+
+    await user.click(statusOption('Revenue', en.status.red));
+    await user.type(screen.getByRole('textbox', { name: 'Comment: Revenue' }), 'Release slipped');
+    await user.tab();
+
+    expect(lastWrite().body).toEqual({
+      value: '90',
+      manual_status: 'red',
+      comment: 'Release slipped',
+    });
+    expect(statusOption('Revenue', en.status.red)).toBeChecked();
+    expect(screen.getAllByText(en.recording.status).length).toBeGreaterThan(0);
+  });
+
+  it('Automatic clears a status set by hand', async () => {
+    fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
+      metrics: [tile({ manual_status: 'red', set_by_hand: true, comment: 'Release slipped' })],
+    });
+    const user = await openRecording();
+    expect(statusOption('Revenue', en.status.red)).toBeChecked();
+
+    await user.click(statusOption('Revenue', en.recording.automatic));
+    await user.tab();
+
+    expect(lastWrite().body).toEqual({
+      value: '90',
+      manual_status: null,
+      comment: 'Release slipped',
+    });
+  });
+
+  it('The number field fits ten characters', async () => {
+    await openRecording();
+
+    expect(screen.getByRole('textbox', { name: 'Value: Revenue' })).toHaveAttribute('size', '10');
   });
 
   it('saves nothing when a field is left unchanged', async () => {
@@ -211,7 +257,7 @@ describe('the recording view', () => {
     fixtures.write = () => errorResponse(422, 'comment', 'metric_value.comment_required');
     const user = await openRecording();
 
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Colour: Revenue' }), 'red');
+    await user.click(statusOption('Revenue', en.status.red));
     await user.tab();
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
