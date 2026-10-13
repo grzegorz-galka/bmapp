@@ -1,13 +1,18 @@
 /**
  * The metric detail. One test per scenario of "The metric detail" in
- * specs/metric-values/spec.md, then what it lists beneath the chart.
+ * specs/metric-values/spec.md, then what it lists beneath the chart: the
+ * values grid ("The metric detail's values grid") and that it opens as a
+ * modal over the header ("The metric detail is not covered").
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MetricDetail, trendRows } from './MetricDetail';
 import { renderWithLanguage } from '../../test/render';
 import { en } from '../../i18n/en';
+import { pl } from '../../i18n/pl';
+import type { Language } from '../../i18n/languages';
+import { stubDialog } from '../auth/dialogStub';
 import type { MetricTrend } from '../../api/metrics';
 import {
   definition,
@@ -20,6 +25,8 @@ import {
 } from './boardFixture';
 
 const fetchMock = vi.fn();
+
+beforeAll(stubDialog);
 let fixtures: Fixtures;
 
 beforeEach(() => {
@@ -33,10 +40,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function renderDetail(onClose = () => {}, metric = definition()) {
+async function renderDetail(onClose = () => {}, metric = definition(), language: Language = 'en') {
   await renderWithLanguage(
     <MetricDetail teamId={TEAM_ID} metric={metric} onClose={onClose} />,
-    'en',
+    language,
   );
   return screen.getByRole('dialog', { name: 'Revenue' });
 }
@@ -76,14 +83,81 @@ describe('the metric detail', () => {
     expect(row).toMatchObject({ value: null, greenLo: null, amberLo: null });
   });
 
-  it('lists the recent values with their comments, most recent first', async () => {
+  it('The values are shown as a grid', async () => {
+    fixtures.trend = {
+      ...TREND,
+      points: [
+        ...TREND.points,
+        {
+          ...TREND.points[1]!,
+          meeting_id: 'm-2026-10-13',
+          date: '2026-10-13',
+          value: '95.3',
+          status: 'green',
+          comment: 'Back on plan',
+        },
+      ],
+    };
+    const dialog = await renderDetail(() => {}, definition(), 'pl');
+
+    const grid = await within(dialog).findByRole('table', { name: pl.detail.valuesHeading });
+    const header = within(grid)
+      .getAllByRole('columnheader')
+      .map((cell) => cell.textContent);
+    expect(header).toEqual([
+      pl.detail.date,
+      pl.detail.value,
+      pl.detail.status,
+      pl.detail.commentColumn,
+    ]);
+    const rows = within(grid)
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => row.textContent?.replace(/\u00a0/g, ' '));
+    // Newest first; the date as ISO in either language, the number in Polish.
+    expect(rows).toEqual([
+      `2026-10-1395,3 %${pl.status.green}Back on plan`,
+      `2026-09-0291,0 %${pl.status.amber}`,
+      `2026-08-2691,0 %${pl.status.green}Ahead of plan`,
+    ]);
+  });
+
+  it('A metric without values', async () => {
+    fixtures.trend = {
+      ...TREND,
+      points: TREND.points.map((point) => ({
+        ...point,
+        value: null,
+        manual_status: null,
+        comment: null,
+        status: 'no_data' as const,
+      })),
+    };
     const dialog = await renderDetail();
 
-    const heading = await within(dialog).findByRole('heading', { name: en.detail.recentHeading });
-    const list = heading.nextElementSibling as HTMLElement;
-    const items = within(list).getAllByRole('listitem');
-    expect(items[0]).toHaveTextContent(`Wed, 2 Sept 2026 91.0 % ${en.status.amber}`);
-    expect(items[1]).toHaveTextContent('Ahead of plan');
+    expect(await within(dialog).findByText(en.detail.noValues)).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole('table', { name: en.detail.valuesHeading }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens as a modal dialog, above the header in the top layer', async () => {
+    // Scenario: The header does not cover the detail (the layout half is the e2e flow's).
+    const showModal = vi.spyOn(HTMLDialogElement.prototype, 'showModal');
+    const dialog = await renderDetail();
+
+    expect(dialog.tagName).toBe('DIALOG');
+    expect(showModal).toHaveBeenCalledOnce();
+    showModal.mockRestore();
+  });
+
+  it('closes on Escape', async () => {
+    const onClose = vi.fn();
+    const dialog = await renderDetail(onClose);
+
+    dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
+
+    expect(onClose).toHaveBeenCalledOnce();
   });
 
   it('lists the threshold history and the corrections', async () => {

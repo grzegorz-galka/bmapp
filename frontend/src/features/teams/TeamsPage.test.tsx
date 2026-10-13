@@ -26,11 +26,13 @@ function fieldError(code: string, message: string, status = 409, field = 'name')
   return jsonResponse({ errors: [{ field, code, message }] }, status);
 }
 
-/** Fill in both registration fields and submit, in whichever language is active. */
+/** Open the registration dialog, fill in both fields and submit, in whichever language is active. */
 async function register(catalogue: typeof en | typeof pl, name: string, leaderEmail: string) {
-  await userEvent.type(screen.getByLabelText(catalogue.teams.nameLabel), name);
-  await userEvent.type(screen.getByLabelText(catalogue.teams.leaderEmailLabel), leaderEmail);
   await userEvent.click(screen.getByRole('button', { name: catalogue.teams.register }));
+  const dialog = within(screen.getByRole('dialog', { name: catalogue.teams.register }));
+  await userEvent.type(dialog.getByLabelText(catalogue.teams.nameLabel), name);
+  await userEvent.type(dialog.getByLabelText(catalogue.teams.leaderEmailLabel), leaderEmail);
+  await userEvent.click(dialog.getByRole('button', { name: catalogue.teams.registerSubmit }));
 }
 
 const DUPLICATE_MESSAGE = "A team named 'Platform' already exists.";
@@ -143,8 +145,8 @@ describe('Members are managed from the team page', () => {
     const item = await screen.findByRole('listitem');
     expect(item).toHaveTextContent('leader: anna@example.com');
     expect(item).toHaveTextContent('Members: 1');
-    expect(screen.getByLabelText(en.teams.nameLabel)).toHaveValue('');
-    expect(screen.getByLabelText(en.teams.leaderEmailLabel)).toHaveValue('');
+    // Registered: the dialog has closed.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
     const [, init] = fetchMock.mock.calls[1] as [string, RequestInit];
     expect(JSON.parse(String(init.body))).toEqual({
@@ -177,6 +179,62 @@ describe('Members are managed from the team page', () => {
   });
 });
 
+describe('A team is registered from a dialog', () => {
+  it('The form is hidden until asked for', async () => {
+    fetchMock.mockResolvedValue(jsonResponse([team('Platform')]));
+
+    await renderWithLanguage(<TeamsPage />, 'en', { auth: { isAdmin: true } });
+    await screen.findByRole('listitem');
+
+    expect(screen.getByRole('button', { name: en.teams.register })).toBeInTheDocument();
+    expect(screen.queryByLabelText(en.teams.nameLabel)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(en.teams.leaderEmailLabel)).not.toBeInTheDocument();
+  });
+
+  it('A team is registered from the dialog', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(team('Platform'), 201))
+      .mockResolvedValue(jsonResponse([team('Platform')]));
+
+    await renderWithLanguage(<TeamsPage />, 'en', { auth: { isAdmin: true } });
+    await screen.findByText(en.teams.empty);
+
+    await register(en, 'Platform', 'lead@example.com');
+
+    expect(await screen.findByRole('listitem')).toHaveTextContent('Platform — board: Platform');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('A rejection keeps the dialog open', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse([team('Platform')]))
+      .mockResolvedValue(fieldError('team_name.duplicate', DUPLICATE_MESSAGE));
+
+    await renderWithLanguage(<TeamsPage />, 'en', { auth: { isAdmin: true } });
+    await screen.findByRole('listitem');
+
+    await register(en, 'Platform', 'lead@example.com');
+
+    const dialog = within(screen.getByRole('dialog', { name: en.teams.register }));
+    expect(await dialog.findByRole('alert')).toHaveTextContent(en.errors['team_name.duplicate']);
+    expect(dialog.getByLabelText(en.teams.nameLabel)).toHaveValue('Platform');
+    expect(dialog.getByLabelText(en.teams.leaderEmailLabel)).toHaveValue('lead@example.com');
+  });
+
+  it('closes on Cancel without registering', async () => {
+    fetchMock.mockResolvedValue(jsonResponse([]));
+
+    await renderWithLanguage(<TeamsPage />, 'en', { auth: { isAdmin: true } });
+    await screen.findByText(en.teams.empty);
+    await userEvent.click(screen.getByRole('button', { name: en.teams.register }));
+    await userEvent.click(screen.getByRole('button', { name: en.teams.cancel }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('TeamsPage in Polish', () => {
   it('renders every string in Polish', async () => {
     fetchMock.mockResolvedValue(jsonResponse([team('Platform')]));
@@ -192,9 +250,10 @@ describe('TeamsPage in Polish', () => {
     expect(within(item).getByRole('link', { name: 'Spotkania zespołu Platform' })).toBeVisible();
     expect(item).toHaveTextContent('brak harmonogramu');
     expect(screen.getByRole('heading', { name: pl.teams.heading })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: pl.teams.register }));
     expect(screen.getByLabelText(pl.teams.nameLabel)).toBeInTheDocument();
     expect(screen.getByLabelText(pl.teams.leaderEmailLabel)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: pl.teams.register })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: pl.teams.registerSubmit })).toBeInTheDocument();
     expect(screen.queryByText(en.teams.heading)).not.toBeInTheDocument();
   });
 

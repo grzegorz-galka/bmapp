@@ -140,7 +140,17 @@ export function EyeIcon(props: IconProps) {
   );
 }
 
-/** The strategic goals. */
+/** The strategic declaration: a compass, the direction set for years ahead. */
+export function CompassIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M15.5 8.5 13.2 13.2 8.5 15.5 10.8 10.8z" />
+    </Glyph>
+  );
+}
+
+/** The goals. */
 export function FlagIcon(props: IconProps) {
   return (
     <Glyph {...props}>

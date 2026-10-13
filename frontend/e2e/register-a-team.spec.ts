@@ -35,9 +35,12 @@ function leaderText(catalogue: Translations, email: string) {
 
 /** Fill in the registration form and submit it. */
 async function register(page: Page, catalogue: Translations, name: string, leaderEmail: string) {
-  await page.getByLabel(catalogue.teams.nameLabel).fill(name);
-  await page.getByLabel(catalogue.teams.leaderEmailLabel).fill(leaderEmail);
+  // The form opens in a dialog from the page's own button.
   await page.getByRole('button', { name: catalogue.teams.register }).click();
+  const registration = page.getByRole('dialog', { name: catalogue.teams.register });
+  await registration.getByLabel(catalogue.teams.nameLabel).fill(name);
+  await registration.getByLabel(catalogue.teams.leaderEmailLabel).fill(leaderEmail);
+  await registration.getByRole('button', { name: catalogue.teams.registerSubmit }).click();
 }
 
 /**

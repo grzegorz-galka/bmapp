@@ -49,6 +49,7 @@ def test_the_summary_is_returned(client_as: ClientAs, assigned: Any) -> None:
     summary = DashboardSummary.model_validate(response.json())
     assert summary.current_user.email == VIEWER
     assert summary.declarations.goals
+    assert summary.declarations.strategy.statements
     assert summary.declarations.values
     assert [team.name for team in summary.teams] == ["Platform"]
     assert [meeting.team for meeting in summary.meetings] == ["Platform"]

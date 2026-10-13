@@ -10,11 +10,14 @@ import { apiAs, uniqueSuffix } from './api';
  */
 
 async function addMetric(page: Page, name: string, unit: string, direction: string) {
-  await page.getByLabel(en.metrics.nameLabel).first().fill(name);
-  await page.getByLabel(en.metrics.unitLabel).first().fill(unit);
-  await page.getByLabel(en.metrics.decimalsLabel).first().fill('1');
-  await page.getByLabel(en.metrics.directionLabel).first().selectOption(direction);
-  await page.getByRole('button', { name: en.metrics.add, exact: true }).click();
+  await page.getByRole('button', { name: en.metrics.create }).click();
+  const dialog = page.getByRole('dialog', { name: en.metrics.create });
+  await dialog.getByLabel(en.metrics.nameLabel).fill(name);
+  await dialog.getByLabel(en.metrics.unitLabel).fill(unit);
+  await dialog.getByLabel(en.metrics.decimalsLabel).fill('1');
+  await dialog.getByLabel(en.metrics.directionLabel).selectOption(direction);
+  await dialog.getByRole('button', { name: en.metrics.add, exact: true }).click();
+  await expect(dialog).toBeHidden();
   await expect(page.getByRole('listitem').filter({ hasText: name })).toBeVisible();
 }
 
@@ -41,6 +44,13 @@ test('a leader adds three metrics, one per direction, with thresholds', async ({
 
   await signInAs(page, leader);
   await page.goto(`/teams/${team.id}/metrics`);
+
+  // The three ways to add a metric, in one row at the top, and no other way round.
+  for (const name of [en.metrics.create, en.metrics.copy, en.metrics.include]) {
+    await expect(page.getByRole('button', { name })).toBeVisible();
+  }
+  await expect(page.getByLabel(en.metrics.nameLabel)).toBeHidden();
+  await expect(page.getByRole('link', { name: en.board.meetingsLink, exact: true })).toBeHidden();
 
   await addMetric(page, 'Revenue', 'mln zł', 'higher_is_better');
   await addMetric(page, 'Open bugs', 'pcs', 'lower_is_better');

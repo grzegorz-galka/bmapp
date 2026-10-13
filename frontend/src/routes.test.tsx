@@ -1,7 +1,8 @@
 /**
  * The route table and the shell every page renders inside.
- * See "The application opens at the dashboard" and "Every page carries the
- * navigation" in specs/dashboard/spec.md.
+ * See "The application opens at the dashboard", "Every page carries the
+ * navigation menu" and "Configuration groups the configuration pages" in
+ * specs/dashboard/spec.md.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
@@ -33,6 +34,13 @@ afterEach(() => {
 });
 
 const nav = () => screen.getByRole('navigation', { name: en.nav.label });
+const configuration = () => within(nav()).getByRole('button', { name: en.nav.configuration });
+
+/** Open the Configuration group and choose one of its pages. */
+async function chooseConfiguration(name: string) {
+  await userEvent.click(configuration());
+  await userEvent.click(within(nav()).getByRole('link', { name }));
+}
 
 describe('the route table', () => {
   it('The root address shows the dashboard', async () => {
@@ -75,26 +83,20 @@ describe('the route table', () => {
     });
 
     expect(await screen.findByRole('heading', { name: 'Members of Platform' })).toBeInTheDocument();
-    // Still under the team section, so the header says where the user is.
-    expect(within(nav()).getByRole('link', { name: en.nav.teams })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    // A team's own pages belong to that team, not to the register of teams.
+    expect(configuration()).not.toHaveAttribute('aria-current');
   });
 
   it('shows the global metrics page at its own address, linked from the header', async () => {
     await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', { route: '/' });
     await screen.findByRole('heading', { name: en.dashboard.heroTitle });
 
-    await userEvent.click(within(nav()).getByRole('link', { name: en.nav.globalMetrics }));
+    await chooseConfiguration(en.nav.globalMetrics);
 
     expect(
       await screen.findByRole('heading', { name: en.globalMetrics.heading }),
     ).toBeInTheDocument();
-    expect(within(nav()).getByRole('link', { name: en.nav.globalMetrics })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    expect(configuration()).toHaveAttribute('aria-current', 'page');
   });
 
   it('An unknown address falls back to the dashboard', async () => {
@@ -118,13 +120,10 @@ describe('the route table', () => {
     );
     await screen.findByRole('heading', { name: en.dashboard.heroTitle });
 
-    await userEvent.click(within(nav()).getByRole('link', { name: en.nav.teams }));
+    await chooseConfiguration(en.nav.teams);
 
     expect(await screen.findByRole('heading', { name: en.teams.heading })).toBeInTheDocument();
-    expect(within(nav()).getByRole('link', { name: en.nav.teams })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    expect(configuration()).toHaveAttribute('aria-current', 'page');
     expect(screen.getByTestId('address')).toHaveTextContent(/^\/teams$/);
   });
 
@@ -163,7 +162,7 @@ describe('the header', () => {
     expect(screen.getByRole('button', { name: en.language.switchToPl })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: en.theme.switchToLight })).toBeInTheDocument();
 
-    await userEvent.click(within(nav()).getByRole('link', { name: en.nav.teams }));
+    await chooseConfiguration(en.nav.teams);
 
     expect(nav()).toBeInTheDocument();
     expect(screen.getByRole('button', { name: en.language.switchToPl })).toBeInTheDocument();
@@ -174,10 +173,7 @@ describe('the header', () => {
       route: '/teams',
     });
 
-    expect(within(nav()).getByRole('link', { name: en.nav.teams })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    expect(configuration()).toHaveAttribute('aria-current', 'page');
     expect(within(nav()).getByRole('link', { name: en.nav.dashboard })).not.toHaveAttribute(
       'aria-current',
     );
@@ -206,29 +202,83 @@ describe('the header', () => {
   });
 });
 
-describe('the archive destination', () => {
-  it('The archive is named but unavailable', async () => {
+describe('the navigation menu', () => {
+  it('The top-level destinations', async () => {
     await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', { route: '/' });
 
-    const archive = within(nav()).getByText(en.nav.archive, { exact: false });
-    expect(archive).toHaveAttribute('aria-disabled', 'true');
-    expect(archive).toHaveTextContent(en.nav.notYetAvailable);
+    const entries = [
+      ...within(nav()).getAllByRole('link'),
+      ...within(nav()).getAllByRole('button'),
+    ].map((node) => node.textContent);
+    expect(entries).toEqual([
+      en.nav.dashboard,
+      en.nav.myTeams,
+      en.nav.myMeetings,
+      en.nav.myPulse,
+      en.nav.configuration,
+    ]);
+    expect(within(nav()).queryByText(/archive/i)).not.toBeInTheDocument();
   });
 
-  it('changes neither the page nor the address when activated', async () => {
+  it('Configuration reveals its destinations', async () => {
     await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', { route: '/' });
+    expect(configuration()).toHaveAttribute('aria-expanded', 'false');
+    expect(within(nav()).queryByRole('link', { name: en.nav.teams })).not.toBeInTheDocument();
+
+    await userEvent.click(configuration());
+
+    expect(configuration()).toHaveAttribute('aria-expanded', 'true');
+    for (const name of [en.nav.teams, en.nav.teamMetrics, en.nav.globalMetrics]) {
+      expect(within(nav()).getByRole('link', { name })).toBeInTheDocument();
+    }
+
+    await userEvent.click(configuration());
+
+    expect(configuration()).toHaveAttribute('aria-expanded', 'false');
+    expect(within(nav()).queryByRole('link', { name: en.nav.teams })).not.toBeInTheDocument();
+  });
+
+  it('folds Configuration away on Escape', async () => {
+    await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', { route: '/' });
+    await userEvent.click(configuration());
+
+    await userEvent.keyboard('{Escape}');
+
+    expect(configuration()).toHaveAttribute('aria-expanded', 'false');
+    expect(configuration()).toHaveFocus();
+  });
+
+  it('A personal page keeps its own address', async () => {
+    await renderWithLanguage(
+      <>
+        <AppRoutes completeSignIn={async () => true} />
+        <AddressProbe />
+      </>,
+      'en',
+      { route: '/' },
+    );
     await screen.findByRole('heading', { name: en.dashboard.heroTitle });
 
-    await userEvent.click(within(nav()).getByText(en.nav.archive, { exact: false }));
+    await userEvent.click(within(nav()).getByRole('link', { name: en.nav.myMeetings }));
 
-    expect(screen.getByRole('heading', { name: en.dashboard.heroTitle })).toBeInTheDocument();
-    expect(window.location.pathname).toBe('/');
+    expect(
+      await screen.findByRole('heading', { name: en.personal.meetingsHeading }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('address')).toHaveTextContent(/^\/my-meetings$/);
+    expect(within(nav()).getByRole('link', { name: en.nav.myMeetings })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
   });
 
-  it('is not a followable link', async () => {
-    await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', { route: '/' });
+  it.each([
+    ['/my-teams', en.personal.teamsHeading],
+    ['/my-meetings', en.personal.meetingsHeading],
+    ['/my-pulse', en.personal.pulseHeading],
+    ['/team-metrics', en.personal.teamMetricsHeading],
+  ])('opens %s directly, as after a reload', async (route, heading) => {
+    await renderWithLanguage(<AppRoutes completeSignIn={async () => true} />, 'en', { route });
 
-    const archive = within(nav()).getByText(en.nav.archive, { exact: false });
-    expect(archive).not.toHaveAttribute('href');
+    expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
   });
 });

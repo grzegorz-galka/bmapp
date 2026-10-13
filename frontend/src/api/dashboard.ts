@@ -32,24 +32,31 @@ export interface CurrentUser {
   initials: string;
 }
 
-/** A declaration with a headline that carries its emphasis, and a description. */
-export interface Statement {
-  headline: LocalizedText;
-  body: LocalizedText;
-}
-
+/** One of the company's values, by name. */
 export interface Value {
   name: LocalizedText;
-  description: LocalizedText;
   /** Which pictogram the value is drawn with. */
   icon: ValueIcon;
 }
 
+/** The strategic declaration: the horizon it looks to, and what it says. */
+export interface Strategy {
+  horizon: LocalizedText;
+  statements: LocalizedText[];
+}
+
+/** The goals set for one horizon. */
+export interface GoalGroup {
+  horizon: LocalizedText;
+  items: LocalizedText[];
+}
+
 export interface Declarations {
-  mission: Statement;
-  vision: Statement;
-  goals: LocalizedText[];
+  mission: LocalizedText;
+  vision: LocalizedText;
   values: Value[];
+  strategy: Strategy;
+  goals: GoalGroup[];
 }
 
 /** The weekday (ISO, Monday 1) and start time a team meets, on the organization's clock. */

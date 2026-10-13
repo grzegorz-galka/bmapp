@@ -49,28 +49,39 @@ class CurrentUser(BaseModel):
     initials: str
 
 
-class Statement(BaseModel):
-    """A declaration: a headline that carries its emphasis, and a description."""
-
-    headline: LocalizedText
-    body: LocalizedText
-
-
 class Value(BaseModel):
-    """One of the company's values, with the pictogram it is drawn with."""
+    """One of the company's values, by name, with the pictogram it is drawn with."""
 
     name: LocalizedText
-    description: LocalizedText
     icon: ValueIcon
 
 
-class Declarations(BaseModel):
-    """The company-wide declarations that appear on every board."""
+class Strategy(BaseModel):
+    """The strategic declaration: the horizon it looks to, and what it says."""
 
-    mission: Statement
-    vision: Statement
-    goals: list[LocalizedText]
+    horizon: LocalizedText
+    statements: list[LocalizedText]
+
+
+class GoalGroup(BaseModel):
+    """The goals set for one horizon."""
+
+    horizon: LocalizedText
+    items: list[LocalizedText]
+
+
+class Declarations(BaseModel):
+    """The company-wide declarations that appear on every board.
+
+    The headings above them are interface labels and live in the catalogues;
+    a horizon is part of what is declared, so it travels with the text.
+    """
+
+    mission: LocalizedText
+    vision: LocalizedText
     values: list[Value]
+    strategy: Strategy
+    goals: list[GoalGroup]
 
 
 class DashboardSchedule(BaseModel):

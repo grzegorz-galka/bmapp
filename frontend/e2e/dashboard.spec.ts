@@ -71,9 +71,14 @@ test('the dashboard shows the declarations, the teams and the assigned items', a
   await expect(
     page.getByText('We are here to change the energy sector for the better'),
   ).toBeVisible();
+  const band = page.getByRole('region', { name: en.declarations.band });
   for (const value of ['Effectiveness', 'Passion', 'Innovation', 'Collaboration']) {
-    await expect(page.getByRole('heading', { name: value, exact: true })).toBeVisible();
+    await expect(band.getByText(value, { exact: true })).toBeVisible();
   }
+  for (const heading of [en.declarations.values, en.declarations.strategy, en.declarations.goals]) {
+    await expect(band.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+  }
+  await expect(band.getByText('Customer satisfaction: NPS 50+')).toBeVisible();
 
   // The viewer's team, with a countdown to its proposed meeting.
   const teams = page.getByRole('region', { name: en.myTeams.heading, exact: true });
@@ -217,33 +222,37 @@ test('the header navigates to the team page and back', async ({ page }) => {
   await page.goto('/');
   const nav = page.getByRole('navigation', { name: en.nav.label });
 
-  await nav.getByRole('link', { name: en.nav.teams }).click();
+  const configuration = nav.getByRole('button', { name: en.nav.configuration });
+  await configuration.click();
+  await expect(configuration).toHaveAttribute('aria-expanded', 'true');
+  await nav.getByRole('link', { name: en.nav.teams, exact: true }).click();
 
   await expect(page).toHaveURL(/\/teams$/);
   await expect(page.getByRole('heading', { name: en.teams.heading, exact: true })).toBeVisible();
+  await expect(configuration).toHaveAttribute('aria-current', 'page');
 
   await nav.getByRole('link', { name: en.nav.dashboard }).click();
 
   await expect(page.getByRole('heading', { name: en.dashboard.heroTitle })).toBeVisible();
 });
 
-test('the archive is named but goes nowhere', async ({ page }) => {
+test('the navigation names what a person does, and no archive', async ({ page }) => {
   await signInAs(page);
   await useLanguage(page, 'en');
 
   await page.goto('/');
-  const archive = page
-    .getByRole('navigation', { name: en.nav.label })
-    .getByText(en.nav.archive, { exact: false });
+  const nav = page.getByRole('navigation', { name: en.nav.label });
 
-  await expect(archive).toHaveAttribute('aria-disabled', 'true');
-  // Forced, because the browser already refuses an ordinary click on a link
-  // marked aria-disabled - which is half the point. The other half is that
-  // even a forced activation goes nowhere.
-  await archive.click({ force: true });
+  await expect(nav.getByRole('link', { name: en.nav.dashboard })).toBeVisible();
+  for (const name of [en.nav.myTeams, en.nav.myMeetings, en.nav.myPulse]) {
+    await expect(nav.getByRole('link', { name })).toBeVisible();
+  }
+  await expect(nav.getByText(/archive/i)).toHaveCount(0);
 
-  await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { name: en.dashboard.heroTitle })).toBeVisible();
+  await nav.getByRole('link', { name: en.nav.myMeetings }).click();
+  await expect(page).toHaveURL(/\/my-meetings$/);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: en.personal.meetingsHeading })).toBeVisible();
 });
 
 test('an address nobody recognises lands on the dashboard', async ({ page }) => {

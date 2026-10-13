@@ -130,7 +130,7 @@ describe('the pulse check view', () => {
     expect(address().get('view')).toBe('pulse');
     expect(await screen.findByText(en.pulse.empty)).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: en.pulse.metricsView }));
+    await user.click(screen.getByRole('button', { name: new RegExp(`^${en.pulse.metricsView}`) }));
     expect(address().get('meeting')).toBe('m-2026-10-21');
     expect(address().get('view')).toBeNull();
     expect(await screen.findByRole('heading', { name: 'Revenue' })).toBeInTheDocument();
@@ -142,10 +142,9 @@ describe('the pulse check view', () => {
     expect(await screen.findByRole('heading', { name: 'Revenue' })).toBeInTheDocument();
     const entry = await screen.findByRole('button', { name: SWITCH_7_OF_11 });
     expect(entry).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: en.pulse.metricsView })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    expect(
+      screen.getByRole('button', { name: new RegExp(`^${en.pulse.metricsView}`) }),
+    ).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('The results are shown as cards, a trend and a table', async () => {

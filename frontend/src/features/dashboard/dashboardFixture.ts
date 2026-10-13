@@ -68,71 +68,52 @@ export function dashboardSummary(overrides: Partial<DashboardSummary> = {}): Das
     current_user: { email: 'g.galka@pse.pl', initials: 'GG' },
     declarations: {
       mission: {
-        headline: {
-          en: 'We are here to change the energy sector for the better',
-          pl: 'Jesteśmy po to, aby zmieniać energetykę na lepsze',
-        },
-        body: {
-          en: 'Every project of ours is meant to make the energy sector safer.',
-          pl: 'Każdy nasz projekt ma czynić energetykę bezpieczniejszą.',
-        },
+        en: 'We are here to change the energy sector for the better',
+        pl: 'Jesteśmy po to, aby zmieniać energetykę na lepsze',
       },
       vision: {
-        headline: {
-          en: 'We want to create the best solutions in the industry',
-          pl: 'Chcemy tworzyć najlepsze rozwiązania w branży',
-        },
-        body: {
-          en: 'Quality is our point of reference.',
-          pl: 'Punktem odniesienia jest dla nas jakość.',
-        },
+        en: 'We want to create the best solutions in the industry',
+        pl: 'Chcemy tworzyć najlepsze rozwiązania w branży',
+      },
+      values: [
+        { name: { en: 'Effectiveness', pl: 'Skuteczność' }, icon: 'effectiveness' },
+        { name: { en: 'Passion', pl: 'Pasja' }, icon: 'passion' },
+        { name: { en: 'Innovation', pl: 'Innowacyjność' }, icon: 'innovation' },
+        { name: { en: 'Collaboration', pl: 'Współdziałanie' }, icon: 'collaboration' },
+      ],
+      strategy: {
+        horizon: { en: 'By 2030', pl: 'Do 2030 roku' },
+        statements: [
+          {
+            en: 'PSE Innowacje will become the company creating the best solutions.',
+            pl: 'PSE Innowacje stanie się firmą tworzącą najlepsze rozwiązania.',
+          },
+          {
+            en: 'We will achieve this by being the most effective at delivering.',
+            pl: 'Osiągniemy to poprzez bycie najbardziej skutecznymi w dowożeniu.',
+          },
+        ],
       },
       goals: [
         {
-          en: 'Growth – PLN 174 million in revenue in 2026 with a headcount of 397',
-          pl: 'Wzrost – 174 mln zł przychodu w 2026 r. przy zatrudnieniu 397 osób',
+          horizon: { en: 'In 2026', pl: 'W 2026 roku' },
+          items: [
+            {
+              en: 'Growth: PLN 174 million in revenue with a headcount of 397',
+              pl: 'Wzrost: 174 mln zł przychodu przy zatrudnieniu 397 osób',
+            },
+            {
+              en: 'Customer satisfaction: a first NPS measurement with a positive score',
+              pl: 'Satysfakcja klienta: pierwszy pomiar NPS z wynikiem dodatnim',
+            },
+          ],
         },
         {
-          en: 'Adaptability – client NPS: a first measurement with a positive score',
-          pl: 'Zdolność do adaptacji – NPS klienta: pierwszy pomiar z wynikiem dodatnim',
-        },
-        {
-          en: 'Employee satisfaction – eNPS of 35+ by 2030',
-          pl: 'Satysfakcja pracowników – eNPS 35+ do 2030 r.',
-        },
-      ],
-      values: [
-        {
-          name: { en: 'Effectiveness', pl: 'Skuteczność' },
-          description: {
-            en: 'We deliver what we committed to – on time and in full.',
-            pl: 'Dowozimy to, do czego się zobowiązaliśmy – na czas i w pełnym zakresie.',
-          },
-          icon: 'effectiveness',
-        },
-        {
-          name: { en: 'Passion', pl: 'Pasja' },
-          description: {
-            en: 'Passion drives a quality no procedure can enforce.',
-            pl: 'Pasja napędza jakość, której nie da się wymusić procedurą.',
-          },
-          icon: 'passion',
-        },
-        {
-          name: { en: 'Innovation', pl: 'Innowacyjność' },
-          description: {
-            en: 'We look for better solutions before anyone asks for them.',
-            pl: 'Szukamy lepszych rozwiązań, zanim ktoś o nie poprosi.',
-          },
-          icon: 'innovation',
-        },
-        {
-          name: { en: 'Collaboration', pl: 'Współdziałanie' },
-          description: {
-            en: 'We all play for the same goal.',
-            pl: 'Gramy do jednej bramki.',
-          },
-          icon: 'collaboration',
+          horizon: { en: 'By 2030', pl: 'Do 2030 roku' },
+          items: [
+            { en: 'Employee satisfaction: eNPS 35+', pl: 'Satysfakcja pracowników: eNPS 35+' },
+            { en: 'Customer satisfaction: NPS 50+', pl: 'Satysfakcja klienta: NPS 50+' },
+          ],
         },
       ],
     },

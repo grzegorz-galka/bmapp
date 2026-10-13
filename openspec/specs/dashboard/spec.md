@@ -4,6 +4,7 @@ The dashboard is the page BMAPP opens at. It is the one screen that tells a pers
 
 ## Requirements
 
+
 ### Requirement: The application opens at the dashboard
 
 The system SHALL present the dashboard at the application's root address, so that it can be bookmarked and returned to. It SHALL be named "Dashboard" in English and "Pulpit" in Polish wherever the interface names it. An address the application does not recognise SHALL display the dashboard rather than an error or an empty page.
@@ -23,47 +24,33 @@ The system SHALL present the dashboard at the application's root address, so tha
 - **WHEN** the navigation is shown in English and then in Polish
 - **THEN** the dashboard destination reads "Dashboard" and then "Pulpit"
 
-### Requirement: Every page carries the navigation
-
-The system SHALL present on every page a navigation control naming the dashboard, the teams page and the archive, and identifying the one shown. Choosing the dashboard or the teams page SHALL display it and change the address without reloading the application. The archive SHALL be named but unavailable: choosing it does nothing, and it SHALL be identified to assistive technology as unavailable.
-
-#### Scenario: The teams page keeps its own address
-
-- **WHEN** a visitor chooses the teams destination from the navigation control
-- **THEN** the team registration page is displayed, the address becomes the teams address, the application is not reloaded, and the navigation control identifies the teams destination as the current one
-
-#### Scenario: The teams address can be opened directly
-
-- **WHEN** a visitor opens the teams address directly
-- **THEN** the team registration page is displayed
-
-#### Scenario: The archive is named but unavailable
-
-- **WHEN** the navigation control is displayed
-- **THEN** the archive destination is named, is identified to assistive technology as unavailable, and choosing it neither changes the page nor changes the address
-
 ### Requirement: The dashboard shows the company declarations
 
-The system SHALL display the company mission, vision, strategic goals and values, each under its own heading, and SHALL make clear that they appear on every board. The mission and the vision SHALL each show a headline and a description. The goals SHALL be a list. Each value SHALL show its name and its description. Lists keep the order supplied. A change of language SHALL redisplay them without a further request to the API.
+The system SHALL display the company's mission, vision, values, strategic declaration and goals, each under its own heading, and SHALL make clear that they appear on every board. The mission and the vision SHALL each be one sentence. Each value SHALL show its name only. The strategic declaration SHALL show its horizon and its sentences. The goals SHALL be grouped by horizon, each group listing its goals. Lists keep the order supplied. A change of language SHALL redisplay them without a further request to the API.
 
 #### Scenario: The declarations are displayed
 
 - **WHEN** the dashboard is displayed and the summary has loaded
-- **THEN** the mission and the vision each show their headline and description, every strategic goal is listed, every value shows its name and description, all in the order supplied and each under a heading naming it
+- **THEN** the mission and the vision each show their sentence, every value shows its name and no description, the strategic declaration shows its horizon and sentences, and the goals are shown in their horizon groups, all in the order supplied and each under a heading naming it
 
 #### Scenario: The declarations are the company's
 
 - **WHEN** the dashboard is displayed in Polish
-- **THEN** the mission reads "Jesteśmy po to, aby zmieniać energetykę na lepsze", the vision reads "Chcemy tworzyć najlepsze rozwiązania w branży", and the values are Skuteczność, Pasja, Innowacyjność and Współdziałanie, in that order
+- **THEN** the mission reads "Jesteśmy po to, aby zmieniać energetykę na lepsze", the vision reads "Chcemy tworzyć najlepsze rozwiązania w branży", the values are Skuteczność, Pasja, Innowacyjność and Współdziałanie in that order under "Nasze wartości", the strategic declaration under "Do 2030 roku" reads "PSE Innowacje stanie się firmą tworzącą najlepsze rozwiązania dla branży energetycznej w Polsce, osiągającą najwyższy poziom satysfakcji klientów." and "Osiągniemy to poprzez bycie najbardziej skutecznymi w dowożeniu.", and the goals are "Wzrost: 174 mln zł przychodu przy zatrudnieniu 397 osób" and "Satysfakcja klienta: pierwszy pomiar NPS z wynikiem dodatnim" under "W 2026 roku", then "Satysfakcja pracowników: eNPS 35+" and "Satysfakcja klienta: NPS 50+" under "Do 2030 roku"
+
+#### Scenario: The declarations are translated
+
+- **WHEN** the dashboard is displayed in English
+- **THEN** the mission reads "We are here to change the energy sector for the better", the values are Effectiveness, Passion, Innovation and Collaboration under "Our values", the strategic declaration is under "By 2030", and the goals are under "In 2026" and "By 2030"
 
 #### Scenario: The declarations follow a language change
 
 - **WHEN** the declarations are displayed in English and the user changes the language to Polish
-- **THEN** the mission, vision, strategic goals and values are redisplayed in Polish without a further request to the API
+- **THEN** the mission, vision, values, strategic declaration and goals are redisplayed in Polish without a further request to the API
 
 ### Requirement: The declarations are illustrated
 
-The system SHALL show a pictogram beside the mission, the vision and the strategic goals, and a pictogram for each value, chosen by that value. The pictograms SHALL be decorative: they SHALL be hidden from assistive technology, and every declaration SHALL remain readable in words without them.
+The system SHALL show a pictogram beside the mission, the vision, the strategic declaration and the goals, and a pictogram for each value, chosen by that value. The pictograms SHALL be decorative: they SHALL be hidden from assistive technology, and every declaration SHALL remain readable in words without them.
 
 #### Scenario: Each value has its pictogram
 
@@ -73,7 +60,7 @@ The system SHALL show a pictogram beside the mission, the vision and the strateg
 #### Scenario: Pictograms are hidden from assistive technology
 
 - **WHEN** the declarations are read by assistive technology
-- **THEN** no pictogram is announced, and every heading, headline, description, goal and value is
+- **THEN** no pictogram is announced, and every heading, sentence, value and goal is
 
 ### Requirement: The dashboard shows the viewer's teams
 
@@ -305,7 +292,7 @@ The summary SHALL return the declarations in both English and Polish, and text a
 #### Scenario: Prose carries both languages
 
 - **WHEN** the dashboard summary is returned
-- **THEN** the mission's and the vision's headline and description, every strategic goal, and every value's name and description each carry an English and a Polish text, and neither is empty
+- **THEN** the mission, the vision, every value's name, the strategic declaration's horizon and every sentence of it, and every goal group's horizon and every goal each carry an English and a Polish text, and neither is empty
 
 #### Scenario: An assigned item's summary is returned as typed
 
@@ -354,3 +341,92 @@ The system SHALL say, in the active language, that the dashboard is loading whil
 
 - **WHEN** the dashboard summary cannot be fetched
 - **THEN** a failure message in the active language is shown, and the navigation, language and theme controls remain usable
+
+### Requirement: Every page carries the navigation menu
+
+The system SHALL present on every page a navigation control naming, in this order, the dashboard, My teams, My meetings, My pulse check and Configuration, and identifying the one shown. Choosing a destination SHALL display it and change the address without reloading the application. No archive destination SHALL be offered: each board keeps its own Archived view.
+
+#### Scenario: The top-level destinations
+
+- **WHEN** the navigation control is displayed in English
+- **THEN** it names Dashboard, My teams, My meetings, My pulse check and Configuration, in that order, and names no archive
+
+#### Scenario: A personal page keeps its own address
+
+- **WHEN** a visitor chooses My meetings and then reloads the page
+- **THEN** My meetings is displayed again at its own address and is identified as the current destination
+
+### Requirement: Configuration groups the configuration pages
+
+The system SHALL make Configuration a group in the navigation control that, when chosen, reveals Teams, Team metrics and Global metrics, tells assistive technology whether it is expanded, and is identified as current while any of its pages is shown.
+
+#### Scenario: Configuration reveals its destinations
+
+- **WHEN** a visitor chooses Configuration in the navigation control
+- **THEN** Teams, Team metrics and Global metrics are offered, assistive technology is told the group is expanded, and choosing it again hides them
+
+#### Scenario: The teams page keeps its own address
+
+- **WHEN** a visitor chooses Teams under Configuration
+- **THEN** the team registration page is displayed, the address becomes the teams address, the application is not reloaded, and the navigation control identifies Configuration as the current destination
+
+#### Scenario: The teams address can be opened directly
+
+- **WHEN** a visitor opens the teams address directly
+- **THEN** the team registration page is displayed
+
+### Requirement: My teams
+
+The system SHALL present, at its own address, every team the viewer is a member of, ordered as the dashboard orders them, each with its name, the viewer's role, its schedule or that it has none, and its next meeting, and with links to its board, its meetings, its members and its metric settings. A viewer of no team SHALL be told so.
+
+#### Scenario: The viewer's teams are listed with their links
+
+- **WHEN** a member of two teams, leading one of them, opens My teams
+- **THEN** both teams are listed with their role, schedule and next meeting, each linking to its board, meetings, members and metric settings
+
+#### Scenario: A viewer of no team
+
+- **WHEN** a signed-in person who belongs to no team opens My teams
+- **THEN** the page says they do not belong to any team yet
+
+### Requirement: My meetings
+
+The system SHALL present, at its own address, the meetings of every team the viewer is a member of: the upcoming ones soonest first, apart from the past ones, most recent first. Each SHALL show its team, its date, its start time and its host, and SHALL lead to that team's board at that meeting. A viewer of no team SHALL be told there are no meetings.
+
+#### Scenario: Meetings of several teams are shown together
+
+- **WHEN** a member of two teams, each with a meeting next week and one last week, opens My meetings
+- **THEN** the two upcoming meetings are shown soonest first with their team names, apart from the two past meetings shown most recent first
+
+#### Scenario: A meeting leads to its board
+
+- **WHEN** the viewer chooses a meeting on My meetings
+- **THEN** that team's board is displayed on that meeting
+
+### Requirement: My pulse check
+
+The system SHALL present, at its own address, for every team the viewer is a member of, the meetings that take pulse answers, each saying whether the viewer has answered and offering to answer or to change the answer, and a link to the team's pulse check results. A team with no meeting taking answers SHALL say so.
+
+#### Scenario: An unanswered pulse check is offered
+
+- **WHEN** a member who has not answered the pulse check for their team's coming meeting opens My pulse check
+- **THEN** that meeting is listed as not answered with an action to answer, and choosing it opens the board's answer form for that meeting
+
+#### Scenario: An answered pulse check can be changed
+
+- **WHEN** a member who has answered for their team's coming meeting opens My pulse check
+- **THEN** that meeting is listed as answered with an action to change the answer
+
+### Requirement: Team metrics
+
+The system SHALL present, at its own address, the registered teams, those the viewer is a member of first, each leading to that team's metric settings.
+
+#### Scenario: A team is chosen for its metric settings
+
+- **WHEN** a leader opens Team metrics and chooses their team
+- **THEN** that team's metric settings page is displayed
+
+#### Scenario: The viewer's own teams come first
+
+- **WHEN** a member of one team opens Team metrics while three teams are registered
+- **THEN** all three are listed, their own team first

@@ -52,50 +52,85 @@ describe('the declarations', () => {
   it('The declarations are displayed', async () => {
     await renderDashboard();
     const band = within(declarations());
-    const { mission, vision, goals, values } = summary.declarations;
+    const { mission, vision, values, strategy, goals } = summary.declarations;
 
     for (const heading of [
       en.declarations.mission,
       en.declarations.vision,
-      en.declarations.goals,
       en.declarations.values,
+      en.declarations.strategy,
+      en.declarations.goals,
     ]) {
       expect(band.getByRole('heading', { name: heading })).toBeInTheDocument();
     }
-    for (const statement of [mission, vision]) {
-      expect(band.getByText(statement.headline.en)).toBeInTheDocument();
-      expect(band.getByText(statement.body.en)).toBeInTheDocument();
-    }
+    expect(band.getByText(mission.en)).toBeInTheDocument();
+    expect(band.getByText(vision.en)).toBeInTheDocument();
 
-    const goalTexts = band
-      .getByRole('heading', { name: en.declarations.goals })
+    // The values by name only, in the order supplied.
+    const valueItems = band
+      .getByRole('heading', { name: en.declarations.values })
       .parentElement!.querySelectorAll('li');
-    expect([...goalTexts].map((node) => node.textContent)).toEqual(goals.map((goal) => goal.en));
-
-    // Each value is under a heading naming it, in the order supplied.
-    const valueHeadings = band.getAllByRole('heading', { level: 4 });
-    expect(valueHeadings.map((node) => node.textContent)).toEqual(
+    expect([...valueItems].map((node) => node.textContent)).toEqual(
       values.map((value) => value.name.en),
     );
-    for (const value of values) {
-      expect(band.getByText(value.description.en)).toBeInTheDocument();
+
+    // The strategic declaration: its horizon, then its sentences.
+    const strategyColumn = band.getByRole('heading', {
+      name: en.declarations.strategy,
+    }).parentElement!;
+    expect(within(strategyColumn).getByRole('heading', { level: 4 })).toHaveTextContent(
+      strategy.horizon.en,
+    );
+    for (const statement of strategy.statements) {
+      expect(within(strategyColumn).getByText(statement.en)).toBeInTheDocument();
     }
+
+    // The goals in their horizon groups, each group in order.
+    const goalsColumn = band.getByRole('heading', { name: en.declarations.goals }).parentElement!;
+    const groups = within(goalsColumn)
+      .getAllByRole('heading', { level: 4 })
+      .map((horizon) => ({
+        horizon: horizon.textContent,
+        items: [...horizon.parentElement!.querySelectorAll('li')].map((li) => li.textContent),
+      }));
+    expect(groups).toEqual(
+      goals.map((group) => ({
+        horizon: group.horizon.en,
+        items: group.items.map((item) => item.en),
+      })),
+    );
     expect(band.getByText(en.declarations.bandNote)).toBeInTheDocument();
+  });
+
+  it('The declarations are translated', async () => {
+    await renderDashboard('pl');
+    const band = within(screen.getByRole('region', { name: pl.declarations.band }));
+    const { mission, values, strategy, goals } = summary.declarations;
+
+    expect(band.getByRole('heading', { name: pl.declarations.values })).toHaveTextContent(
+      'Nasze wartości',
+    );
+    expect(band.getByText(mission.pl)).toBeInTheDocument();
+    expect(band.getByText(values[0]!.name.pl)).toBeInTheDocument();
+    expect(band.getAllByText(strategy.horizon.pl).length).toBeGreaterThan(0);
+    expect(band.getByText(goals[0]!.horizon.pl)).toBeInTheDocument();
+    expect(band.queryByText(mission.en)).not.toBeInTheDocument();
+    await changeLanguage('en');
   });
 
   it('The declarations follow a language change', async () => {
     await renderDashboard();
     const requestsBefore = fetchMock.mock.calls.length;
-    const { mission, vision, goals, values } = summary.declarations;
+    const { mission, vision, values, strategy, goals } = summary.declarations;
 
     await changeLanguage('pl');
 
-    expect(await screen.findByText(mission.headline.pl)).toBeInTheDocument();
-    expect(screen.getByText(mission.body.pl)).toBeInTheDocument();
-    expect(screen.getByText(vision.headline.pl)).toBeInTheDocument();
-    expect(screen.getByText(goals[0]!.pl)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: values[0]!.name.pl })).toBeInTheDocument();
-    expect(screen.queryByText(mission.headline.en)).not.toBeInTheDocument();
+    expect(await screen.findByText(mission.pl)).toBeInTheDocument();
+    expect(screen.getByText(vision.pl)).toBeInTheDocument();
+    expect(screen.getByText(values[0]!.name.pl)).toBeInTheDocument();
+    expect(screen.getByText(strategy.statements[1]!.pl)).toBeInTheDocument();
+    expect(screen.getByText(goals[0]!.items[0]!.pl)).toBeInTheDocument();
+    expect(screen.queryByText(mission.en)).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.length).toBe(requestsBefore);
 
     await changeLanguage('en');
@@ -105,7 +140,7 @@ describe('the declarations', () => {
     await renderDashboard();
 
     const pictograms = summary.declarations.values.map((value) => {
-      const item = screen.getByRole('heading', { name: value.name.en }).closest('li')!;
+      const item = screen.getByText(value.name.en).closest('li')!;
       const svg = item.querySelector('svg');
       expect(svg).not.toBeNull();
       return svg!.innerHTML;
@@ -119,8 +154,8 @@ describe('the declarations', () => {
     const band = declarations();
 
     const pictograms = band.querySelectorAll('svg');
-    // Mission, vision, goals, and one per value.
-    expect(pictograms).toHaveLength(3 + summary.declarations.values.length);
+    // Mission, vision, strategic declaration, goals, and one per value.
+    expect(pictograms).toHaveLength(4 + summary.declarations.values.length);
     for (const svg of pictograms) {
       expect(svg).toHaveAttribute('aria-hidden', 'true');
       expect(svg).toHaveAttribute('focusable', 'false');
@@ -129,7 +164,7 @@ describe('the declarations', () => {
     expect(within(band).getByRole('heading', { name: en.declarations.mission })).toHaveTextContent(
       /^Mission$/,
     );
-    expect(within(band).getByText(summary.declarations.goals[2]!.en)).toBeInTheDocument();
+    expect(within(band).getByText(summary.declarations.goals[1]!.items[1]!.en)).toBeInTheDocument();
   });
 });
 
@@ -303,7 +338,7 @@ describe('loading and failure', () => {
     // The parts that need no data are still there, and so are the controls.
     expect(screen.getByRole('heading', { name: pl.dashboard.heroTitle })).toBeInTheDocument();
     expect(screen.getByText(pl.dashboard.footerEnv)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: pl.nav.teams })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: pl.nav.myTeams })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: pl.language.switchToEn })).toBeEnabled();
 
     await changeLanguage('en');

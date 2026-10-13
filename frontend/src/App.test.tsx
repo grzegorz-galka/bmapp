@@ -11,6 +11,7 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AppRoutes } from './routes';
 import { renderWithLanguage } from './test/render';
+import { changeLanguage } from './i18n';
 import { en } from './i18n/en';
 import { pl } from './i18n/pl';
 import type { Team } from './api/teams';
@@ -88,15 +89,19 @@ describe('App', () => {
     });
     await screen.findByRole('listitem');
 
+    // The form is in a dialog now; the header behind a modal is out of reach,
+    // so the language changes the way a second tab's choice would reach it.
+    await userEvent.click(screen.getByRole('button', { name: en.teams.register }));
     await userEvent.type(screen.getByLabelText(en.teams.nameLabel), 'Half typed');
     const requestsBefore = fetchMock.mock.calls.length;
 
-    await userEvent.click(screen.getByRole('button', { name: en.language.switchToPl }));
+    await changeLanguage('pl');
 
     // The field keeps what was typed, under its now-Polish label...
     expect(await screen.findByLabelText(pl.teams.nameLabel)).toHaveValue('Half typed');
     // ...and the list is still there, not refetched.
     expect(screen.getByRole('listitem')).toHaveTextContent('Platform');
     expect(fetchMock.mock.calls.length).toBe(requestsBefore);
+    await changeLanguage('en');
   });
 });

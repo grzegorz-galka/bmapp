@@ -28,3 +28,31 @@
   flex-basis: 100%;
   margin: var(--sp-2) 0 0;
 }
+
+/* Each field as wide as what it holds, rather than as wide as the page. */
+.weekdayField {
+  flex: 0 0 auto;
+}
+
+.weekdayField .select {
+  width: 16ch;
+}
+
+.timeField {
+  flex: 0 0 8rem;
+}
+
+.dateField {
+  flex: 0 0 11rem;
+}
+
+/* An action written into a sentence, such as "Change schedule". */
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}

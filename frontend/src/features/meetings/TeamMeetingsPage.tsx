@@ -130,16 +130,30 @@ function ScheduleSection({
   const { t } = useTranslation();
   const format = useFormat();
   const setSchedule = useSetSchedule(teamId);
-  const [weekday, setWeekday] = useState(schedule ? String(schedule.weekday) : '');
-  const [time, setTime] = useState(schedule?.time ?? '');
+  // The fields stay out of the way until asked for: a schedule is set once
+  // and changed rarely, while the page is visited every week.
+  const [editing, setEditing] = useState(false);
+  const [weekday, setWeekday] = useState('');
+  const [time, setTime] = useState('');
 
   const weekdayError = describeFieldFailure(t, setSchedule.error, 'weekday');
   const timeError = describeFieldFailure(t, setSchedule.error, 'time');
   const otherError = describeOtherFailure(t, setSchedule.error, ['weekday', 'time']);
 
+  function edit() {
+    setWeekday(schedule ? String(schedule.weekday) : '');
+    setTime(schedule?.time ?? '');
+    setEditing(true);
+  }
+
+  function stopEditing() {
+    setEditing(false);
+    setSchedule.reset();
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSchedule.mutate({ weekday: Number(weekday), time });
+    setSchedule.mutate({ weekday: Number(weekday), time }, { onSuccess: stopEditing });
   }
 
   return (
@@ -148,16 +162,23 @@ function ScheduleSection({
         {t('meetings.scheduleHeading')}
       </h2>
       <p>
-        {schedule
-          ? t('meetings.scheduleValue', {
-              weekday: format.scheduleWeekday(schedule.weekday),
-              time: format.meetingTime(schedule.time),
-            })
-          : t('meetings.scheduleNone')}
+        <span>
+          {schedule
+            ? t('meetings.scheduleValue', {
+                weekday: format.scheduleWeekday(schedule.weekday),
+                time: format.meetingTime(schedule.time),
+              })
+            : t('meetings.scheduleNone')}
+        </span>{' '}
+        {mayConfigure && !editing && (
+          <button type="button" className={styles.linkButton} onClick={edit}>
+            {schedule ? t('meetings.changeSchedule') : t('meetings.setSchedule')}
+          </button>
+        )}
       </p>
-      {mayConfigure && (
+      {mayConfigure && editing && (
         <form className={teamStyles.form} onSubmit={handleSubmit} noValidate>
-          <div className={teamStyles.field}>
+          <div className={`${teamStyles.field} ${styles.weekdayField}`}>
             <label className={teamStyles.label} htmlFor="schedule-weekday">
               {t('meetings.weekdayLabel')}
             </label>
@@ -181,7 +202,7 @@ function ScheduleSection({
               </p>
             )}
           </div>
-          <div className={teamStyles.field}>
+          <div className={`${teamStyles.field} ${styles.timeField}`}>
             <label className={teamStyles.label} htmlFor="schedule-time">
               {t('meetings.timeLabel')}
             </label>
@@ -204,6 +225,13 @@ function ScheduleSection({
             disabled={setSchedule.isPending}
           >
             {setSchedule.isPending ? t('meetings.saving') : t('meetings.saveSchedule')}
+          </button>
+          <button
+            type="button"
+            className={`${teamStyles.button} ${teamStyles.submit}`}
+            onClick={stopEditing}
+          >
+            {t('meetings.cancel')}
           </button>
           {otherError && (
             <p role="alert" className={teamStyles.itemError}>
@@ -292,7 +320,7 @@ function SlotForm({
 
   return (
     <form className={teamStyles.form} onSubmit={onSubmit} noValidate>
-      <div className={teamStyles.field}>
+      <div className={`${teamStyles.field} ${styles.dateField}`}>
         <label className={teamStyles.label} htmlFor={`${idPrefix}-date`}>
           {t('meetings.dateLabel')}
         </label>
@@ -311,7 +339,7 @@ function SlotForm({
           </p>
         )}
       </div>
-      <div className={teamStyles.field}>
+      <div className={`${teamStyles.field} ${styles.timeField}`}>
         <label className={teamStyles.label} htmlFor={`${idPrefix}-time`}>
           {t('meetings.timeLabel')}
         </label>

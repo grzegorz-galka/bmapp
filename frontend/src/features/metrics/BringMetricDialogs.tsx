@@ -12,6 +12,7 @@ import type { Member } from '../../api/teams';
 import { describeFieldFailure, describeOtherFailure } from '../../i18n/apiErrors';
 import { useGlobalMetrics } from '../globalMetrics/useGlobalMetrics';
 import { useTeams } from '../teams/useTeams';
+import { Modal } from '../../components/Modal';
 import { OwnerSelect } from './MetricForm';
 import { useCopyMetric, useIncludeGlobalMetric, useMetrics } from './useMetrics';
 import teamStyles from '../teams/teams.module.css';
@@ -58,104 +59,106 @@ export function CopyMetricDialog({ teamId, onClose }: { teamId: string; onClose:
   const otherError = describeOtherFailure(t, copy.error, COPY_FIELDS);
 
   return (
-    <section role="dialog" aria-labelledby={id('heading')} className={styles.dialog}>
-      <h2 id={id('heading')} className={meetingStyles.subheading}>
-        {t('metrics.copy')}
-      </h2>
-      <form className={teamStyles.form} onSubmit={handleSubmit} noValidate>
-        <div className={teamStyles.field}>
-          <label className={teamStyles.label} htmlFor={id('team')}>
-            {t('metrics.copyTeamLabel')}
-          </label>
-          <select
-            ref={first}
-            id={id('team')}
-            className={meetingStyles.select}
-            value={sourceTeam}
-            onChange={(event) => {
-              setSourceTeam(event.target.value);
-              setSource('');
-            }}
-          >
-            <option value="">{t('metrics.chooseTeam')}</option>
-            {otherTeams.map((team) => (
-              <option key={team.id} value={team.id}>
-                {team.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className={teamStyles.field}>
-          <label className={teamStyles.label} htmlFor={id('source')}>
-            {t('metrics.copySourceLabel')}
-          </label>
-          <select
-            id={id('source')}
-            className={meetingStyles.select}
-            value={source}
-            disabled={sourceTeam === '' || candidates.length === 0}
-            onChange={(event) => setSource(event.target.value)}
-            aria-invalid={sourceError !== undefined}
-          >
-            <option value="">{t('metrics.chooseMetric')}</option>
-            {candidates.map((metric) => (
-              <option key={metric.id} value={metric.id}>
-                {metric.retired ? t('metrics.retiredOption', { name: metric.name }) : metric.name}
-              </option>
-            ))}
-          </select>
-          {sourceTeam !== '' && sourceMetrics.isPending && (
-            <p className={styles.hint}>{t('metrics.loading')}</p>
-          )}
-          {sourceMetrics.isSuccess && candidates.length === 0 && (
-            <p className={styles.hint}>{t('metrics.copyNoMetrics')}</p>
-          )}
-          {sourceError && (
-            <p role="alert" className={teamStyles.error}>
-              {sourceError}
+    <Modal labelledBy={id('heading')} onClose={onClose}>
+      <section className={styles.dialogBody}>
+        <h2 id={id('heading')} className={`${meetingStyles.subheading} ${styles.dialogHeading}`}>
+          {t('metrics.copy')}
+        </h2>
+        <form className={teamStyles.form} onSubmit={handleSubmit} noValidate>
+          <div className={teamStyles.field}>
+            <label className={teamStyles.label} htmlFor={id('team')}>
+              {t('metrics.copyTeamLabel')}
+            </label>
+            <select
+              ref={first}
+              id={id('team')}
+              className={meetingStyles.select}
+              value={sourceTeam}
+              onChange={(event) => {
+                setSourceTeam(event.target.value);
+                setSource('');
+              }}
+            >
+              <option value="">{t('metrics.chooseTeam')}</option>
+              {otherTeams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className={teamStyles.field}>
+            <label className={teamStyles.label} htmlFor={id('source')}>
+              {t('metrics.copySourceLabel')}
+            </label>
+            <select
+              id={id('source')}
+              className={meetingStyles.select}
+              value={source}
+              disabled={sourceTeam === '' || candidates.length === 0}
+              onChange={(event) => setSource(event.target.value)}
+              aria-invalid={sourceError !== undefined}
+            >
+              <option value="">{t('metrics.chooseMetric')}</option>
+              {candidates.map((metric) => (
+                <option key={metric.id} value={metric.id}>
+                  {metric.retired ? t('metrics.retiredOption', { name: metric.name }) : metric.name}
+                </option>
+              ))}
+            </select>
+            {sourceTeam !== '' && sourceMetrics.isPending && (
+              <p className={styles.hint}>{t('metrics.loading')}</p>
+            )}
+            {sourceMetrics.isSuccess && candidates.length === 0 && (
+              <p className={styles.hint}>{t('metrics.copyNoMetrics')}</p>
+            )}
+            {sourceError && (
+              <p role="alert" className={teamStyles.error}>
+                {sourceError}
+              </p>
+            )}
+          </div>
+          <div className={teamStyles.field}>
+            <label className={teamStyles.label} htmlFor={id('name')}>
+              {t('metrics.copyNameLabel')}
+            </label>
+            <input
+              id={id('name')}
+              className={teamStyles.input}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              aria-describedby={id('name-hint')}
+              aria-invalid={nameError !== undefined}
+            />
+            <p id={id('name-hint')} className={styles.hint}>
+              {t('metrics.copyNameHint')}
+            </p>
+            {nameError && (
+              <p role="alert" className={teamStyles.error}>
+                {nameError}
+              </p>
+            )}
+          </div>
+          <span className={`${teamStyles.actions} ${teamStyles.submit}`}>
+            <button
+              type="submit"
+              className={teamStyles.primary}
+              disabled={copy.isPending || source === ''}
+            >
+              {copy.isPending ? t('metrics.copying') : t('metrics.copySubmit')}
+            </button>
+            <button type="button" className={teamStyles.button} onClick={onClose}>
+              {t('metrics.cancel')}
+            </button>
+          </span>
+          {otherError && (
+            <p role="alert" className={teamStyles.itemError}>
+              {otherError}
             </p>
           )}
-        </div>
-        <div className={teamStyles.field}>
-          <label className={teamStyles.label} htmlFor={id('name')}>
-            {t('metrics.copyNameLabel')}
-          </label>
-          <input
-            id={id('name')}
-            className={teamStyles.input}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            aria-describedby={id('name-hint')}
-            aria-invalid={nameError !== undefined}
-          />
-          <p id={id('name-hint')} className={styles.hint}>
-            {t('metrics.copyNameHint')}
-          </p>
-          {nameError && (
-            <p role="alert" className={teamStyles.error}>
-              {nameError}
-            </p>
-          )}
-        </div>
-        <span className={`${teamStyles.actions} ${teamStyles.submit}`}>
-          <button
-            type="submit"
-            className={teamStyles.primary}
-            disabled={copy.isPending || source === ''}
-          >
-            {copy.isPending ? t('metrics.copying') : t('metrics.copySubmit')}
-          </button>
-          <button type="button" className={teamStyles.button} onClick={onClose}>
-            {t('metrics.cancel')}
-          </button>
-        </span>
-        {otherError && (
-          <p role="alert" className={teamStyles.itemError}>
-            {otherError}
-          </p>
-        )}
-      </form>
-    </section>
+        </form>
+      </section>
+    </Modal>
   );
 }
 
@@ -314,11 +317,13 @@ export function IncludeGlobalMetricDialog({
   }
 
   return (
-    <section role="dialog" aria-labelledby={id('heading')} className={styles.dialog}>
-      <h2 id={id('heading')} className={meetingStyles.subheading}>
-        {t('metrics.include')}
-      </h2>
-      {body}
-    </section>
+    <Modal labelledBy={id('heading')} onClose={onClose}>
+      <section className={styles.dialogBody}>
+        <h2 id={id('heading')} className={`${meetingStyles.subheading} ${styles.dialogHeading}`}>
+          {t('metrics.include')}
+        </h2>
+        {body}
+      </section>
+    </Modal>
   );
 }

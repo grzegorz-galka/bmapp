@@ -403,3 +403,37 @@ describe('the recording view has its own address', () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe('the view switch counts the recorded metrics', () => {
+  function countedBoard(recorded: number) {
+    return board('2026-10-14', { completeness: { recorded, total: 14, missing: [] } });
+  }
+
+  it('The metrics switch shows the count', async () => {
+    fixtures.boards['m-2026-10-14'] = countedBoard(12);
+    await renderBoard();
+
+    expect(await screen.findByRole('button', { name: 'Metrics 12/14' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('The count follows a recorded value', async () => {
+    fixtures.boards['m-2026-10-14'] = countedBoard(12);
+    fixtures.write = () => {
+      fixtures.boards['m-2026-10-14'] = countedBoard(13);
+      return jsonResponse({});
+    };
+    const user = userEvent.setup();
+    await renderBoard('en', { email: MEMBER }, `/teams/${TEAM_ID}?mode=record`);
+    await screen.findByRole('button', { name: 'Metrics 12/14' });
+
+    const field = await screen.findByRole('textbox', { name: 'Value: Revenue' });
+    await user.clear(field);
+    await user.type(field, '95');
+    await user.tab();
+
+    expect(await screen.findByRole('button', { name: 'Metrics 13/14' })).toBeInTheDocument();
+  });
+});

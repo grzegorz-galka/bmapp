@@ -59,9 +59,12 @@ async function handOverAndRemove(page: Page, catalogue: Translations) {
   const second = `e2e.b.${suffix}@example.com`;
 
   await page.goto('/teams');
-  await page.getByLabel(catalogue.teams.nameLabel).fill(name);
-  await page.getByLabel(catalogue.teams.leaderEmailLabel).fill(leader);
+  // The form opens in a dialog from the page's own button.
   await page.getByRole('button', { name: catalogue.teams.register }).click();
+  const registration = page.getByRole('dialog', { name: catalogue.teams.register });
+  await registration.getByLabel(catalogue.teams.nameLabel).fill(name);
+  await registration.getByLabel(catalogue.teams.leaderEmailLabel).fill(leader);
+  await registration.getByRole('button', { name: catalogue.teams.registerSubmit }).click();
 
   await page.getByRole('link', { name: fill(catalogue.teams.membersLinkLabel, { name }) }).click();
   await expect(
@@ -116,9 +119,12 @@ test('a duplicate member is reported against the email field', async ({ page }) 
   await useLanguage(page, 'en');
 
   await page.goto('/teams');
-  await page.getByLabel(en.teams.nameLabel).fill(name);
-  await page.getByLabel(en.teams.leaderEmailLabel).fill(leader);
+  // The form opens in a dialog from the page's own button.
   await page.getByRole('button', { name: en.teams.register }).click();
+  const registration = page.getByRole('dialog', { name: en.teams.register });
+  await registration.getByLabel(en.teams.nameLabel).fill(name);
+  await registration.getByLabel(en.teams.leaderEmailLabel).fill(leader);
+  await registration.getByRole('button', { name: en.teams.registerSubmit }).click();
   await page.getByRole('link', { name: fill(en.teams.membersLinkLabel, { name }) }).click();
 
   await page.getByLabel(en.members.emailLabel).fill(leader.toUpperCase());

@@ -1,5 +1,3 @@
-# The declarations are typeset with the en dashes of the legacy text.
-# ruff: noqa: RUF001
 """The dashboard summary.
 
 Everything the landing page shows, read from recorded data in a fixed number
@@ -54,9 +52,10 @@ from app.schemas.dashboard import (
     Funnel,
     FunnelStage,
     FunnelStageCode,
+    GoalGroup,
     ItemKind,
     LocalizedText,
-    Statement,
+    Strategy,
     Value,
 )
 from app.services.item_lifecycle import is_overdue
@@ -96,102 +95,59 @@ def _text(en: str, pl: str) -> LocalizedText:
     return LocalizedText(en=en, pl=pl)
 
 
-#: The company's declarations, from the legacy board's *Start* view. Polish is
-#: the original without its markup; English is a translation.
+#: The company's declarations. Polish is the agreed original; English is a
+#: translation. They are headlines only: the descriptions the legacy board
+#: carried were dropped so the band reads at a glance.
 DECLARATIONS = Declarations(
-    mission=Statement(
-        headline=_text(
-            "We are here to change the energy sector for the better",
-            "Jesteśmy po to, aby zmieniać energetykę na lepsze",
-        ),
-        body=_text(
-            "The energy transition is one of the greatest challenges facing the Polish "
-            "economy, and its success depends on the quality of the solutions the system "
-            "operator works with. We support PSE in its role as guardian and architect, "
-            "delivering solutions and services that genuinely change how the national power "
-            "system works. Every project of ours is meant to make the energy sector safer, "
-            "more efficient and ready for a zero-emission future.",
-            "Transformacja energetyczna to jedno z największych wyzwań polskiej gospodarki, "
-            "a jej powodzenie zależy od jakości rozwiązań, którymi posługuje się operator "
-            "systemu. Wspieramy PSE w roli strażnika i architekta, dostarczając rozwiązania "
-            "i usługi, które realnie zmieniają sposób pracy KSE. Każdy nasz projekt ma czynić "
-            "energetykę bezpieczniejszą, sprawniejszą i gotową na bezemisyjną przyszłość.",
-        ),
+    mission=_text(
+        "We are here to change the energy sector for the better",
+        "Jesteśmy po to, aby zmieniać energetykę na lepsze",
     ),
-    vision=Statement(
-        headline=_text(
-            "We want to create the best solutions in the industry",
-            "Chcemy tworzyć najlepsze rozwiązania w branży",
-        ),
-        body=_text(
-            "The best solutions and services are the ones a client recommends to others: "
-            "delivered on time, in full, and with a quality confirmed by the satisfaction "
-            "of their users. Quality is our point of reference.",
-            "Najlepsze rozwiązania i usługi, czyli takie, które klient poleca dalej: "
-            "dostarczone na czas, w pełnym zakresie i o jakości potwierdzonej satysfakcją "
-            "użytkowników. Punktem odniesienia jest dla nas jakość.",
-        ),
+    vision=_text(
+        "We want to create the best solutions in the industry",
+        "Chcemy tworzyć najlepsze rozwiązania w branży",
+    ),
+    values=[
+        Value(name=_text("Effectiveness", "Skuteczność"), icon="effectiveness"),
+        Value(name=_text("Passion", "Pasja"), icon="passion"),
+        Value(name=_text("Innovation", "Innowacyjność"), icon="innovation"),
+        Value(name=_text("Collaboration", "Współdziałanie"), icon="collaboration"),
+    ],
+    strategy=Strategy(
+        horizon=_text("By 2030", "Do 2030 roku"),
+        statements=[
+            _text(
+                "PSE Innowacje will become the company creating the best solutions for the "
+                "energy sector in Poland, achieving the highest level of customer satisfaction.",
+                "PSE Innowacje stanie się firmą tworzącą najlepsze rozwiązania dla branży "
+                "energetycznej w Polsce, osiągającą najwyższy poziom satysfakcji klientów.",
+            ),
+            _text(
+                "We will achieve this by being the most effective at delivering.",
+                "Osiągniemy to poprzez bycie najbardziej skutecznymi w dowożeniu.",
+            ),
+        ],
     ),
     goals=[
-        _text(
-            "Growth – PLN 174 million in revenue in 2026 with a headcount of 397",
-            "Wzrost – 174 mln zł przychodu w 2026 r. przy zatrudnieniu 397 osób",
+        GoalGroup(
+            horizon=_text("In 2026", "W 2026 roku"),
+            items=[
+                _text(
+                    "Growth: PLN 174 million in revenue with a headcount of 397",
+                    "Wzrost: 174 mln zł przychodu przy zatrudnieniu 397 osób",
+                ),
+                _text(
+                    "Customer satisfaction: a first NPS measurement with a positive score",
+                    "Satysfakcja klienta: pierwszy pomiar NPS z wynikiem dodatnim",
+                ),
+            ],
         ),
-        _text(
-            "Adaptability – client NPS: a first measurement with a positive score",
-            "Zdolność do adaptacji – NPS klienta: pierwszy pomiar z wynikiem dodatnim",
-        ),
-        _text(
-            "Employee satisfaction – eNPS of 35+ by 2030",
-            "Satysfakcja pracowników – eNPS 35+ do 2030 r.",
-        ),
-    ],
-    values=[
-        Value(
-            name=_text("Effectiveness", "Skuteczność"),
-            description=_text(
-                "We deliver what we committed to – on time and in full. We answer for "
-                "results, not for activity.",
-                "Dowozimy to, do czego się zobowiązaliśmy – na czas i w pełnym zakresie. "
-                "Rozliczamy się z rezultatów, nie z aktywności.",
-            ),
-            icon="effectiveness",
-        ),
-        Value(
-            name=_text("Passion", "Pasja"),
-            description=_text(
-                "For us the energy sector is more than projects – we commit because we "
-                "believe in the purpose of the transition. Passion drives a quality no "
-                "procedure can enforce.",
-                "Energetyka to dla nas coś więcej niż projekty – angażujemy się, bo wierzymy "
-                "w sens transformacji. Pasja napędza jakość, której nie da się wymusić "
-                "procedurą.",
-            ),
-            icon="passion",
-        ),
-        Value(
-            name=_text("Innovation", "Innowacyjność"),
-            description=_text(
-                "We look for better solutions before anyone asks for them – from new "
-                "technologies to improvements in everyday work. The courage to experiment "
-                "goes hand in hand with responsibility for the result.",
-                "Szukamy lepszych rozwiązań, zanim ktoś o nie poprosi – od nowych technologii "
-                "po usprawnienia codziennej pracy. Odwaga eksperymentowania idzie u nas "
-                "w parze z odpowiedzialnością za wynik.",
-            ),
-            icon="innovation",
-        ),
-        Value(
-            name=_text("Collaboration", "Współdziałanie"),
-            description=_text(
-                "The best solutions arise where competences meet – those of our teams, of "
-                "PSE and of our partners. We all play for the same goal: we measure success "
-                "by the result of the whole, not of its parts.",
-                "Najlepsze rozwiązania powstają na styku kompetencji – naszych zespołów, PSE "
-                "i partnerów. Gramy do jednej bramki: sukces mierzymy wynikiem całości, "
-                "nie części.",
-            ),
-            icon="collaboration",
+        GoalGroup(
+            horizon=_text("By 2030", "Do 2030 roku"),
+            items=[
+                _text("Employee satisfaction: eNPS 35+", "Satysfakcja pracowników: eNPS 35+"),
+                _text("Customer satisfaction: NPS 50+", "Satysfakcja klienta: NPS 50+"),
+            ],
         ),
     ],
 )

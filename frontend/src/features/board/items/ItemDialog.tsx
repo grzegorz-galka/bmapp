@@ -6,7 +6,7 @@
  * dependency. Moving an item to `act` closes it for good, so the dialog - and
  * the ball on the list - ask first.
  */
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   STAGES,
@@ -17,6 +17,7 @@ import {
 } from '../../../api/items';
 import type { Member } from '../../../api/teams';
 import { describeFieldFailure, describeOtherFailure } from '../../../i18n/apiErrors';
+import { Modal } from '../../../components/Modal';
 import { useChangeProblem, useChangeTask, useRaiseProblem, useRaiseTask } from './useItems';
 import teamStyles from '../../teams/teams.module.css';
 import meetingStyles from '../../meetings/meetings.module.css';
@@ -76,42 +77,6 @@ function bodyOf(kind: DialogTarget['kind'], form: Form): Partial<Form> {
 function changedFields(before: Partial<Form>, after: Partial<Form>): Partial<Form> {
   return Object.fromEntries(
     Object.entries(after).filter(([key, value]) => before[key as keyof Form] !== value),
-  );
-}
-
-/** A modal native dialog, open for as long as it is rendered. */
-function Modal({
-  labelledBy,
-  onClose,
-  children,
-}: {
-  labelledBy: string;
-  onClose: () => void;
-  children: ReactNode;
-}) {
-  const dialog = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const element = dialog.current;
-    if (element && !element.open) element.showModal();
-    return () => {
-      if (element?.open) element.close();
-    };
-  }, []);
-
-  return (
-    <dialog
-      ref={dialog}
-      className={styles.dialog}
-      aria-labelledby={labelledBy}
-      onCancel={(event) => {
-        // Escape closes through the same path as the cancel button.
-        event.preventDefault();
-        onClose();
-      }}
-    >
-      {children}
-    </dialog>
   );
 }
 

@@ -164,3 +164,14 @@
   font-size: var(--fs-sm);
   color: var(--bad);
 }
+
+/* The inside of a modal dialog, such as registering a team. */
+.dialogBody {
+  padding: var(--sp-5);
+}
+
+.dialogHeading {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+}

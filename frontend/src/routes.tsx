@@ -7,6 +7,10 @@ import { GlobalMetricsPage } from './features/globalMetrics/GlobalMetricsPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { TeamMeetingsPage } from './features/meetings/TeamMeetingsPage';
 import { MetricSettingsPage } from './features/metrics/MetricSettingsPage';
+import { MyMeetingsPage } from './features/personal/MyMeetingsPage';
+import { MyPulsePage } from './features/personal/MyPulsePage';
+import { MyTeamsPage } from './features/personal/MyTeamsPage';
+import { TeamMetricsPage } from './features/personal/TeamMetricsPage';
 import { TeamMembersPage } from './features/teams/TeamMembersPage';
 import { TeamsPage } from './features/teams/TeamsPage';
 
@@ -34,6 +38,10 @@ export function AppRoutes({ completeSignIn }: { completeSignIn: () => Promise<bo
           path={CALLBACK_PATH.replace(/^\//, '')}
           element={<AuthCallbackPage complete={completeSignIn} />}
         />
+        <Route path="my-teams" element={<MyTeamsPage />} />
+        <Route path="my-meetings" element={<MyMeetingsPage />} />
+        <Route path="my-pulse" element={<MyPulsePage />} />
+        <Route path="team-metrics" element={<TeamMetricsPage />} />
         <Route path="teams" element={<TeamsPage />} />
         {/* A team's own address is its board. */}
         <Route path="teams/:teamId" element={<BoardPage />} />

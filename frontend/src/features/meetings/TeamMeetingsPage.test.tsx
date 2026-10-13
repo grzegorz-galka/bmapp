@@ -306,6 +306,7 @@ describe('the schedule', () => {
   it('is saved with the weekday and time chosen', async () => {
     serve(listing({ schedule: null, proposed: null }), { PUT: jsonResponse({}) });
     await renderPage();
+    await userEvent.click(screen.getByRole('button', { name: en.meetings.setSchedule }));
 
     await userEvent.selectOptions(screen.getByLabelText(en.meetings.weekdayLabel), '2');
     fireEvent.change(screen.getByLabelText(en.meetings.timeLabel), {
@@ -325,10 +326,68 @@ describe('the schedule', () => {
       PUT: errorResponse(422, 'weekday', 'schedule_weekday.out_of_range'),
     });
     await renderPage();
+    await userEvent.click(screen.getByRole('button', { name: en.meetings.setSchedule }));
 
     await userEvent.click(screen.getByRole('button', { name: en.meetings.saveSchedule }));
 
     expect(await screen.findByText(en.errors['schedule_weekday.out_of_range'])).toBeInTheDocument();
+  });
+
+  it('The schedule fields are hidden until asked for', async () => {
+    serve(listing());
+    await renderPage();
+
+    expect(screen.getByText('Wednesday, 13:00')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: en.meetings.changeSchedule })).toBeInTheDocument();
+    expect(screen.queryByLabelText(en.meetings.weekdayLabel)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: en.meetings.saveSchedule }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('A board without a schedule offers to set one', async () => {
+    serve(listing({ schedule: null, proposed: null }));
+    await renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: en.meetings.setSchedule }));
+
+    expect(screen.getByLabelText(en.meetings.weekdayLabel)).toHaveValue('');
+    expect(screen.getByLabelText(en.meetings.timeLabel)).toHaveValue('');
+    expect(screen.getByRole('button', { name: en.meetings.saveSchedule })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: en.meetings.cancel }));
+    expect(screen.queryByLabelText(en.meetings.weekdayLabel)).not.toBeInTheDocument();
+  });
+
+  it('Saving hides the fields', async () => {
+    serve(listing(), { PUT: jsonResponse({}) });
+    await renderPage();
+    await userEvent.click(screen.getByRole('button', { name: en.meetings.changeSchedule }));
+    expect(screen.getByLabelText(en.meetings.weekdayLabel)).toHaveValue('3');
+
+    await userEvent.selectOptions(screen.getByLabelText(en.meetings.weekdayLabel), '4');
+    await userEvent.click(screen.getByRole('button', { name: en.meetings.saveSchedule }));
+
+    await vi.waitFor(() =>
+      expect(screen.queryByLabelText(en.meetings.weekdayLabel)).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('button', { name: en.meetings.changeSchedule })).toBeInTheDocument();
+  });
+
+  it('sizes each field to what it holds', async () => {
+    serve(listing());
+    await renderPage();
+    await userEvent.click(screen.getByRole('button', { name: en.meetings.changeSchedule }));
+    await userEvent.click(screen.getByRole('button', { name: en.meetings.prepare }));
+
+    // The layout itself is the e2e flow's to measure; here, each field
+    // carries its own width rather than the page's.
+    for (const field of [
+      screen.getByLabelText(en.meetings.weekdayLabel),
+      ...screen.getAllByLabelText(en.meetings.timeLabel),
+      prepareForm().getByLabelText(en.meetings.dateLabel),
+    ]) {
+      expect(field.closest('div')!.className).toMatch(/weekdayField|timeField|dateField/);
+    }
   });
 });
 
