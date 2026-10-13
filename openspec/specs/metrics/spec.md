@@ -7,12 +7,22 @@ Defines what a team measures on its board: its metrics, the thresholds that say 
 
 ### Requirement: Define a metric on a board
 
-The system SHALL allow a metric to be added to a board with a name, a unit, 0–6 decimals to show, a direction (`higher_is_better`, `lower_is_better` or `within_band`), an optional group label, a position and an optional owner. The name SHALL be trimmed, at most 200 characters and unique on the board regardless of case, among the board's own metrics and the global metrics it includes. The unit SHALL be at most 20 characters and MAY be empty. An owner SHALL be a team member when named.
+The system SHALL allow a metric to be added to a board with a name, a unit, 0–6 decimals to show, a direction (`higher_is_better`, `lower_is_better` or `within_band`), an optional group of that board and an optional owner. The metric SHALL be placed last in its group, or last among the ungrouped metrics when no group is named. The name SHALL be trimmed, at most 200 characters and unique on the board regardless of case, among the board's own metrics and the global metrics it includes. The unit SHALL be at most 20 characters and MAY be empty. An owner SHALL be a team member when named.
 
 #### Scenario: A metric is added
 
-- **WHEN** a metric is added with the name "Revenue", the unit "mln zł", 1 decimal, the direction `higher_is_better` and the group "Finance"
-- **THEN** it is returned with a unique identifier and those properties, with no threshold, not retired and not global
+- **WHEN** a metric is added with the name "Revenue", the unit "mln zł", 1 decimal, the direction `higher_is_better` and the board's group "Finance"
+- **THEN** it is returned with a unique identifier and those properties, in the group "Finance", with no threshold, not retired and not global
+
+#### Scenario: A new metric is placed last in its group
+
+- **WHEN** a metric is added to a group that already holds two metrics, and another is added with no group to a board with one ungrouped metric
+- **THEN** the first is third in its group, and the second is second among the ungrouped metrics
+
+#### Scenario: The group is not the board's
+
+- **WHEN** a metric is added naming a group that does not exist or belongs to another board
+- **THEN** it is rejected against `group_id` with `metric_group.not_found` and HTTP 404, and no metric is added
 
 #### Scenario: Name is blank, too long or taken
 
@@ -46,12 +56,12 @@ The system SHALL allow a metric to be added to a board with a name, a unit, 0–
 
 ### Requirement: List a board's metrics
 
-The system SHALL return a board's metrics — its own and the global metrics it includes — ordered by display position, then by name. Each metric SHALL carry its properties, whether it is global, whether it is retired, and its threshold in force today, or none. A metric is retired on a board when it is retired there or, for a global metric, retired in the catalogue. Retired metrics SHALL be included and marked as such.
+The system SHALL return a board's metrics — its own and the global metrics it includes — in the board's order: the metrics of each group in the groups' order, each group's in their order within it, then the ungrouped metrics in their order. Each metric SHALL carry its properties, its group (identifier, name and position) or none, its position within its group or among the ungrouped, whether it is global, whether it is retired, and its threshold in force today, or none. A metric is retired on a board when it is retired there or, for a global metric, retired in the catalogue. Retired metrics SHALL be included and marked as such.
 
 #### Scenario: Metrics are returned in display order
 
-- **WHEN** a board's metrics are requested after three were added with positions 3, 1 and 2
-- **THEN** they are returned in positions 1, 2, 3, each with its threshold in force today or none
+- **WHEN** a board has the groups "Quality" then "Finance", with "Bugs" and "Defects" in "Quality" in that order, "Revenue" in "Finance", and "Morale" in no group, and its metrics are requested
+- **THEN** they are returned as "Bugs", "Defects", "Revenue", "Morale", each with its group or none and its threshold in force today or none
 
 #### Scenario: A retired metric is listed as retired
 
@@ -60,17 +70,17 @@ The system SHALL return a board's metrics — its own and the global metrics it 
 
 #### Scenario: Own and global metrics are listed together
 
-- **WHEN** a board with an own metric at position 2 and an included global metric at position 1 is requested
+- **WHEN** a board's group holds an included global metric first and an own metric second, and the board is requested
 - **THEN** the global metric is returned first, marked global, with its placement on this board and the catalogue's threshold in force today, and the own metric second, not marked global
 
 ### Requirement: Change a metric
 
-The system SHALL allow a board's own metric's name, unit, decimals, group label, display position and owner to be changed, subject to the rules for defining one. For a global metric the board includes, only what the `global-metrics` capability allows SHALL change. A metric's direction SHALL NOT change after the metric is added: a request to change it SHALL be rejected with `metric_direction.immutable`, and the metric SHALL be unchanged.
+The system SHALL allow a board's own metric's name, unit, decimals, group and owner to be changed, subject to the rules for defining one. Moving a metric to another group, or out of every group, SHALL place it last there; its order otherwise changes only through the board's layout. For a global metric the board includes, only what the `global-metrics` capability allows SHALL change. A metric's direction SHALL NOT change after the metric is added: a request to change it SHALL be rejected with `metric_direction.immutable`, and the metric SHALL be unchanged.
 
 #### Scenario: A metric is renamed and regrouped
 
-- **WHEN** a metric's name and group label are changed
-- **THEN** it is returned with the new name and group, its recorded values and threshold history unchanged
+- **WHEN** a metric's name is changed and it is moved to another group of the board
+- **THEN** it is returned with the new name, last in the new group, its recorded values and threshold history unchanged
 
 #### Scenario: Changing the direction is refused
 
@@ -204,12 +214,17 @@ The system SHALL compute a value's status when it is read. The status is `no_dat
 
 ### Requirement: Copy a metric from another board
 
-The system SHALL allow a board's own metric, of any board, to be copied onto a board as a new metric of that board's own, optionally under a new name and at a given position. The copy SHALL take the source's unit, decimals, direction, group label and every threshold version, and SHALL NOT take its owner or its values. A global metric SHALL NOT be copied: that is rejected with `metric_copy.source_global`.
+The system SHALL allow a board's own metric, of any board, to be copied onto a board as a new metric of that board's own, optionally under a new name and into a group of the target board, placed last there or last among the ungrouped metrics. The copy SHALL take the source's unit, decimals, direction and every threshold version, and SHALL NOT take its group, its owner or its values. A global metric SHALL NOT be copied: that is rejected with `metric_copy.source_global`.
 
 #### Scenario: A metric is copied with its thresholds
 
-- **WHEN** a leader copies another team's metric "Open bugs" (unit "", `lower_is_better`, group "Quality") with versions effective from 2026-07-01 and 2026-09-01, onto their board
-- **THEN** their board has a new, active metric "Open bugs" with that unit, direction and group, no owner, no values, and two versions with the same effective dates, boundaries and reasons, each recorded by the leader at the time of copying
+- **WHEN** a leader copies another team's metric "Open bugs" (unit "", `lower_is_better`, in that board's group "Quality") with versions effective from 2026-07-01 and 2026-09-01, onto their board, into their board's group "Engineering"
+- **THEN** their board has a new, active metric "Open bugs" with that unit and direction, last in "Engineering", no owner, no values, and two versions with the same effective dates, boundaries and reasons, each recorded by the leader at the time of copying
+
+#### Scenario: A copy with no group is ungrouped
+
+- **WHEN** a metric in a group on its own board is copied onto another board without naming a group
+- **THEN** the copy is last among that board's ungrouped metrics, and no group is added to that board
 
 #### Scenario: The same version is in force on every date
 
@@ -264,3 +279,126 @@ The system SHALL present a board's metrics on its metric settings page with, in 
 
 - **WHEN** creating a metric is rejected because its name is already on the board
 - **THEN** the dialog stays open showing the reason next to the name, with what was typed kept
+
+### Requirement: Define a board's metric groups
+
+The system SHALL allow a group to be added to a board with a name, placed after the board's other groups. The name SHALL be trimmed, at most 200 characters and unique among the board's groups regardless of case. A group MAY hold no metric. Groups SHALL be returned in their order, each with its identifier, name and position.
+
+#### Scenario: A group is added
+
+- **WHEN** a group named "Quality" is added to a board that has the group "Finance"
+- **THEN** it is returned with a unique identifier, the name "Quality" and no metrics, after "Finance"
+
+#### Scenario: Group name is blank, too long or taken
+
+- **WHEN** a group is added with a blank name, a name over 200 characters, or the name of another group of the board in different letter case
+- **THEN** it is rejected against `name` with `metric_group_name.blank`, `metric_group_name.too_long` or `metric_group_name.duplicate` respectively, and no group is added
+
+#### Scenario: Two boards use the same group name
+
+- **WHEN** two different teams each add a group named "Quality"
+- **THEN** both are added
+
+### Requirement: Rename a metric group
+
+The system SHALL allow a board's group to be renamed under the rules for adding one. Its metrics SHALL stay in it, in their order.
+
+#### Scenario: A group is renamed
+
+- **WHEN** the group "Qualty" holding two metrics is renamed "Quality"
+- **THEN** it is returned as "Quality" holding the same two metrics in the same order
+
+#### Scenario: Renamed to a taken name
+
+- **WHEN** a group is renamed to the name of another group of the board in any letter case
+- **THEN** it is rejected against `name` with `metric_group_name.duplicate`, and the group is unchanged
+
+### Requirement: Delete a metric group
+
+The system SHALL allow a board's group to be deleted whether or not it holds metrics. Its metrics SHALL move, in their order, after the board's ungrouped metrics, and SHALL keep their values, thresholds and owners. A group of another board, or one that does not exist, SHALL be rejected with `metric_group.not_found` and HTTP 404.
+
+#### Scenario: A group with metrics is deleted
+
+- **WHEN** the group "Quality" holding "Bugs" then "Defects" is deleted from a board whose only ungrouped metric is "Morale"
+- **THEN** the board has no group "Quality", and its ungrouped metrics are "Morale", "Bugs", "Defects", with their values and thresholds unchanged
+
+#### Scenario: An unknown group is deleted
+
+- **WHEN** a group identifier of another board is deleted through this board
+- **THEN** it is rejected with `metric_group.not_found` and HTTP 404, and both boards are unchanged
+
+### Requirement: Arrange a board's layout
+
+The system SHALL allow a board's layout to be replaced as one: the board's groups in their new order, and each of the board's metrics, retired ones included, in its new order within a group or among the ungrouped. A layout that does not name every group and every metric of the board exactly once, or that names one the board does not have, SHALL be rejected with `metric_layout.stale` and HTTP 409, and the board SHALL be unchanged. A layout SHALL NOT add, rename or delete a group.
+
+#### Scenario: A metric is moved into another group
+
+- **WHEN** a layout moves "Morale" from the ungrouped metrics to first in "Quality", ahead of "Bugs"
+- **THEN** the board's metrics are returned with "Morale" first in "Quality", "Bugs" second, and no ungrouped metric
+
+#### Scenario: Groups are reordered
+
+- **WHEN** a layout puts the group "Finance" before "Quality", which came first
+- **THEN** the groups are returned as "Finance", "Quality", each holding the same metrics in the same order
+
+#### Scenario: A layout made against an outdated board
+
+- **WHEN** a layout is submitted that leaves out a metric added to the board after the layout was read, or names a group since deleted
+- **THEN** it is rejected with `metric_layout.stale` and HTTP 409, and the board's groups and metrics are as they were
+
+### Requirement: The metric settings page arranges groups and metrics by dragging
+
+The metric settings page SHALL show the board's groups in order, each with its metrics, and the ungrouped metrics last under a heading of their own. To a viewer permitted to configure the board it SHALL offer adding, renaming and deleting a group, and SHALL let a metric be dragged within its group, into another group or among the ungrouped, and a group to a new place, saving the resulting layout.
+
+#### Scenario: A metric is dragged into a group
+
+- **WHEN** a leader drags the ungrouped metric "Morale" onto the group "Quality" on the metric settings page
+- **THEN** "Morale" is shown in "Quality", and on reopening the page and on the board it is in "Quality"
+
+#### Scenario: An empty group is shown
+
+- **WHEN** a leader adds the group "Delivery" and adds no metric to it
+- **THEN** the settings page shows "Delivery" with a note that it holds no metric, as a place a metric can be dragged to
+
+#### Scenario: A viewer who may not configure the board cannot arrange it
+
+- **WHEN** a member who may not configure the board opens the metric settings page
+- **THEN** the groups and their metrics are shown in order, nothing can be dragged, and no control to add, rename, delete or move a group or a metric is offered
+
+#### Scenario: A refused layout is reported and the page reloads
+
+- **WHEN** a leader's move is refused with `metric_layout.stale` because the board changed meanwhile
+- **THEN** the page says, in the active language, that the board was changed elsewhere, and shows the board's current layout
+
+### Requirement: Deleting a group that holds metrics asks first
+
+The metric settings page SHALL ask for confirmation before deleting a group that holds metrics, saying how many will become ungrouped, and SHALL delete an empty group without asking.
+
+#### Scenario: Deleting a group asks first
+
+- **WHEN** a leader deletes a group that holds metrics
+- **THEN** the page asks for confirmation, naming how many metrics will become ungrouped, and deletes only when confirmed
+
+#### Scenario: An empty group is deleted at once
+
+- **WHEN** a leader deletes a group that holds no metric
+- **THEN** it is deleted without a confirmation
+
+### Requirement: Groups and metrics can be arranged without dragging
+
+The metric settings page SHALL offer, for every move it offers by dragging, a way to make it from the keyboard alone: moving a metric up or down within its group, moving it to another group or out of every group, and moving a group up or down. Each control SHALL name the metric or group it moves, and the new place SHALL be announced to assistive technology.
+
+#### Scenario: A metric is moved to a group from the keyboard
+
+- **WHEN** a leader, using the keyboard only, chooses to move "Morale" to the group "Quality"
+- **THEN** "Morale" is last in "Quality", the layout is saved, and its new place is announced
+
+#### Scenario: A group is moved up from the keyboard
+
+- **WHEN** a leader, using the keyboard only, moves the second group up
+- **THEN** it becomes the first group, the layout is saved, and its new place is announced
+
+#### Scenario: Moves that go nowhere are not offered
+
+- **WHEN** the first metric of a group and the last group of the board are shown
+- **THEN** no "move up" is offered for that metric and no "move down" for that group
