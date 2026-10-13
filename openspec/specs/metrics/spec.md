@@ -4,6 +4,7 @@ Defines what a team measures on its board: its metrics, the thresholds that say 
 
 ## Requirements
 
+
 ### Requirement: Define a metric on a board
 
 The system SHALL allow a metric to be added to a board with a name, a unit, 0–6 decimals to show, a direction (`higher_is_better`, `lower_is_better` or `within_band`), an optional group label, a position and an optional owner. The name SHALL be trimmed, at most 200 characters and unique on the board regardless of case, among the board's own metrics and the global metrics it includes. The unit SHALL be at most 20 characters and MAY be empty. An owner SHALL be a team member when named.
@@ -239,3 +240,27 @@ The system SHALL allow a board's own metric, of any board, to be copied onto a b
 
 - **WHEN** a leader copies a metric identifier that matches no metric
 - **THEN** it is rejected with `metric.not_found` and HTTP 404
+
+### Requirement: The metric settings page
+
+The system SHALL present a board's metrics on its metric settings page with, in one row at the top, "Create new metric", "Copy from another board" and "Include global metric", each opening its form in a dialog over the page. No form for a new metric SHALL be shown on the page itself. The page SHALL carry no links to the board or the meetings beyond its link back to the board.
+
+#### Scenario: The three ways to add a metric are offered at the top
+
+- **WHEN** a leader opens their team's metric settings
+- **THEN** "Create new metric", "Copy from another board" and "Include global metric" are offered in one row above the metrics, no field for a new metric is shown, and no Board or Meetings button is shown
+
+#### Scenario: A metric is created from the dialog
+
+- **WHEN** the leader chooses "Create new metric", fills in the name, unit, decimals and direction and saves
+- **THEN** the dialog closes and the new metric is listed on the page
+
+#### Scenario: Cancelling leaves the board unchanged
+
+- **WHEN** the leader opens "Create new metric", types a name and cancels
+- **THEN** the dialog closes and no metric is added
+
+#### Scenario: A rejection keeps the dialog open
+
+- **WHEN** creating a metric is rejected because its name is already on the board
+- **THEN** the dialog stays open showing the reason next to the name, with what was typed kept

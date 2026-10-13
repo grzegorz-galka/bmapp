@@ -4,6 +4,7 @@ Registers the teams that hold board meetings and the board that belongs to each 
 
 ## Requirements
 
+
 ### Requirement: Register a team with its board
 
 The system SHALL allow a team to be registered with a name and the email of its leader. Registering a team SHALL create exactly one board definition belonging to that team, named after the team, and SHALL make the employee with that email the team's first member and its leader, creating the employee if no employee with that email exists yet. Each team and each board definition SHALL be assigned an identifier that is unique across all records of its kind and stable for the life of the record.
@@ -104,3 +105,22 @@ The system SHALL allow a board definition's weekly meeting schedule to be set: a
 
 - **WHEN** a board's schedule is changed while its team has meetings opened on the previous weekday
 - **THEN** those meetings keep their dates and start times
+
+### Requirement: A team is registered from a dialog
+
+The system SHALL show the registered teams on the teams page, and SHALL show the form for registering a team only in a dialog opened by "Register team". A registered team SHALL close the dialog and appear in the list; a rejection SHALL keep the dialog open with what was typed.
+
+#### Scenario: The form is hidden until asked for
+
+- **WHEN** an administrator opens the teams page
+- **THEN** the registered teams and a "Register team" button are shown, and no registration field is shown
+
+#### Scenario: A team is registered from the dialog
+
+- **WHEN** the administrator chooses "Register team", enters a name and a leader's email and submits
+- **THEN** the dialog closes and the new team is listed
+
+#### Scenario: A rejection keeps the dialog open
+
+- **WHEN** registering a team is rejected with `team_name.duplicate`
+- **THEN** the dialog stays open, showing the reason next to the name and keeping the name and email typed
