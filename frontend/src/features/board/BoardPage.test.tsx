@@ -8,6 +8,7 @@ import userEvent from '@testing-library/user-event';
 import { Route, Routes, useLocation } from 'react-router';
 import { BoardPage, defaultMeeting } from './BoardPage';
 import { renderWithLanguage } from '../../test/render';
+import { AddressProbe } from '../../test/AddressProbe';
 import { en } from '../../i18n/en';
 import { pl } from '../../i18n/pl';
 import type { Language } from '../../i18n/languages';
@@ -457,5 +458,85 @@ describe('the view switch counts the recorded metrics', () => {
     await user.tab();
 
     expect(await screen.findByRole('button', { name: 'Metrics 13/14' })).toBeInTheDocument();
+  });
+});
+
+describe("the board's back link", () => {
+  /** The board, opened by an entry link that recorded where it was opened from. */
+  async function renderFrom(from: unknown, language: Language = 'en', search = '') {
+    await renderWithLanguage(
+      <>
+        <Routes>
+          <Route path="/teams/:teamId" element={<BoardPage />} />
+          <Route path="*" element={null} />
+        </Routes>
+        <AddressProbe />
+      </>,
+      language,
+      {
+        route: { pathname: `/teams/${TEAM_ID}`, search, state: { from } },
+        auth: { email: MEMBER },
+      },
+    );
+    await screen.findByRole('heading', {
+      name: (language === 'en' ? en : pl).board.heading.replace('{{name}}', 'Platform'),
+    });
+  }
+
+  const viewSwitch = () => screen.getByRole('group', { name: en.pulse.viewSwitchLabel });
+  const viewButton = (index: number) => within(viewSwitch()).getAllByRole('button')[index]!;
+
+  it('The board leads back to the screen it was opened from', async () => {
+    await renderFrom({ screen: 'myMeetings', path: '/my-meetings' });
+
+    await userEvent.click(screen.getByRole('link', { name: en.back.myMeetings }));
+
+    expect(screen.getByTestId('address')).toHaveTextContent(/^\/my-meetings$/);
+  });
+
+  it("The board's own views keep the origin", async () => {
+    const user = userEvent.setup();
+    await renderFrom({ screen: 'dashboard', path: '/' });
+    const back = () => screen.getByRole('link', { name: en.back.dashboard });
+
+    await user.click(viewButton(1));
+    expect(screen.getByTestId('address')).toHaveTextContent('view=pulse');
+    expect(back()).toHaveAttribute('href', '/');
+
+    await user.click(viewButton(2));
+    expect(screen.getByTestId('address')).toHaveTextContent('view=archived');
+    expect(back()).toHaveAttribute('href', '/');
+
+    await user.click(viewButton(0));
+    expect(screen.getByTestId('address')).not.toHaveTextContent('view=');
+    expect(back()).toHaveAttribute('href', '/');
+
+    // Opening the recording view and moving between meetings are view changes too.
+    await user.click(await screen.findByRole('button', { name: en.board.record }));
+    expect(screen.getByTestId('address')).toHaveTextContent('mode=record');
+    expect(back()).toHaveAttribute('href', '/');
+    await user.click(screen.getByRole('button', { name: `← ${en.board.previousMeeting}` }));
+    expect(screen.getByTestId('address')).toHaveTextContent('meeting=m-2026-10-07');
+    expect(back()).toHaveAttribute('href', '/');
+
+    await user.click(back());
+    expect(screen.getByTestId('address')).toHaveTextContent(/^\/$/);
+  });
+
+  it('The back link reads in Polish', async () => {
+    await renderFrom({ screen: 'dashboard', path: '/' }, 'pl');
+
+    expect(screen.getByRole('link', { name: pl.back.dashboard })).toHaveAttribute('href', '/');
+  });
+
+  it('passes itself, with its own origin, to the meetings page and the settings', async () => {
+    const origin = { screen: 'myTeams', path: '/my-teams' };
+    await renderFrom(origin, 'en', '?view=pulse');
+
+    await userEvent.click(screen.getByRole('link', { name: en.board.meetingsLink }));
+
+    expect(JSON.parse(screen.getByTestId('location-state').textContent!)).toEqual({
+      from: { screen: 'board', path: `/teams/${TEAM_ID}?view=pulse`, state: { from: origin } },
+    });
   });
 });

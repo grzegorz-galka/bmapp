@@ -1,10 +1,12 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router';
 import type { Meeting } from '../../api/meetings';
 import type { BoardMetric, MeetingBoard, MetricDefinition } from '../../api/metrics';
 import { describeFailure, isNotFound } from '../../i18n/apiErrors';
 import { useFormat } from '../../i18n/format';
+import { BackLink } from '../../components/BackLink';
+import { useHere } from '../../components/origin';
 import { useAuth } from '../auth/AuthProvider';
 import { useIsAdmin } from '../auth/useCurrentUser';
 import { useMeetings } from '../meetings/useMeetings';
@@ -51,7 +53,13 @@ export function BoardPage() {
   const { email: signedInEmail } = useAuth();
   const team = useTeam(teamId);
   const meetings = useMeetings(teamId);
-  const [search, setSearch] = useSearchParams();
+  const [search, setSearchParams] = useSearchParams();
+  // The board's own views are history entries; each carries the state the
+  // board was opened with on, so switching views keeps its back link (D3).
+  const location = useLocation();
+  const setSearch = (next: Parameters<typeof setSearchParams>[0]) =>
+    setSearchParams(next, { state: location.state });
+  const here = useHere('board');
   const [today] = useState(() => organizationToday());
   const [detail, setDetail] = useState<MetricDefinition | null>(null);
   const closeDetail = useCallback(() => setDetail(null), []);
@@ -72,9 +80,7 @@ export function BoardPage() {
   const teamPath = `/teams/${encodeURIComponent(teamId)}`;
 
   const back = (
-    <Link className={teamStyles.back} to="/teams">
-      {t('board.back')}
-    </Link>
+    <BackLink className={teamStyles.back} fallback={{ to: '/teams', label: t('board.back') }} />
   );
 
   if (team.isPending || meetings.isPending) {
@@ -159,10 +165,10 @@ export function BoardPage() {
       <header className={styles.header}>
         <h1 className={teamStyles.heading}>{t('board.heading', { name: team.data.name })}</h1>
         <nav className={teamStyles.actions} aria-label={t('nav.label')}>
-          <Link className={teamStyles.button} to={`${teamPath}/meetings`}>
+          <Link className={teamStyles.button} to={`${teamPath}/meetings`} state={here}>
             {t('board.meetingsLink')}
           </Link>
-          <Link className={teamStyles.button} to={`${teamPath}/metrics`}>
+          <Link className={teamStyles.button} to={`${teamPath}/metrics`} state={here}>
             {t('board.settingsLink')}
           </Link>
         </nav>
@@ -193,7 +199,9 @@ export function BoardPage() {
             <div className={styles.layout}>
               <p className={styles.layoutMain}>
                 {t('board.noMeetings')}{' '}
-                <Link to={`${teamPath}/meetings`}>{t('board.openMeetingLink')}</Link>
+                <Link to={`${teamPath}/meetings`} state={here}>
+                  {t('board.openMeetingLink')}
+                </Link>
               </p>
               {lists}
             </div>
@@ -337,13 +345,14 @@ function BoardBody({
   onDetail: (metric: MetricDefinition) => void;
 }) {
   const { t } = useTranslation();
+  const here = useHere('board');
 
   if (board.metrics.length === 0) {
     return (
       <p>
         {t('board.noMetrics')}{' '}
         {mayConfigure && (
-          <Link to={`/teams/${encodeURIComponent(teamId)}/metrics`}>
+          <Link to={`/teams/${encodeURIComponent(teamId)}/metrics`} state={here}>
             {t('board.configureLink')}
           </Link>
         )}

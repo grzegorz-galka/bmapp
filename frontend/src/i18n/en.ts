@@ -33,6 +33,18 @@ export const en = {
     globalMetrics: 'Global metrics',
     brandSub: 'Board meetings',
   },
+  // A team page's back link, named after the screen it was opened from.
+  // The screen names match the navigation's (nav.*).
+  back: {
+    dashboard: 'Back to the dashboard',
+    myTeams: 'Back to My teams',
+    myMeetings: 'Back to My meetings',
+    myPulse: 'Back to My pulse check',
+    teams: 'Back to the teams',
+    teamMetrics: 'Back to Team metrics',
+    board: 'Back to the board',
+    meetings: 'Back to the meetings',
+  },
   dashboard: {
     loading: 'Loading the dashboard…',
     loadFailed: 'Could not load the dashboard.',
@@ -362,6 +374,10 @@ export const en = {
     allRecorded: 'Every metric has a number.',
     missingOwner: '{{name}} ({{email}})',
     previous: 'Last meeting: {{value}}',
+    metricColumn: 'Metric',
+    // The column of each row's "Saving…"/"Saved"; its header is read, not shown.
+    stateColumn: 'Save state',
+    unit: 'Unit: {{unit}}',
     value: 'Value',
     comment: 'Comment',
     status: 'Status',
@@ -585,6 +601,8 @@ export const en = {
     signInFailedTitle: 'Sign-in could not be completed',
     signInFailed: 'The response from the identity provider did not match this sign-in. Try again.',
     sessionEnded: 'Your session has ended. Sign in again to continue.',
+    signedOutTitle: 'Signed out',
+    signedOutBody: 'You are signed out. Sign in to see this page.',
     devLoginTitle: 'Sign in (development)',
     devLoginHint:
       'The password is the first character of the email and the first character after each dot, at-sign or other separator - grzegorz.galka@pse.pl signs in with ggpp.',

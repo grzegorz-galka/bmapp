@@ -63,6 +63,9 @@ function rowOf(team: string, date: RegExp): HTMLElement {
 }
 
 const address = () => screen.getByTestId('address');
+/** The state the action navigated with: where the board was opened from. */
+const navigatedState = () => JSON.parse(screen.getByTestId('location-state').textContent!);
+const FROM_DASHBOARD = { from: { screen: 'dashboard', path: '/' } };
 
 describe('the meeting rows', () => {
   it("Today's and the next meeting are listed", async () => {
@@ -129,6 +132,7 @@ describe('Prepare data', () => {
     await userEvent.click(screen.getByRole('button', { name: en.meetingsTile.prepare }));
 
     expect(address()).toHaveTextContent('/teams/platform-core?meeting=meeting-next&mode=record');
+    expect(navigatedState()).toEqual(FROM_DASHBOARD);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
@@ -142,6 +146,7 @@ describe('Fill in the pulse check', () => {
     expect(address()).toHaveTextContent(
       '/teams/platform-core?meeting=meeting-today&view=pulse&mode=answer',
     );
+    expect(navigatedState()).toEqual(FROM_DASHBOARD);
   });
 
   it('An answered pulse check can be changed', async () => {
@@ -164,6 +169,7 @@ describe('Start a meeting', () => {
     await userEvent.click(screen.getByRole('button', { name: en.meetingsTile.start }));
 
     expect(address()).toHaveTextContent(/^\/teams\/platform-core\?meeting=meeting-today$/);
+    expect(navigatedState()).toEqual(FROM_DASHBOARD);
     // Starting records nothing.
     expect(fetchMock).not.toHaveBeenCalled();
   });

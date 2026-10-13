@@ -8,7 +8,8 @@
  *
  * A person signs in through a login window with an email and the password
  * derived from it. Nothing is signed in on its own: the window opens when the
- * page loads with no session, and again whenever "Sign in" is chosen.
+ * page loads with no session, after signing out, and whenever "Sign in" is
+ * chosen.
  *
  * The token it obtains is signed with an algorithm a broker-backed server
  * never accepts, so nothing here can reach a deployed one.
@@ -92,6 +93,9 @@ export function DevAuthProvider({ children }: { children: ReactNode }) {
     setAccessToken(null);
     setEmail(null);
     setStatus('signedOut');
+    // As on a page loaded with no session: the window is the way back in, and
+    // it is drawn over the signed-out panel.
+    setWindowOpen(true);
     // As in the broker-backed provider: what was fetched belonged to whoever
     // has just signed out.
     queryClient.clear();

@@ -10,6 +10,8 @@ import {
   isNotFound,
 } from '../../i18n/apiErrors';
 import { useFormat } from '../../i18n/format';
+import { BackLink } from '../../components/BackLink';
+import { useHere } from '../../components/origin';
 import { useAuth } from '../auth/AuthProvider';
 import { useIsAdmin } from '../auth/useCurrentUser';
 import { teamAuthority } from '../teams/teamAuthority';
@@ -36,11 +38,10 @@ export function TeamMeetingsPage() {
   // Upcoming and past split at the moment the page was opened, by the
   // instant each meeting starts - read once, as the dashboard's countdown does.
   const [now] = useState(() => Date.now());
+  const here = useHere('meetings');
 
   const back = (
-    <Link className={teamStyles.back} to="/teams">
-      {t('meetings.back')}
-    </Link>
+    <BackLink className={teamStyles.back} fallback={{ to: '/teams', label: t('meetings.back') }} />
   );
 
   if (team.isPending || meetings.isPending) {
@@ -81,10 +82,18 @@ export function TeamMeetingsPage() {
       {back}
       <h1 className={teamStyles.heading}>{t('meetings.heading', { name: team.data.name })}</h1>
       <nav className={`${teamStyles.actions} ${styles.section}`} aria-label={t('nav.label')}>
-        <Link className={teamStyles.button} to={`/teams/${encodeURIComponent(teamId)}`}>
+        <Link
+          className={teamStyles.button}
+          to={`/teams/${encodeURIComponent(teamId)}`}
+          state={here}
+        >
           {t('teams.boardLink')}
         </Link>
-        <Link className={teamStyles.button} to={`/teams/${encodeURIComponent(teamId)}/metrics`}>
+        <Link
+          className={teamStyles.button}
+          to={`/teams/${encodeURIComponent(teamId)}/metrics`}
+          state={here}
+        >
           {t('board.settingsLink')}
         </Link>
       </nav>

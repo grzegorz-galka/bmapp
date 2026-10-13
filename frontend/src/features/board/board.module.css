@@ -158,33 +158,49 @@
   margin: var(--sp-3) 0;
 }
 
-.recordFields {
-  display: flex;
-  flex: 1 1 28rem;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--sp-2);
+/*
+ * One row per metric, one column per field. The comment takes what width is
+ * left; the other columns size to their content.
+ */
+.recordTable {
+  width: 100%;
+  border-collapse: collapse;
 }
 
-/* Scoped, so it outranks the shared field's flexible width. */
-.recordFields .valueField {
-  flex: 0 0 auto;
+.recordTable th,
+.recordTable td {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.recordTable thead th {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.recordTable td:nth-child(4) {
+  width: 100%;
+}
+
+.metricCell {
+  min-width: 12rem;
+  font-weight: normal;
 }
 
 /* Ten characters and the field's padding: no wider than a number needs. */
-.recordFields .valueField input {
+.recordTable .valueInput {
   width: 12ch;
-}
-
-.recordFields .commentField {
-  flex: 1 1 14rem;
 }
 
 /* The colour set by hand, as one toggle of four: automatic, green, amber, red. */
 .statusField {
-  flex: none;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: var(--sp-1);
   min-width: 0;
   margin: 0;
@@ -233,30 +249,86 @@
   outline-offset: -2px;
 }
 
-.unit {
-  padding-bottom: 9px;
-  color: var(--ink-2);
-}
-
 .rowState {
   min-width: 5rem;
+  max-width: 14rem;
   font-size: var(--fs-sm);
   color: var(--ink-2);
 }
 
-.readValue {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-2);
+.recordTable .readValue {
   font-family: var(--font-mono);
+  white-space: nowrap;
 }
 
-.rowComment {
-  flex-basis: 100%;
-  margin: 0;
+.recordTable .rowComment {
   font-size: var(--fs-sm);
   font-style: italic;
+}
+
+/*
+ * A narrow screen stacks each row as a card: the header is hidden and each
+ * cell names its column from data-label, so there is no second markup.
+ */
+@media (max-width: 40rem) {
+  .recordTable,
+  .recordTable tbody,
+  .recordTable tr,
+  .recordTable th,
+  .recordTable td {
+    display: block;
+    width: auto;
+  }
+
+  .recordTable thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .recordTable tr {
+    margin-bottom: var(--sp-3);
+    padding: var(--sp-2) 0;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+  }
+
+  .recordTable th,
+  .recordTable td {
+    border-bottom: 0;
+  }
+
+  .recordTable td:nth-child(4) {
+    width: auto;
+  }
+
+  .recordTable td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: var(--sp-1);
+    font-size: var(--fs-sm);
+    color: var(--ink-2);
+  }
+
+  /* The row's name is its heading, and "Saved" needs no caption. */
+  .recordTable .rowState::before {
+    content: none;
+  }
+
+  .recordTable td:empty {
+    display: none;
+  }
+
+  .metricCell {
+    min-width: 0;
+  }
+
+  .rowState {
+    max-width: none;
+  }
 }
 
 /* The metric detail, in a modal dialog over the board. */

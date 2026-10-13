@@ -6,7 +6,7 @@
  * does with what the library reports, not about the library.
  */
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { I18nextProvider } from 'react-i18next';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -15,6 +15,10 @@ import i18n from '../../i18n';
 import { en } from '../../i18n/en';
 import { AuthProvider, useAuth } from './AuthProvider';
 import { resetAuthForTests } from '../../api/client';
+import { MemoryRouter } from 'react-router';
+import { AppRoutes } from '../../routes';
+import { ThemeProvider } from '../../theme/ThemeProvider';
+import { dashboardSummary } from '../dashboard/dashboardFixture';
 
 afterEach(() => {
   resetAuthForTests();
@@ -81,6 +85,44 @@ async function renderProbe(manager: UserManager) {
   );
 }
 
+/**
+ * The provider around the whole route shell, on My teams, with the probe
+ * beside it: for what the person sees in the page's place.
+ */
+async function renderShell(manager: UserManager) {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const url = String(input);
+    const body = url.endsWith('/dashboard')
+      ? dashboardSummary()
+      : url.endsWith('/auth/me')
+        ? { email: 'jan.kowalski@pse.pl', is_admin: false }
+        : [];
+    return new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  });
+  await i18n.changeLanguage('en');
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <I18nextProvider i18n={i18n}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider userManager={manager}>
+          <ThemeProvider>
+            <MemoryRouter initialEntries={['/my-teams']}>
+              <Probe />
+              <AppRoutes completeSignIn={async () => true} />
+            </MemoryRouter>
+          </ThemeProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </I18nextProvider>,
+  );
+}
+
+/** The page's place: the panel shown in it, or the page itself. */
+const page = () => screen.getByRole('main');
+
 describe('restoring a session', () => {
   it('signs the person back in from the broker session after a reload', async () => {
     const { manager } = fakeManager({ signinSilent: vi.fn(async () => signedInUser()) });
@@ -129,14 +171,25 @@ describe('signing in and out', () => {
 
   it('discards the tokens and ends the session at the broker', async () => {
     const { manager } = fakeManager({ signinSilent: vi.fn(async () => signedInUser()) });
-    await renderProbe(manager);
+    await renderShell(manager);
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('signedIn'));
+    expect(
+      await screen.findByRole('heading', { name: en.personal.teamsHeading }),
+    ).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: en.auth.signOut }));
 
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('signedOut'));
     expect(screen.getByTestId('email')).toHaveTextContent('(nobody)');
     expect(manager.signoutRedirect).toHaveBeenCalled();
+    // The signed-out panel takes the page's place.
+    expect(
+      screen.queryByRole('heading', { name: en.personal.teamsHeading }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(page()).getByRole('heading', { name: en.auth.signedOutTitle }),
+    ).toBeInTheDocument();
+    expect(within(page()).getByRole('button', { name: en.auth.signIn })).toBeInTheDocument();
   });
 });
 
@@ -158,13 +211,20 @@ describe('renewing a session', () => {
     const { manager, handlers } = fakeManager({
       signinSilent: vi.fn(async () => signedInUser()),
     });
-    await renderProbe(manager);
+    await renderShell(manager);
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('signedIn'));
+    await screen.findByRole('heading', { name: en.personal.teamsHeading });
 
-    handlers.renewError.forEach((handle) => handle());
+    act(() => handlers.renewError.forEach((handle) => handle()));
 
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('ended'));
     expect(manager.signinRedirect).not.toHaveBeenCalled();
+    // Said in the panel that takes the page's place, with the way back in.
+    expect(
+      screen.queryByRole('heading', { name: en.personal.teamsHeading }),
+    ).not.toBeInTheDocument();
+    expect(page()).toHaveTextContent(en.auth.sessionEnded);
+    expect(within(page()).getByRole('button', { name: en.auth.signIn })).toBeInTheDocument();
   });
 });
 

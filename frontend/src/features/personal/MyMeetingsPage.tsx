@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
+import { useHere } from '../../components/origin';
 import { useTranslation } from 'react-i18next';
 import { useFormat } from '../../i18n/format';
 import { useDashboardSummary } from '../dashboard/useDashboardSummary';
@@ -67,6 +68,7 @@ function Section({
   meetings: TeamMeeting[];
 }) {
   const { t } = useTranslation();
+  const here = useHere('myMeetings');
   const format = useFormat();
   return (
     <section className={meetingStyles.section} aria-labelledby={id}>
@@ -83,6 +85,7 @@ function Section({
                 <Link
                   className={styles.itemName}
                   to={`/teams/${encodeURIComponent(meeting.team_id)}?meeting=${encodeURIComponent(meeting.id)}`}
+                  state={here}
                   aria-label={t('personal.meetingLabel', {
                     team: meeting.team,
                     date: format.meetingDate(meeting.date),

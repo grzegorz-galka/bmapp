@@ -38,20 +38,36 @@ test('the dashboard loads its summary for the signed-in person', async ({ page }
   await expect(header(page).getByText(ADMIN_EMAIL, { exact: true })).toBeVisible();
 });
 
-test('signing out leaves no identity and offers the way back in', async ({ page }) => {
-  await signInAs(page, ADMIN_EMAIL);
-  await page.goto('/');
+test('signing out leaves no identity and offers the way back in', async ({ page, request }) => {
+  // Signed in by hand rather than through `signInAs`, whose handler would
+  // answer the window that signing out opens before it could be seen.
+  const name = `E2E Signed Out ${uniqueSuffix()}`;
+  const admin = await apiAs(request, ADMIN_EMAIL);
+  const team = await admin.registerTeam(name, `e2e.signedout.${uniqueSuffix()}@example.com`);
+  await page.goto(`/teams/${team.id}`);
+  await fillLoginWindow(loginWindow(page), ADMIN_EMAIL);
+  const board = page.getByRole('heading', { name: `Board of ${name}` });
+  await expect(board).toBeVisible();
   await expect(header(page).getByText(ADMIN_EMAIL, { exact: true })).toBeVisible();
 
   await header(page)
     .getByRole('button', { name: new RegExp(ADMIN_EMAIL, 'i') })
     .click();
 
-  await expect(header(page).getByRole('button', { name: en.auth.signIn })).toBeVisible();
+  // The board gives way to the signed-out panel, rather than hanging on its
+  // loading text with every request refused; the login window opens over it.
+  await expect(board).toBeHidden();
+  await expect(page.getByRole('heading', { name: en.auth.signedOutTitle })).toBeVisible();
+  await expect(page.getByText(/Loading/)).toHaveCount(0);
+  await expect(loginWindow(page)).toBeVisible();
   await expect(header(page).getByText(ADMIN_EMAIL, { exact: true })).toBeHidden();
-  // And what was fetched for them is gone with the session, rather than
-  // waiting on the page for whoever signs in next.
-  await expect(page.getByText(`Assigned to ${ADMIN_EMAIL}`)).toBeHidden();
+
+  // Signing in again shows the page the person was on.
+  await fillLoginWindow(loginWindow(page), ADMIN_EMAIL);
+  await expect(loginWindow(page)).toBeHidden();
+  await expect(board).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/teams/${team.id}$`));
+  await expect(header(page).getByText(ADMIN_EMAIL, { exact: true })).toBeVisible();
 });
 
 /*

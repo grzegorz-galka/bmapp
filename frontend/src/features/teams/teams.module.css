@@ -172,12 +172,20 @@
   color: var(--bad);
 }
 
-/* The inside of a modal dialog, such as registering a team. */
-.dialogBody {
+/* Registering a team: a section of the page, above the list it adds to. */
+.registerSection {
+  margin-bottom: var(--sp-6);
   padding: var(--sp-5);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
 }
 
-.dialogHeading {
+.registerSection .form {
+  margin-bottom: 0;
+}
+
+.sectionHeading {
   margin: 0 0 var(--sp-4);
   font-size: var(--fs-xl);
   font-weight: 600;

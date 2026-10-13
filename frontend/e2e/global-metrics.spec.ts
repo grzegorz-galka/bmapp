@@ -36,11 +36,16 @@ test('a global metric is defined, included in a board and recorded there', async
   await signInAs(page, ADMIN_EMAIL);
   await page.goto('/global-metrics');
   await expect(page.getByRole('heading', { name: en.globalMetrics.heading })).toBeVisible();
-  await page.getByLabel(en.metrics.nameLabel).fill(name);
-  await page.getByLabel(en.metrics.unitLabel).fill('%');
-  await page.getByLabel(en.metrics.decimalsLabel).fill('1');
-  await page.getByLabel(en.metrics.directionLabel).selectOption('higher_is_better');
+  // No add form on the page itself: it opens in a dialog.
+  await expect(page.getByLabel(en.metrics.nameLabel)).toBeHidden();
   await page.getByRole('button', { name: en.globalMetrics.add, exact: true }).click();
+  const adding = page.getByRole('dialog', { name: en.globalMetrics.add });
+  await adding.getByLabel(en.metrics.nameLabel).fill(name);
+  await adding.getByLabel(en.metrics.unitLabel).fill('%');
+  await adding.getByLabel(en.metrics.decimalsLabel).fill('1');
+  await adding.getByLabel(en.metrics.directionLabel).selectOption('higher_is_better');
+  await adding.getByRole('button', { name: en.metrics.add, exact: true }).click();
+  await expect(adding).toBeHidden();
   const row = page
     .getByRole('list', { name: en.globalMetrics.listLabel })
     .getByRole('listitem')

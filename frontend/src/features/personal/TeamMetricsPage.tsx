@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { useHere } from '../../components/origin';
 import { useTranslation } from 'react-i18next';
 import { useDashboardSummary } from '../dashboard/useDashboardSummary';
 import { useTeams } from '../teams/useTeams';
@@ -11,6 +12,7 @@ import styles from '../teams/teams.module.css';
  */
 export function TeamMetricsPage() {
   const { t } = useTranslation();
+  const here = useHere('teamMetrics');
   const teams = useTeams();
   const summary = useDashboardSummary();
   const mine = new Set((summary.data?.teams ?? []).map((team) => team.id));
@@ -38,6 +40,7 @@ export function TeamMetricsPage() {
                   <Link
                     className={styles.itemName}
                     to={`/teams/${encodeURIComponent(team.id)}/metrics`}
+                    state={here}
                   >
                     {team.name}
                   </Link>

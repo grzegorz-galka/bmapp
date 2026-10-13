@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { Link } from 'react-router';
+import { useHere } from '../../components/origin';
 import { useTranslation } from 'react-i18next';
 import { getPulse } from '../../api/pulse';
 import type { Meeting } from '../../api/meetings';
@@ -20,6 +21,7 @@ import meetingStyles from '../meetings/meetings.module.css';
  */
 export function MyPulsePage() {
   const { t } = useTranslation();
+  const here = useHere('myPulse');
   const format = useFormat();
   const summary = useDashboardSummary();
   const teams = summary.data?.teams ?? [];
@@ -89,6 +91,7 @@ export function MyPulsePage() {
                           <Link
                             className={answered ? styles.button : styles.primary}
                             to={`${teamPath}?meeting=${encodeURIComponent(meeting.id)}&view=pulse&mode=answer`}
+                            state={here}
                             aria-label={t(
                               answered ? 'personal.changeAnswerLabel' : 'personal.answerLabel',
                               { team: team.name, date },
@@ -105,6 +108,7 @@ export function MyPulsePage() {
               <p>
                 <Link
                   to={`${teamPath}?view=pulse`}
+                  state={here}
                   aria-label={t('personal.resultsLabel', { team: team.name })}
                 >
                   {t('personal.results')}

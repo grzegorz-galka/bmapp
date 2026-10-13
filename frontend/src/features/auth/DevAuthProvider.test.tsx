@@ -166,6 +166,21 @@ describe('DevAuthProvider', () => {
     expect(loginWindow()).toBeInTheDocument();
   });
 
+  it('The window opens after signing out', async () => {
+    fakeBackend();
+    await renderSession();
+    await signInThroughTheWindow();
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('signedIn'));
+    expect(loginWindow()).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: en.auth.signOut }));
+
+    expect(screen.getByTestId('status')).toHaveTextContent('signedOut');
+    expect(loginWindow()).toBeInTheDocument();
+    expect(screen.getByLabelText(en.auth.devLoginEmail)).toHaveValue(EMAIL);
+    expect(screen.getByLabelText(en.auth.devLoginPassword)).toHaveValue('');
+  });
+
   it('asks again after a reload, with the email remembered and the password empty', async () => {
     fakeBackend();
     const first = await renderSession();

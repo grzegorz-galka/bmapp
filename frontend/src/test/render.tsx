@@ -10,15 +10,18 @@ import type { ReactElement } from 'react';
 import { render } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, type InitialEntry } from 'react-router';
 import i18n from '../i18n';
 import { AuthContext, type AuthState } from '../features/auth/AuthProvider';
 import type { Language } from '../i18n/languages';
 import { ThemeProvider } from '../theme/ThemeProvider';
 
 interface Options {
-  /** The address to start at. Only matters for anything that routes. */
-  route?: string;
+  /**
+   * The address to start at. Only matters for anything that routes. An object
+   * also carries the location state, as an entry link with `state` passes it.
+   */
+  route?: InitialEntry;
   /**
    * Who is viewing. Defaults to a signed-in person who is not an
    * administrator, because that is what most of the interface is for.

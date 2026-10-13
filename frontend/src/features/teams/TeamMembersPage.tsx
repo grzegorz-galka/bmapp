@@ -14,6 +14,7 @@ import {
 } from './useTeams';
 import { useAuth } from '../auth/AuthProvider';
 import { useIsAdmin } from '../auth/useCurrentUser';
+import { BackLink } from '../../components/BackLink';
 import styles from './teams.module.css';
 
 export function TeamMembersPage() {
@@ -55,9 +56,7 @@ export function TeamMembersPage() {
   }
 
   const back = (
-    <Link className={styles.back} to="/teams">
-      {t('members.back')}
-    </Link>
+    <BackLink className={styles.back} fallback={{ to: '/teams', label: t('members.back') }} />
   );
 
   if (team.isPending) {
@@ -72,7 +71,14 @@ export function TeamMembersPage() {
   if (team.isError) {
     return (
       <main className={styles.page}>
-        {back}
+        {isNotFound(team.error) ? (
+          // Not a back link: with no such team, the way on is the list of teams.
+          <Link className={styles.back} to="/teams">
+            {t('members.back')}
+          </Link>
+        ) : (
+          back
+        )}
         {isNotFound(team.error) ? (
           <h1 className={styles.heading}>{t('members.notFound')}</h1>
         ) : (

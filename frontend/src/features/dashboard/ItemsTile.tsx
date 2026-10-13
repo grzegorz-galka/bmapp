@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import type { AssignedItem, DashboardTeam, Funnel } from '../../api/dashboard';
 import { useFormat } from '../../i18n/format';
 import { ArchiveIcon, FunnelIcon, ProblemIcon, TaskIcon } from '../../components/icons';
+import { useHere } from '../../components/origin';
 import { PdcaBall } from '../board/items/PdcaBall';
 import styles from './ItemsTile.module.css';
 
@@ -88,6 +89,7 @@ function FunnelStages({ funnel }: { funnel: Funnel }) {
 /** Each team's problems and tasks lists on its board, and its archive. */
 function TeamLinks({ teams }: { teams: DashboardTeam[] }) {
   const { t } = useTranslation();
+  const here = useHere('dashboard');
 
   return (
     <section aria-labelledby="team-lists-heading" className={styles.teamLinks}>
@@ -99,15 +101,15 @@ function TeamLinks({ teams }: { teams: DashboardTeam[] }) {
           <li key={team.id} className={styles.teamRow}>
             <span className={styles.teamName}>{team.name}</span>
             <span className={styles.links}>
-              <Link to={`${boardPath(team.id)}#problems`} className={styles.link}>
+              <Link to={`${boardPath(team.id)}#problems`} state={here} className={styles.link}>
                 <ProblemIcon />
                 {t('itemsTile.problemsLink')}
               </Link>
-              <Link to={`${boardPath(team.id)}#tasks`} className={styles.link}>
+              <Link to={`${boardPath(team.id)}#tasks`} state={here} className={styles.link}>
                 <TaskIcon />
                 {t('itemsTile.tasksLink')}
               </Link>
-              <Link to={`${boardPath(team.id)}?view=archived`} className={styles.link}>
+              <Link to={`${boardPath(team.id)}?view=archived`} state={here} className={styles.link}>
                 <ArchiveIcon />
                 {t('itemsTile.archiveLink')}
               </Link>
@@ -130,6 +132,7 @@ function TeamLinks({ teams }: { teams: DashboardTeam[] }) {
  */
 function AssignedItems({ items, email }: { items: AssignedItem[]; email: string }) {
   const { t } = useTranslation();
+  const here = useHere('dashboard');
   const format = useFormat();
 
   return (
@@ -152,6 +155,7 @@ function AssignedItems({ items, email }: { items: AssignedItem[]; email: string 
               <div className={styles.identity}>
                 <Link
                   to={`${boardPath(item.team_id)}#${LIST_FRAGMENT[item.kind]}`}
+                  state={here}
                   className={styles.summary}
                 >
                   {item.summary}

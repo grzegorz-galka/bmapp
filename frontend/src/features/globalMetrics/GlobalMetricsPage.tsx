@@ -7,6 +7,7 @@ import { useFormat } from '../../i18n/format';
 import { useIsAdmin } from '../auth/useCurrentUser';
 import { describeThreshold } from '../metrics/display';
 import { MetricForm } from '../metrics/MetricForm';
+import { Modal } from '../../components/Modal';
 import { ThresholdDialog, ThresholdHistory } from '../metrics/thresholds';
 import {
   useAddGlobalMetric,
@@ -18,6 +19,7 @@ import {
 } from './useGlobalMetrics';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
+import metricStyles from '../metrics/metrics.module.css';
 
 /**
  * The company-wide catalogue of global metrics.
@@ -65,7 +67,33 @@ const BLANK: MetricCreate = {
   owner_employee_id: null,
 };
 
+/**
+ * "Add global metric" and the form it opens in a dialog, as "Create new
+ * metric" does on a board's settings page, so the page itself stays the
+ * catalogue.
+ */
 function AddGlobalMetric() {
+  const { t } = useTranslation();
+  const [adding, setAdding] = useState(false);
+
+  return (
+    <>
+      <div className={metricStyles.addRow}>
+        <button
+          type="button"
+          className={teamStyles.primary}
+          aria-haspopup="dialog"
+          onClick={() => setAdding(true)}
+        >
+          {t('globalMetrics.add')}
+        </button>
+      </div>
+      {adding && <AddGlobalMetricDialog onClose={() => setAdding(false)} />}
+    </>
+  );
+}
+
+function AddGlobalMetricDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const add = useAddGlobalMetric();
   const [draft, setDraft] = useState<MetricCreate>(BLANK);
@@ -73,20 +101,32 @@ function AddGlobalMetric() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const { name, unit, decimals, direction } = draft;
-    add.mutate({ name, unit, decimals, direction }, { onSuccess: () => setDraft(BLANK) });
+    // A rejection keeps the dialog open with what was typed.
+    add.mutate({ name, unit, decimals, direction }, { onSuccess: onClose });
   }
 
   return (
-    <MetricForm
-      idPrefix="new-global-metric"
-      draft={draft}
-      onChange={setDraft}
-      onSubmit={handleSubmit}
-      error={add.error}
-      submitLabel={add.isPending ? t('metrics.adding') : t('globalMetrics.add')}
-      pending={add.isPending}
-      placement={false}
-    />
+    <Modal labelledBy="new-global-metric-heading" onClose={onClose}>
+      <section className={metricStyles.dialogBody}>
+        <h2
+          id="new-global-metric-heading"
+          className={`${meetingStyles.subheading} ${metricStyles.dialogHeading}`}
+        >
+          {t('globalMetrics.add')}
+        </h2>
+        <MetricForm
+          idPrefix="new-global-metric"
+          draft={draft}
+          onChange={setDraft}
+          onSubmit={handleSubmit}
+          onCancel={onClose}
+          error={add.error}
+          submitLabel={add.isPending ? t('metrics.adding') : t('metrics.add')}
+          pending={add.isPending}
+          placement={false}
+        />
+      </section>
+    </Modal>
   );
 }
 
