@@ -69,6 +69,7 @@ from app.models import (
     Employee,
     Meeting,
     Metric,
+    MetricGroup,
     MetricThreshold,
     MetricValue,
     MetricValueCorrection,
@@ -573,7 +574,10 @@ def load(
 
     projects = list((collections.get("projects") or {}).values())
     kpi_metrics: dict[str, uuid.UUID] = {}
-    position = 0
+    # A group per legacy KPI group, in order of first appearance; each
+    # metric last in its group, or among the ungrouped when the KPI has none.
+    groups: dict[str, MetricGroup] = {}
+    next_position: dict[uuid.UUID | None, int] = {}
     for series in _series(definitions):
         kpi = series.kpi
         if kpi.computed == "pulse":
@@ -582,7 +586,6 @@ def load(
             summary.skipped["pulse metric"] = summary.skipped.get("pulse metric", 0) + 1
             continue
         unit, decimals, _ = FORMATS[kpi.fmt]
-        position += 10
         metric = Metric(
             team_id=team.id,
             name=series.name,
@@ -594,10 +597,12 @@ def load(
         session.flush()
         if series.key == f"k_{kpi.id}":
             kpi_metrics[kpi.id] = metric.id
+        group = _group(session, team, groups, kpi.group)
+        group_id = group.id if group else None
+        position = next_position.get(group_id, 0)
+        next_position[group_id] = position + 1
         session.add(
-            BoardMetric(
-                team_id=team.id, metric_id=metric.id, position=position, group_label=kpi.group
-            )
+            BoardMetric(team_id=team.id, metric_id=metric.id, group_id=group_id, position=position)
         )
         summary.metrics += 1
 
@@ -783,6 +788,21 @@ def _in_force(versions: Sequence[Version], date: datetime.date) -> Bounds | None
 
 
 # ---------------------------------------------------------------- command line
+
+
+def _group(
+    session: Session, team: Team, groups: dict[str, MetricGroup], name: str | None
+) -> MetricGroup | None:
+    """The board's group of this legacy name, added after the others the first time."""
+    label = (name or "").strip()
+    if not label:
+        return None
+    key = label.lower()
+    if key not in groups:
+        group = MetricGroup(id=uuid.uuid4(), team_id=team.id, name=label, position=len(groups))
+        session.add(group)
+        groups[key] = group
+    return groups[key]
 
 
 def main(argv: Sequence[str] | None = None) -> int:

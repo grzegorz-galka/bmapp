@@ -76,9 +76,9 @@ def test_a_global_metric_counts_towards_a_boards_completeness(
     team = register(client)
     other = register(client, "Billing", "lead.billing@example.com")
     owner = member_id(add(client, team["id"], OWNER), OWNER)
-    own = [add_metric(client, team["id"], name, position=i) for i, name in enumerate("ABC")]
+    own = [add_metric(client, team["id"], name) for name in "ABC"]
     availability = seed_global_metric(session)
-    include(client, team["id"], availability, position=9, owner_employee_id=owner)
+    include(client, team["id"], availability, owner_employee_id=owner)
     include(client, other["id"], availability)
     meeting = open_meeting(client, team["id"], "2026-10-14")
     for metric in own:

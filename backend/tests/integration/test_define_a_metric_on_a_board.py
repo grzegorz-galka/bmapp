@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.metric_enums import Direction
 from app.models import BoardMetric, Metric
 from tests.integration.meetings_api import error_of
-from tests.integration.metrics_api import add_metric, metrics_of
+from tests.integration.metrics_api import add_group, add_metric, metrics_of, placement
 from tests.integration.teams_api import add, member_id, register
 
 MEMBER = "member@example.com"
@@ -18,6 +18,7 @@ MEMBER = "member@example.com"
 def test_a_metric_is_added(client: TestClient) -> None:
     """Scenario: A metric is added."""
     team = register(client)
+    finance = add_group(client, team["id"], "Finance")
 
     metric = add_metric(
         client,
@@ -26,18 +27,60 @@ def test_a_metric_is_added(client: TestClient) -> None:
         unit="mln zł",
         decimals=1,
         direction="higher_is_better",
-        group_label="Finance",
+        group_id=finance["id"],
     )
 
     uuid.UUID(metric["id"])
-    assert {k: metric[k] for k in ("name", "unit", "decimals", "direction", "group_label")} == {
+    assert {k: metric[k] for k in ("name", "unit", "decimals", "direction", "group")} == {
         "name": "Revenue",
         "unit": "mln zł",
         "decimals": 1,
         "direction": "higher_is_better",
-        "group_label": "Finance",
+        "group": {"id": finance["id"], "name": "Finance", "position": 0},
     }
     assert (metric["threshold"], metric["retired"], metric["team_id"]) == (None, False, team["id"])
+    assert metric["scope"] == "board"
+
+
+def test_a_new_metric_is_placed_last_in_its_group(client: TestClient) -> None:
+    """Scenario: A new metric is placed last in its group."""
+    team = register(client)
+    quality = add_group(client, team["id"], "Quality")
+    add_metric(client, team["id"], "Bugs", group_id=quality["id"])
+    add_metric(client, team["id"], "Defects", group_id=quality["id"])
+    add_metric(client, team["id"], "Morale")
+
+    grouped = add_metric(client, team["id"], "Incidents", group_id=quality["id"])
+    ungrouped = add_metric(client, team["id"], "Revenue")
+
+    assert placement(grouped) == ("Quality", 2)
+    assert placement(ungrouped) == (None, 1)
+    assert [m["name"] for m in metrics_of(client, team["id"])] == [
+        "Bugs",
+        "Defects",
+        "Incidents",
+        "Morale",
+        "Revenue",
+    ]
+
+
+@pytest.mark.parametrize("whose", ["missing", "another board's"])
+def test_the_group_is_not_the_boards(client: TestClient, whose: str) -> None:
+    """Scenario: The group is not the board's."""
+    team = register(client, "Alpha", "lead.alpha@example.com")
+    other = register(client, "Beta", "lead.beta@example.com")
+    group_id = (
+        str(uuid.uuid4()) if whose == "missing" else add_group(client, other["id"], "Q")["id"]
+    )
+
+    response = client.post(
+        f"/teams/{team['id']}/metrics",
+        json={"name": "Revenue", "direction": "higher_is_better", "group_id": group_id},
+    )
+
+    assert response.status_code == 404
+    assert error_of(response) == ("group_id", "metric_group.not_found")
+    assert metrics_of(client, team["id"]) == []
 
 
 @pytest.mark.parametrize(

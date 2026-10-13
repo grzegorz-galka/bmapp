@@ -12,11 +12,14 @@ from sqlalchemy.orm import Session
 from tests.integration.global_metrics_seed import include, seed_global_metric
 from tests.integration.meetings_api import error_of, open_meeting
 from tests.integration.metrics_api import (
+    add_group,
     add_metric,
     add_threshold,
     board_of,
     freeze_today,
+    groups_of,
     metrics_of,
+    placement,
     record,
     thresholds_of,
     tile,
@@ -49,13 +52,16 @@ def test_a_metric_is_copied_with_its_thresholds(
     freeze_today(monkeypatch)
     team_id, source_id = _boards(client)
     owner = member_id(add(client, source_id, SOURCE_OWNER), SOURCE_OWNER)
+    quality = add_group(client, source_id, "Quality")
+    engineering = add_group(client, team_id, "Engineering")
+    existing = add_metric(client, team_id, "Deployments", group_id=engineering["id"])
     bugs = add_metric(
         client,
         source_id,
         "Open bugs",
         unit="",
         direction="lower_is_better",
-        group_label="Quality",
+        group_id=quality["id"],
         owner_employee_id=owner,
     )
     add_threshold(client, source_id, bugs["id"], "2026-07-01", "Baseline", green="10", amber="20")
@@ -64,25 +70,21 @@ def test_a_metric_is_copied_with_its_thresholds(
     record(client, source_id, theirs["id"], bugs["id"], value="7")
     before = datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=5)
 
-    response = _copy(client_as(LEADER), team_id, bugs["id"])
+    response = _copy(client_as(LEADER), team_id, bugs["id"], group_id=engineering["id"])
 
     assert response.status_code == 201, response.json()
     copy = response.json()
     assert copy["id"] != bugs["id"]
-    assert {
-        k: copy[k]
-        for k in ("team_id", "scope", "name", "unit", "direction", "group_label", "owner")
-    } == {
+    assert {k: copy[k] for k in ("team_id", "scope", "name", "unit", "direction", "owner")} == {
         "team_id": team_id,
         "scope": "board",
         "name": "Open bugs",
         "unit": "",
         "direction": "lower_is_better",
-        "group_label": "Quality",
         "owner": None,
     }
-    assert (copy["retired"], copy["position"]) == (False, 0)
-    assert metrics_of(client, team_id) == [copy]
+    assert (copy["retired"], placement(copy)) == (False, ("Engineering", 1))
+    assert [m["id"] for m in metrics_of(client, team_id)] == [existing["id"], copy["id"]]
     ours = open_meeting(client, team_id, "2026-10-14")
     assert tile(board_of(client, team_id, ours["id"]), copy["id"])["value"] is None
     assert [p["value"] for p in trend_of(client, team_id, copy["id"])["points"]] == [None]
@@ -101,6 +103,32 @@ def test_a_metric_is_copied_with_its_thresholds(
     ]
     assert [v["recorded_by_email"] for v in copied] == [LEADER, LEADER]
     assert all(datetime.datetime.fromisoformat(v["recorded_at"]) >= before for v in copied)
+
+
+def test_a_copy_with_no_group_is_ungrouped(client: TestClient) -> None:
+    """Scenario: A copy with no group is ungrouped."""
+    team_id, source_id = _boards(client)
+    quality = add_group(client, source_id, "Quality")
+    source = add_metric(client, source_id, "Open bugs", group_id=quality["id"])
+    add_metric(client, team_id, "Morale")
+
+    response = _copy(client, team_id, source["id"])
+
+    assert response.status_code == 201, response.json()
+    assert placement(response.json()) == (None, 1)
+    assert groups_of(client, team_id) == []
+
+
+def test_a_copy_into_another_boards_group_is_refused(client: TestClient) -> None:
+    team_id, source_id = _boards(client)
+    quality = add_group(client, source_id, "Quality")
+    source = add_metric(client, source_id, "Open bugs", group_id=quality["id"])
+
+    response = _copy(client, team_id, source["id"], group_id=quality["id"])
+
+    assert response.status_code == 404
+    assert error_of(response) == ("group_id", "metric_group.not_found")
+    assert metrics_of(client, team_id) == []
 
 
 def test_the_same_version_is_in_force_on_every_date(
@@ -138,10 +166,10 @@ def test_a_copy_under_a_new_name(client: TestClient) -> None:
     add_metric(client, team_id, "Revenue")
     source = add_metric(client, source_id, "Revenue")
 
-    response = _copy(client, team_id, source["id"], name="  Revenue (Poland) ", position=3)
+    response = _copy(client, team_id, source["id"], name="  Revenue (Poland) ")
 
     assert response.status_code == 201, response.json()
-    assert (response.json()["name"], response.json()["position"]) == ("Revenue (Poland)", 3)
+    assert (response.json()["name"], placement(response.json())) == ("Revenue (Poland)", (None, 1))
     assert [m["name"] for m in metrics_of(client, team_id)] == ["Revenue", "Revenue (Poland)"]
 
 

@@ -109,8 +109,7 @@ describe('bringing a metric onto a board', () => {
   it('includes a global metric with its placement on the board', async () => {
     const inclusion = {
       global_metric_id: 'gm-1',
-      position: 2,
-      group_label: 'Operations',
+      group_id: 'group-operations',
       owner_employee_id: 'emp-anna',
     };
     await includeGlobalMetric('team-1', inclusion);

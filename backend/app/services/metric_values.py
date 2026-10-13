@@ -38,7 +38,7 @@ from app.schemas.metric import (
 )
 from app.services.meetings import get_meeting
 from app.services.metric_status import status_of, threshold_in_force
-from app.services.metrics import get_board_metric, versions_by_metric
+from app.services.metrics import BOARD_ORDER, get_board_metric, versions_by_metric
 
 logger = logging.getLogger(__name__)
 
@@ -174,13 +174,14 @@ def build_board(
         session.scalars(
             select(Placement)
             .join(Placement.metric)
-            .options(contains_eager(Placement.metric))
+            .outerjoin(Placement.group)
+            .options(contains_eager(Placement.metric), contains_eager(Placement.group))
             .where(
                 Placement.team_id == team_id,
                 Placement.retired_on_board.is_(False),
                 Metric.retired.is_(False),
             )
-            .order_by(Placement.position, Metric.name)
+            .order_by(*BOARD_ORDER)
         )
     )
     metric_ids = [placement.metric_id for placement in placements]

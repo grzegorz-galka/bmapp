@@ -8,33 +8,42 @@
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { MetricGroup } from '../../api/metrics';
 import type { Member } from '../../api/teams';
 import { describeFieldFailure, describeOtherFailure } from '../../i18n/apiErrors';
 import { useGlobalMetrics } from '../globalMetrics/useGlobalMetrics';
 import { useTeams } from '../teams/useTeams';
 import { Modal } from '../../components/Modal';
-import { OwnerSelect } from './MetricForm';
+import { GroupSelect, OwnerSelect } from './MetricForm';
 import { useCopyMetric, useIncludeGlobalMetric, useMetrics } from './useMetrics';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
 import styles from './metrics.module.css';
 
-const COPY_FIELDS = ['source_metric_id', 'name'] as const;
-const INCLUDE_FIELDS = [
-  'global_metric_id',
-  'group_label',
-  'position',
-  'owner_employee_id',
-] as const;
+const COPY_FIELDS = ['source_metric_id', 'name', 'group_id'] as const;
+const INCLUDE_FIELDS = ['global_metric_id', 'group_id', 'owner_employee_id'] as const;
 
-/** Choose a team, then one of its board's own metrics, and optionally rename it. */
-export function CopyMetricDialog({ teamId, onClose }: { teamId: string; onClose: () => void }) {
+/**
+ * Choose a team, then one of its board's own metrics, optionally rename it,
+ * and choose this board's group for it. The source's group is another
+ * board's, so it is never taken.
+ */
+export function CopyMetricDialog({
+  teamId,
+  groups,
+  onClose,
+}: {
+  teamId: string;
+  groups: MetricGroup[];
+  onClose: () => void;
+}) {
   const { t } = useTranslation();
   const teams = useTeams();
   const copy = useCopyMetric(teamId);
   const [sourceTeam, setSourceTeam] = useState('');
   const [source, setSource] = useState('');
   const [name, setName] = useState('');
+  const [group, setGroup] = useState<string | null>(null);
   const sourceMetrics = useMetrics(sourceTeam, sourceTeam !== '');
   const first = useRef<HTMLSelectElement>(null);
   const id = (field: string) => `copy-metric-${field}`;
@@ -49,7 +58,11 @@ export function CopyMetricDialog({ teamId, onClose }: { teamId: string; onClose:
     event.preventDefault();
     if (!source) return;
     copy.mutate(
-      { source_metric_id: source, ...(name.trim() ? { name } : {}) },
+      {
+        source_metric_id: source,
+        ...(name.trim() ? { name } : {}),
+        ...(group ? { group_id: group } : {}),
+      },
       { onSuccess: onClose },
     );
   }
@@ -139,6 +152,13 @@ export function CopyMetricDialog({ teamId, onClose }: { teamId: string; onClose:
               </p>
             )}
           </div>
+          <GroupSelect
+            id={id('group')}
+            value={group}
+            onChange={setGroup}
+            groups={groups}
+            error={describeFieldFailure(t, copy.error, 'group_id')}
+          />
           <span className={`${teamStyles.actions} ${teamStyles.submit}`}>
             <button
               type="submit"
@@ -166,11 +186,13 @@ export function CopyMetricDialog({ teamId, onClose }: { teamId: string; onClose:
 export function IncludeGlobalMetricDialog({
   teamId,
   members,
+  groups,
   onBoard,
   onClose,
 }: {
   teamId: string;
   members: Member[];
+  groups: MetricGroup[];
   /** The identifiers of the metrics already on this board. */
   onBoard: string[];
   onClose: () => void;
@@ -179,8 +201,7 @@ export function IncludeGlobalMetricDialog({
   const catalogue = useGlobalMetrics();
   const include = useIncludeGlobalMetric(teamId);
   const [chosen, setChosen] = useState('');
-  const [group, setGroup] = useState('');
-  const [position, setPosition] = useState(0);
+  const [group, setGroup] = useState<string | null>(null);
   const [owner, setOwner] = useState<string | null>(null);
   const first = useRef<HTMLSelectElement>(null);
   const id = (field: string) => `include-metric-${field}`;
@@ -197,8 +218,7 @@ export function IncludeGlobalMetricDialog({
     include.mutate(
       {
         global_metric_id: chosen,
-        position,
-        group_label: group || null,
+        group_id: group,
         owner_employee_id: owner,
       },
       { onSuccess: onClose },
@@ -207,8 +227,6 @@ export function IncludeGlobalMetricDialog({
 
   const fieldError = (field: string) => describeFieldFailure(t, include.error, field);
   const chosenError = fieldError('global_metric_id');
-  const groupError = fieldError('group_label');
-  const positionError = fieldError('position');
   const otherError = describeOtherFailure(t, include.error, INCLUDE_FIELDS);
 
   let body;
@@ -253,41 +271,13 @@ export function IncludeGlobalMetricDialog({
             </p>
           )}
         </div>
-        <div className={teamStyles.field}>
-          <label className={teamStyles.label} htmlFor={id('group')}>
-            {t('metrics.groupLabel')}
-          </label>
-          <input
-            id={id('group')}
-            className={teamStyles.input}
-            value={group}
-            onChange={(event) => setGroup(event.target.value)}
-          />
-          {groupError && (
-            <p role="alert" className={teamStyles.error}>
-              {groupError}
-            </p>
-          )}
-        </div>
-        <div className={`${teamStyles.field} ${styles.narrow}`}>
-          <label className={teamStyles.label} htmlFor={id('position')}>
-            {t('metrics.positionLabel')}
-          </label>
-          <input
-            id={id('position')}
-            type="number"
-            step={1}
-            className={teamStyles.input}
-            value={position}
-            onChange={(event) => setPosition(Number(event.target.value))}
-            aria-invalid={positionError !== undefined}
-          />
-          {positionError && (
-            <p role="alert" className={teamStyles.error}>
-              {positionError}
-            </p>
-          )}
-        </div>
+        <GroupSelect
+          id={id('group')}
+          value={group}
+          onChange={setGroup}
+          groups={groups}
+          error={fieldError('group_id')}
+        />
         <OwnerSelect
           id={id('owner')}
           value={owner}

@@ -41,7 +41,7 @@ board. BMAPP provides that board online and lets a team:
 |-------------------|------------------------------------------------------------------------------      |
 | Employee          | email, teams (many)                                                                |
 | Team              | name, team leader, members (many), board definition                                |
-| Board definition  | name, metrics (many) each placed with position, group, owner; custom targets (optional), schedule |
+| Board definition  | name, metric groups (many, ordered), metrics (many) each placed in at most one group with position and owner; custom targets (optional), schedule |
 | Meeting           | team, date and time, the metric values recorded at it                              |
 | Metric            | board (none if global), name, unit, decimals, direction, thresholds (many), values (many) |
 | Threshold         | metric, effective from, green and amber boundaries, reason, who recorded it        |
@@ -63,7 +63,7 @@ Glossary (use these exact terms in code, UI and tests):
 - **Schedule** — the weekday and start time a board's team meets, on the organization's clock (Europe/Warsaw). It proposes the next meeting's date; it never creates meetings.
 - **Host** — the member who runs one meeting (*prowadzący*). Rotates from meeting to meeting; not the team leader.
 - **Metric** — a named thing the team measures (e.g. "Open bugs"), with a unit and a fixed **direction**: higher is better, lower is better, or within a band. Teams track metrics directly. A metric with values is **retired**, never deleted.
-- **Global metric** (*wskaźnik globalny*) — a metric defined once by an administrator in the company-wide catalogue at `/global-metrics`, with its thresholds, and **included** in any number of boards. A board sets only its placement (position, group, owner) and may remove or retire it there; its definition and thresholds are read-only on the board. Each team still records its own values for it. A board's own metric can be **copied** onto another board with its thresholds; the copy is independent.
+- **Global metric** (*wskaźnik globalny*) — a metric defined once by an administrator in the company-wide catalogue at `/global-metrics`, with its thresholds, and **included** in any number of boards. A board sets only its placement (group, position, owner) and may remove or retire it there; its definition and thresholds are read-only on the board. Each team still records its own values for it. A board's own metric can be **copied** onto another board with its thresholds; the copy is independent.
 - **Threshold** (*próg*) — one version of what green and amber mean for a metric, from an effective date on, with a reason. Versions are append-only and may be back-dated; a value is judged against the version in force on its meeting's date.
 - **Metric value** — one number, recorded at one meeting, for one metric. Its date is the meeting's date; it has none of its own. It may carry a comment and a **colour set by hand**, which needs the comment.
 - **Status** — green, amber, red, no data or no threshold. Computed when read by `status_of`, never stored; boundaries count as the better zone.
@@ -263,6 +263,16 @@ a board or copies another board's metric from the settings page. A metric's
 position, group, owner and retirement on a board live on its placement
 (`board_metrics`), not on the metric, so one global metric can sit on many
 boards; `metrics.team_id` is null for a global one.
+
+Metric groups are implemented: a board has groups of its own (`metric_groups`),
+named, ordered and unique on the board regardless of case, possibly empty. A
+placement sits in at most one group (`board_metrics.group_id`) with a position
+inside it; there is no group label any more. Whoever configures the board adds,
+renames, reorders and deletes groups and arranges the metrics on the settings
+page by drag and drop or the keyboard move controls, and the page saves the
+whole arrangement at once (`PUT /teams/:teamId/metric-layout`), refused as
+stale if the board changed meanwhile. The board shows the groups in that order,
+the ungrouped metrics last.
 
 `pulse-check` is implemented: each member answers the weekly pulse check for a
 meeting (`PUT …/meetings/:meetingId/pulse/me`, only ever one's own answer), and

@@ -88,3 +88,32 @@ def freeze_today(monkeypatch: pytest.MonkeyPatch, day: datetime.date = MONDAY) -
     """Make every metrics endpoint believe today is `day` in the organization's zone."""
     for module in ("app.api.metrics", "app.api.metric_values", "app.api.meetings"):
         monkeypatch.setattr(f"{module}.today", lambda: day)
+
+
+def add_group(client: TestClient, team_id: str, name: str) -> Any:
+    """Add a group to a board and return it, failing the test if that is refused."""
+    response = client.post(f"/teams/{team_id}/metric-groups", json={"name": name})
+    assert response.status_code == 201, response.json()
+    return response.json()
+
+
+def groups_of(client: TestClient, team_id: str) -> Any:
+    response = client.get(f"/teams/{team_id}/metric-groups")
+    assert response.status_code == 200, response.json()
+    return response.json()
+
+
+def put_layout(
+    client: TestClient, team_id: str, groups: list[tuple[str, list[str]]], ungrouped: list[str]
+) -> Any:
+    """Replace a board's layout; returns the raw response, since some tests expect a refusal."""
+    body = {
+        "groups": [{"id": group_id, "metric_ids": ids} for group_id, ids in groups],
+        "ungrouped": ungrouped,
+    }
+    return client.put(f"/teams/{team_id}/metric-layout", json=body)
+
+
+def placement(metric: Any) -> tuple[str | None, int]:
+    """Where a metric sits on its board: its group's name, or none, and its position there."""
+    return (metric["group"]["name"] if metric["group"] else None, metric["position"])

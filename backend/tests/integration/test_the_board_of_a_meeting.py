@@ -10,10 +10,12 @@ from sqlalchemy.orm import Session
 
 from tests.integration.meetings_api import open_meeting
 from tests.integration.metrics_api import (
+    add_group,
     add_metric,
     add_threshold,
     board_of,
     freeze_today,
+    placement,
     record,
     tile,
 )
@@ -39,6 +41,28 @@ def _change(
     record(client, team_id, previous, metric["id"], value=a)
     record(client, team_id, current, metric["id"], value=b)
     return tile(board_of(client, team_id, current), metric["id"])
+
+
+def test_the_tiles_follow_the_boards_layout(
+    client: TestClient, two_meetings: tuple[str, str, str]
+) -> None:
+    team_id, _, current = two_meetings
+    finance = add_group(client, team_id, "Finance")
+    quality = add_group(client, team_id, "Quality")
+    add_group(client, team_id, "Delivery")
+    add_metric(client, team_id, "Morale")
+    add_metric(client, team_id, "Defects", group_id=quality["id"])
+    add_metric(client, team_id, "Bugs", group_id=quality["id"])
+    add_metric(client, team_id, "Revenue", group_id=finance["id"])
+
+    tiles = board_of(client, team_id, current)["metrics"]
+
+    assert [(t["metric"]["name"], *placement(t["metric"])) for t in tiles] == [
+        ("Revenue", "Finance", 0),
+        ("Defects", "Quality", 0),
+        ("Bugs", "Quality", 1),
+        ("Morale", None, 0),
+    ]
 
 
 def test_the_change_since_the_previous_meeting(

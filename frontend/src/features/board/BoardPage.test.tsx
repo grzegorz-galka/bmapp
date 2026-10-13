@@ -212,19 +212,41 @@ describe('the board page', () => {
     expect(tiles[2]).toHaveTextContent(en.board.noChange);
   });
 
-  it('puts the tiles under their group labels', async () => {
+  it("Tiles follow the board's layout", async () => {
+    const finance = { id: 'g-finance', name: 'Finance', position: 0 };
+    const quality = { id: 'g-quality', name: 'Quality', position: 1 };
+    // "Delivery" (position 2) holds no metric, so nothing on the board names it.
+    const at = (name: string, group: typeof finance | null, position: number) =>
+      tile({ metric: definition({ id: `metric-${name}`, name, group, position }) });
     fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
       metrics: [
-        tile(),
-        tile({ metric: definition({ id: 'metric-x', name: 'Loose', group_label: null }) }),
+        at('Morale', null, 0),
+        at('Bugs', quality, 1),
+        at('Revenue', finance, 0),
+        at('Defects', quality, 0),
       ],
     });
     await renderBoard();
 
-    const finance = await screen.findByRole('region', { name: 'Finance' });
-    expect(within(finance).getByRole('heading', { name: 'Revenue' })).toBeInTheDocument();
-    const other = screen.getByRole('region', { name: en.board.noGroup });
-    expect(within(other).getByRole('heading', { name: 'Loose' })).toBeInTheDocument();
+    await screen.findByRole('region', { name: 'Finance' });
+    const sections = screen
+      .getAllByRole('region')
+      .filter((region) =>
+        ['Finance', 'Quality', en.board.noGroup].includes(region.ariaLabel ?? ''),
+      );
+    expect(sections.map((region) => region.getAttribute('aria-label'))).toEqual([
+      'Finance',
+      'Quality',
+      en.board.noGroup,
+    ]);
+    const names = (region: HTMLElement) =>
+      within(region)
+        .getAllByRole('heading', { level: 3 })
+        .map((heading) => heading.textContent);
+    expect(names(sections[1]!)).toEqual(['Defects', 'Bugs']);
+    expect(names(sections[2]!)).toEqual(['Morale']);
+    expect(screen.queryByRole('region', { name: 'Delivery' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Delivery' })).not.toBeInTheDocument();
   });
 
   it('moves between meetings and remembers which one in the address', async () => {

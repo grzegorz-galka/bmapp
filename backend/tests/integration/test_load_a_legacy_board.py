@@ -14,7 +14,7 @@ from scripts.import_legacy_board import (
     read_definitions,
     remove_team,
 )
-from tests.integration.metrics_api import board_of, metrics_of, trend_of
+from tests.integration.metrics_api import board_of, groups_of, metrics_of, placement, trend_of
 from tests.legacy_board_fixture import TOOL_HTML, backup
 
 ACTOR = "importer@example.com"
@@ -69,13 +69,19 @@ def test_metrics_in_their_units_with_one_per_unit_and_no_pulse(
 ) -> None:
     metrics = metrics_of(client, team["id"])
 
-    assert [(m["name"], m["unit"], m["direction"], m["group_label"]) for m in metrics] == [
-        ("Revenue", "mln zł", "higher_is_better", "Finance"),
-        ("Backlog: overdue", "", "lower_is_better", "Delivery"),
-        ("Effort ratio", "%", "within_band", "Productivity"),
-        ("OTIF by unit", "%", "higher_is_better", "Delivery"),
-        ("OTIF by unit: North", "%", "higher_is_better", "Delivery"),
-        ("OTIF by unit: South", "%", "higher_is_better", "Delivery"),
+    # A group per legacy KPI group, in the order the KPIs first name them.
+    assert [(m["name"], m["unit"], m["direction"], *placement(m)) for m in metrics] == [
+        ("Revenue", "mln zł", "higher_is_better", "Finance", 0),
+        ("Backlog: overdue", "", "lower_is_better", "Delivery", 0),
+        ("OTIF by unit", "%", "higher_is_better", "Delivery", 1),
+        ("OTIF by unit: North", "%", "higher_is_better", "Delivery", 2),
+        ("OTIF by unit: South", "%", "higher_is_better", "Delivery", 3),
+        ("Effort ratio", "%", "within_band", "Productivity", 0),
+    ]
+    assert [g["name"] for g in groups_of(client, team["id"])] == [
+        "Finance",
+        "Delivery",
+        "Productivity",
     ]
 
 

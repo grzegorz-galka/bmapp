@@ -13,6 +13,7 @@ from app.api import (
     global_metrics_router,
     health_router,
     meetings_router,
+    metric_groups_router,
     metric_values_router,
     metrics_router,
     problems_router,
@@ -70,6 +71,7 @@ app.include_router(dashboard_router)
 app.include_router(teams_router)
 app.include_router(meetings_router)
 app.include_router(metrics_router)
+app.include_router(metric_groups_router)
 app.include_router(global_metrics_router)
 app.include_router(metric_values_router)
 app.include_router(pulse_router)
