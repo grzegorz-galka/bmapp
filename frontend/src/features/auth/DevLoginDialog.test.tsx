@@ -31,6 +31,19 @@ describe('DevLoginDialog', () => {
     expect(screen.getByLabelText(en.auth.devLoginPassword)).toHaveValue('');
   });
 
+  it.each([
+    ['en', en],
+    ['pl', pl],
+  ] as const)('does not say how the password is derived (%s)', async (language, catalogue) => {
+    await renderWithLanguage(<DevLoginDialog {...open()} />, language);
+
+    const window = screen.getByRole('dialog', { name: catalogue.auth.devLoginTitle });
+    expect(screen.getByLabelText(catalogue.auth.devLoginEmail)).toBeInTheDocument();
+    expect(screen.getByLabelText(catalogue.auth.devLoginPassword)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: catalogue.auth.devLoginSubmit })).toBeInTheDocument();
+    expect(window).not.toHaveTextContent(/grgapspl|first two characters|pierwsze dwa znaki/i);
+  });
+
   it('submits what was typed', async () => {
     const props = open();
     await renderWithLanguage(<DevLoginDialog {...props} />, 'en');

@@ -609,8 +609,6 @@ export const en = {
     signedOutTitle: 'Signed out',
     signedOutBody: 'You are signed out. Sign in to see this page.',
     devLoginTitle: 'Sign in (development)',
-    devLoginHint:
-      'The password is the first two characters of each part of the email between dots, the at-sign and other separators - grzegorz.galka@pse.pl signs in with grgapspl.',
     devLoginEmail: 'Email',
     devLoginPassword: 'Password',
     devLoginSubmit: 'Sign in',

@@ -571,8 +571,6 @@ export const pl: Translations = {
     signedOutTitle: 'Wylogowano',
     signedOutBody: 'Nie jesteś zalogowany. Zaloguj się, aby zobaczyć tę stronę.',
     devLoginTitle: 'Logowanie (tryb deweloperski)',
-    devLoginHint:
-      'Hasło to pierwsze dwa znaki każdej części adresu e-mail między kropkami, małpą i innymi separatorami - grzegorz.galka@pse.pl loguje się hasłem grgapspl.',
     devLoginEmail: 'E-mail',
     devLoginPassword: 'Hasło',
     devLoginSubmit: 'Zaloguj się',
