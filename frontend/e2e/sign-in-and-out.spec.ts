@@ -85,6 +85,14 @@ test('the window opens on a page with no session', async ({ page }) => {
   await expect(window.getByLabel(en.auth.devLoginPassword)).toHaveValue('');
 });
 
+test('the window does not say how the password is derived', async ({ page }) => {
+  await page.goto('/');
+
+  const window = page.getByRole('dialog', { name: en.auth.devLoginTitle });
+  await expect(window).toBeVisible();
+  await expect(window).not.toContainText(/grgapspl|first two characters/i);
+});
+
 test('signing in through the window shows the person in the header', async ({ page }) => {
   await page.goto('/');
 

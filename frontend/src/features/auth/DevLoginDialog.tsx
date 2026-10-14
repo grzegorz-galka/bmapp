@@ -69,7 +69,6 @@ export function DevLoginDialog({ initialEmail, onSubmit, onClose }: Props) {
         <h2 id="dev-login-title" className={styles.title}>
           {t('auth.devLoginTitle')}
         </h2>
-        <p className={styles.hint}>{t('auth.devLoginHint')}</p>
 
         <div className={styles.field}>
           <label htmlFor="dev-login-email" className={styles.label}>

@@ -31,13 +31,6 @@
   font-weight: 600;
 }
 
-.hint {
-  margin: 0;
-  font-size: var(--fs-sm);
-  color: var(--ink-2);
-  overflow-wrap: anywhere;
-}
-
 .field {
   display: flex;
   flex-direction: column;
