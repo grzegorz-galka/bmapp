@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { useHere } from '../../components/origin';
+import { PulseIcon } from '../../components/icons';
 import { useTranslation } from 'react-i18next';
 import { getPulse } from '../../api/pulse';
 import type { Meeting } from '../../api/meetings';
@@ -9,6 +10,7 @@ import { useFormat } from '../../i18n/format';
 import { useDashboardSummary } from '../dashboard/useDashboardSummary';
 import { pulseResultsQueryKey } from '../board/pulse/usePulse';
 import { useMyMeetings } from './useMyMeetings';
+import controls from '../../styles/controls.module.css';
 import styles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
 
@@ -89,7 +91,7 @@ export function MyPulsePage() {
                         </span>
                         <span className={styles.actions}>
                           <Link
-                            className={answered ? styles.button : styles.primary}
+                            className={controls.link}
                             to={`${teamPath}?meeting=${encodeURIComponent(meeting.id)}&view=pulse&mode=answer`}
                             state={here}
                             aria-label={t(
@@ -97,6 +99,7 @@ export function MyPulsePage() {
                               { team: team.name, date },
                             )}
                           >
+                            <PulseIcon />
                             {answered ? t('personal.changeAnswer') : t('personal.answer')}
                           </Link>
                         </span>

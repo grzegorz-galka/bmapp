@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { DIRECTIONS, type Direction, type MetricCreate, type MetricGroup } from '../../api/metrics';
 import type { Member } from '../../api/teams';
 import { describeFieldFailure, describeOtherFailure } from '../../i18n/apiErrors';
+import controls from '../../styles/controls.module.css';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
 import styles from './metrics.module.css';
@@ -169,11 +170,11 @@ export function MetricForm({
         </>
       )}
       <span className={`${teamStyles.actions} ${teamStyles.submit}`}>
-        <button type="submit" className={teamStyles.primary} disabled={pending}>
+        <button type="submit" className={controls.default} disabled={pending}>
           {submitLabel}
         </button>
         {onCancel && (
-          <button type="button" className={teamStyles.button} onClick={onCancel}>
+          <button type="button" className={controls.button} onClick={onCancel}>
             {t('metrics.cancel')}
           </button>
         )}

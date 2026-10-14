@@ -37,27 +37,6 @@
   color: var(--ink-2);
 }
 
-.nearest {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--sp-4);
-  margin-top: 14px;
-  flex-wrap: wrap;
-}
-
-.nearestName {
-  font-size: var(--fs-base);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.nearestWhen {
-  font: 500 var(--fs-xs) var(--font-mono);
-  color: var(--ink-2);
-  margin-top: 3px;
-}
-
 .list {
   display: flex;
   flex-direction: column;
@@ -91,9 +70,21 @@
   min-width: 0;
 }
 
+/* Links in text: they read as the row's words, not as actions (design decision 7). */
 .name {
   font-size: var(--fs-base);
   font-weight: 500;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.name:hover,
+.name:focus-visible,
+.date:hover,
+.date:focus-visible,
+.none:hover,
+.none:focus-visible {
+  text-decoration: underline;
 }
 
 .meta {
@@ -102,14 +93,28 @@
 }
 
 .when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sp-2);
   text-align: right;
   font: 500 var(--fs-sm) var(--font-mono);
+}
+
+.date {
   color: var(--ink);
+  text-decoration: none;
 }
 
 .none {
   font-size: var(--fs-xs);
   color: var(--ink-2);
+  text-decoration: none;
+}
+
+.more {
+  align-self: flex-start;
+  margin-top: var(--sp-2);
 }
 
 @media (max-width: 620px) {
@@ -119,6 +124,7 @@
 
   .when {
     grid-column: 2;
+    align-items: flex-start;
     text-align: left;
   }
 }

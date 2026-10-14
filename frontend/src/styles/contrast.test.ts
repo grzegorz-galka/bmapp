@@ -43,9 +43,7 @@ function token(tokens: Tokens, name: string): string {
 const encode = (channel: number): number =>
   channel <= 0.0031308 ? 12.92 * channel : 1.055 * Math.pow(channel, 1 / 2.4) - 0.055;
 
-function oklchToRgb(lightness: number, chroma: number, hue: number): Rgb {
-  const a = chroma * Math.cos((hue * Math.PI) / 180);
-  const b = chroma * Math.sin((hue * Math.PI) / 180);
+function oklabToRgb(lightness: number, a: number, b: number): Rgb {
   const l = (lightness + 0.3963377774 * a + 0.2158037573 * b) ** 3;
   const m = (lightness - 0.1055613458 * a - 0.0638541728 * b) ** 3;
   const s = (lightness - 0.0894841775 * a - 1.291485548 * b) ** 3;
@@ -55,6 +53,44 @@ function oklchToRgb(lightness: number, chroma: number, hue: number): Rgb {
     -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
   ];
   return linear.map((value) => encode(Math.min(1, Math.max(0, value))) * 255) as Rgb;
+}
+
+function oklchToRgb(lightness: number, chroma: number, hue: number): Rgb {
+  const a = chroma * Math.cos((hue * Math.PI) / 180);
+  const b = chroma * Math.sin((hue * Math.PI) / 180);
+  return oklabToRgb(lightness, a, b);
+}
+
+const decode = (channel: number): number => {
+  const c = channel / 255;
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+};
+
+function rgbToOklab(rgb: Rgb): [number, number, number] {
+  const [r, g, b] = rgb.map(decode) as Rgb;
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  ];
+}
+
+/**
+ * `color-mix(in oklch, front share%, behind)` for opaque colours.
+ *
+ * Mixed in Oklab, the Cartesian form of the same space, rather than in polar
+ * OKLCh: the surfaces are near-grey, so their hue is all but undefined and a
+ * polar mix would swing on it. At a tint of 10-12% the two differ by far less
+ * than the margin the ink keeps on the result.
+ */
+function mix(front: string, share: number, behind: string): Rgb {
+  const one = rgbToOklab(parse(front).rgb);
+  const two = rgbToOklab(parse(behind).rgb);
+  const [l, a, b] = one.map((value, index) => value * share + two[index]! * (1 - share));
+  return oklabToRgb(l!, a!, b!);
 }
 
 /** A colour token resolved to sRGB, plus the alpha it is painted at. */
@@ -89,11 +125,8 @@ function composite(colour: string, surface: string): Rgb {
   ) as Rgb;
 }
 
-function luminance([red, green, blue]: Rgb): number {
-  const [r, g, b] = [red, green, blue].map((channel) => {
-    const c = channel / 255;
-    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-  }) as Rgb;
+function luminance(rgb: Rgb): number {
+  const [r, g, b] = rgb.map(decode) as Rgb;
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
@@ -168,4 +201,51 @@ describe.each(['dark', 'light'] as const)('the %s theme', (theme) => {
 
     expect(ratio).toBeGreaterThanOrEqual(4.5);
   });
+});
+
+// The default action is drawn in --accent on the panels a form or a tile sits on.
+const DEFAULT_SURFACES = ['--panel', '--panel-2'];
+
+it.each(['dark', 'light'] as const)(
+  'The default action is legible in both themes (%s)',
+  (theme) => {
+    const tokens = tokensFor(theme);
+    for (const surface of DEFAULT_SURFACES) {
+      const background = token(tokens, surface);
+
+      const ratio = contrast(
+        composite(token(tokens, '--accent'), background),
+        parse(background).rgb,
+      );
+
+      expect(ratio, `caption on ${surface}`).toBeGreaterThanOrEqual(4.5);
+      expect(ratio, `border on ${surface}`).toBeGreaterThanOrEqual(3);
+    }
+  },
+);
+
+it.each(['dark', 'light'] as const)('keeps an action legible on its hover tint (%s)', (theme) => {
+  const tokens = tokensFor(theme);
+  const share = Number(/^([\d.]+)%$/.exec(token(tokens, '--tint'))?.[1]) / 100;
+  const tinted = mix(token(tokens, '--accent'), share, token(tokens, '--panel'));
+
+  const ratio = contrast(parse(token(tokens, '--ink')).rgb, tinted);
+
+  expect(share).toBeGreaterThan(0);
+  expect(ratio).toBeGreaterThanOrEqual(4.5);
+});
+
+it.each(['dark', 'light'] as const)('The colours are shown in colour (%s)', (theme) => {
+  // The recording view's status list writes Green, Amber and Red as text in
+  // their status colour, so here they are held to the text threshold.
+  const tokens = tokensFor(theme);
+  for (const status of STATUSES) {
+    for (const surface of SURFACES) {
+      const background = token(tokens, surface);
+
+      const ratio = contrast(composite(token(tokens, status), background), parse(background).rgb);
+
+      expect(ratio, `${status} on ${surface}`).toBeGreaterThanOrEqual(4.5);
+    }
+  }
 });

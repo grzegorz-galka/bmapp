@@ -16,6 +16,7 @@ import { useTeams } from '../teams/useTeams';
 import { Modal } from '../../components/Modal';
 import { GroupSelect, OwnerSelect } from './MetricForm';
 import { useCopyMetric, useIncludeGlobalMetric, useMetrics } from './useMetrics';
+import controls from '../../styles/controls.module.css';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
 import styles from './metrics.module.css';
@@ -162,12 +163,12 @@ export function CopyMetricDialog({
           <span className={`${teamStyles.actions} ${teamStyles.submit}`}>
             <button
               type="submit"
-              className={teamStyles.primary}
+              className={controls.default}
               disabled={copy.isPending || source === ''}
             >
               {copy.isPending ? t('metrics.copying') : t('metrics.copySubmit')}
             </button>
-            <button type="button" className={teamStyles.button} onClick={onClose}>
+            <button type="button" className={controls.button} onClick={onClose}>
               {t('metrics.cancel')}
             </button>
           </span>
@@ -238,7 +239,7 @@ export function IncludeGlobalMetricDialog({
     body = (
       <p>
         {t('metrics.includeNone')}{' '}
-        <button type="button" className={teamStyles.button} onClick={onClose}>
+        <button type="button" className={controls.button} onClick={onClose}>
           {t('metrics.cancel')}
         </button>
       </p>
@@ -288,12 +289,12 @@ export function IncludeGlobalMetricDialog({
         <span className={`${teamStyles.actions} ${teamStyles.submit}`}>
           <button
             type="submit"
-            className={teamStyles.primary}
+            className={controls.default}
             disabled={include.isPending || chosen === ''}
           >
             {include.isPending ? t('metrics.including') : t('metrics.includeSubmit')}
           </button>
-          <button type="button" className={teamStyles.button} onClick={onClose}>
+          <button type="button" className={controls.button} onClick={onClose}>
             {t('metrics.cancel')}
           </button>
         </span>

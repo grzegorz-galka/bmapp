@@ -12,6 +12,7 @@ import { AddressProbe } from '../../test/AddressProbe';
 import { en } from '../../i18n/en';
 import { pl } from '../../i18n/pl';
 import type { Language } from '../../i18n/languages';
+import controls from '../../styles/controls.module.css';
 import {
   board,
   definition,
@@ -355,6 +356,60 @@ async function renderWithAddress(query: string) {
 function address(): URLSearchParams {
   return new URLSearchParams(screen.getByTestId('address').textContent ?? '');
 }
+
+describe("the board's controls follow the one button scheme", () => {
+  // specs/appearance/spec.md. jsdom applies no CSS-module styles, so the look
+  // is asserted by class: what each class draws is pinned by controls.test.ts.
+  const BUTTON = controls.button!;
+  const DEFAULT = controls.default!;
+  const SEGMENTED = controls.segmented!;
+  const LINK = controls.link!;
+
+  it('The chosen view is filled', async () => {
+    await renderBoard();
+
+    const views = screen.getByRole('group', { name: en.pulse.viewSwitchLabel });
+    expect(views).toHaveClass(SEGMENTED);
+    const segments = within(views).getAllByRole('button');
+    expect(segments[0]).toHaveTextContent(en.pulse.metricsView);
+    expect(segments[0]).toHaveAttribute('aria-pressed', 'true');
+    for (const other of segments.slice(1)) {
+      expect(other).toHaveAttribute('aria-pressed', 'false');
+    }
+  });
+
+  it("The board's own links are links", async () => {
+    await renderBoard();
+
+    for (const name of [en.board.meetingsLink, en.board.settingsLink]) {
+      const link = screen.getByRole('link', { name });
+      expect(link).toHaveClass(LINK);
+      expect(link).not.toHaveClass(BUTTON);
+      // The icon is a picture only: the caption alone names the link.
+      expect(link.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    }
+    for (const name of [en.board.previousMeeting, en.board.nextMeeting]) {
+      expect(screen.getByRole('button', { name: new RegExp(name) })).toHaveClass(BUTTON);
+    }
+  });
+
+  it('fills the Record values toggle only while it is pressed', async () => {
+    const user = userEvent.setup();
+    await renderBoard();
+
+    const off = await screen.findByRole('button', { name: en.board.record });
+    expect(off).toHaveClass(BUTTON);
+    expect(off).not.toHaveClass(DEFAULT);
+    expect(off).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(off);
+
+    const on = await screen.findByRole('button', { name: en.board.showTiles });
+    expect(on).toHaveClass(BUTTON);
+    expect(on).not.toHaveClass(DEFAULT);
+    expect(on).toHaveAttribute('aria-pressed', 'true');
+  });
+});
 
 describe('the recording view has its own address', () => {
   it('The recording view survives a reload', async () => {

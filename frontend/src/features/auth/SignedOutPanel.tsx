@@ -7,6 +7,7 @@
  */
 import { useTranslation } from 'react-i18next';
 import { useAuth } from './AuthProvider';
+import controls from '../../styles/controls.module.css';
 import teamStyles from '../teams/teams.module.css';
 
 export function SignedOutPanel() {
@@ -17,7 +18,7 @@ export function SignedOutPanel() {
     <main className={teamStyles.page}>
       <h1 className={teamStyles.heading}>{t('auth.signedOutTitle')}</h1>
       <p>{t(status === 'ended' ? 'auth.sessionEnded' : 'auth.signedOutBody')}</p>
-      <button type="button" className={teamStyles.primary} onClick={() => void signIn()}>
+      <button type="button" className={controls.default} onClick={() => void signIn()}>
         {t('auth.signIn')}
       </button>
     </main>

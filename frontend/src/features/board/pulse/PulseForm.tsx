@@ -10,6 +10,7 @@ import { describeFieldFailure, describeOtherFailure } from '../../../i18n/apiErr
 import { useFormat } from '../../../i18n/format';
 import { useSavePulseAnswer } from './usePulse';
 import { RatingDot, RATING_STATUS, ratingCaption } from './rating';
+import controls from '../../../styles/controls.module.css';
 import teamStyles from '../../teams/teams.module.css';
 import styles from './pulse.module.css';
 
@@ -130,7 +131,7 @@ export function PulseForm({
           </p>
         )}
         <p className={styles.actions}>
-          <button type="submit" className={teamStyles.primary} disabled={save.isPending}>
+          <button type="submit" className={controls.default} disabled={save.isPending}>
             {save.isPending ? t('pulse.saving') : own ? t('pulse.update') : t('pulse.save')}
           </button>
           {own && <span className={styles.muted}>{t('pulse.hasAnswer')}</span>}

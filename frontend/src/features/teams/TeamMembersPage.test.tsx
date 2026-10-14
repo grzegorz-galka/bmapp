@@ -13,6 +13,7 @@ import { en } from '../../i18n/en';
 import { pl } from '../../i18n/pl';
 import type { Language } from '../../i18n/languages';
 import type { Member, TeamDetail } from '../../api/teams';
+import controls from '../../styles/controls.module.css';
 
 const TEAM_ID = 'team-1';
 const LEADER = member('anna@example.com', true);
@@ -383,5 +384,22 @@ describe('the members page otherwise', () => {
     expect(alert.closest('li')).toHaveTextContent('bartek@example.com');
     expect(alert).toHaveTextContent(pl.errors['team_deputy.not_member']);
     expect(document.body.textContent).not.toContain('Not a member.');
+  });
+});
+
+describe('the members page follows the one button scheme', () => {
+  it('Actions on different pages look alike', async () => {
+    // specs/appearance/spec.md, by class: controls.default composes
+    // controls.button, so every action carries it; adding is the default.
+    serve(jsonResponse(detail(LEADER, BARTEK, DORA)));
+    await renderPage();
+    await screen.findByRole('heading', { name: 'Members of Platform' });
+
+    const buttons = screen.getAllByRole('button');
+    expect(buttons.length).toBeGreaterThan(1);
+    for (const button of buttons) {
+      expect(button).toHaveClass(controls.button!);
+    }
+    expect(screen.getByRole('button', { name: en.members.add })).toHaveClass(controls.default!);
   });
 });

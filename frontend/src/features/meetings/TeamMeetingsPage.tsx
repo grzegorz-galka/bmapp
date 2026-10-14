@@ -11,6 +11,7 @@ import {
 } from '../../i18n/apiErrors';
 import { useFormat } from '../../i18n/format';
 import { BackLink } from '../../components/BackLink';
+import { BoardIcon, SettingsIcon } from '../../components/icons';
 import { useHere } from '../../components/origin';
 import { useAuth } from '../auth/AuthProvider';
 import { useIsAdmin } from '../auth/useCurrentUser';
@@ -23,6 +24,7 @@ import {
   useOpenMeeting,
   useSetSchedule,
 } from './useMeetings';
+import controls from '../../styles/controls.module.css';
 import teamStyles from '../teams/teams.module.css';
 import styles from './meetings.module.css';
 
@@ -82,18 +84,16 @@ export function TeamMeetingsPage() {
       {back}
       <h1 className={teamStyles.heading}>{t('meetings.heading', { name: team.data.name })}</h1>
       <nav className={`${teamStyles.actions} ${styles.section}`} aria-label={t('nav.label')}>
-        <Link
-          className={teamStyles.button}
-          to={`/teams/${encodeURIComponent(teamId)}`}
-          state={here}
-        >
+        <Link className={controls.link} to={`/teams/${encodeURIComponent(teamId)}`} state={here}>
+          <BoardIcon />
           {t('teams.boardLink')}
         </Link>
         <Link
-          className={teamStyles.button}
+          className={controls.link}
           to={`/teams/${encodeURIComponent(teamId)}/metrics`}
           state={here}
         >
+          <SettingsIcon />
           {t('board.settingsLink')}
         </Link>
       </nav>
@@ -181,7 +181,7 @@ function ScheduleSection({
             : t('meetings.scheduleNone')}
         </span>{' '}
         {mayConfigure && !editing && (
-          <button type="button" className={styles.linkButton} onClick={edit}>
+          <button type="button" className={controls.button} onClick={edit}>
             {schedule ? t('meetings.changeSchedule') : t('meetings.setSchedule')}
           </button>
         )}
@@ -231,14 +231,14 @@ function ScheduleSection({
           </div>
           <button
             type="submit"
-            className={`${teamStyles.primary} ${teamStyles.submit}`}
+            className={`${controls.default} ${teamStyles.submit}`}
             disabled={setSchedule.isPending}
           >
             {setSchedule.isPending ? t('meetings.saving') : t('meetings.saveSchedule')}
           </button>
           <button
             type="button"
-            className={`${teamStyles.button} ${teamStyles.submit}`}
+            className={`${controls.button} ${teamStyles.submit}`}
             onClick={stopEditing}
           >
             {t('meetings.cancel')}
@@ -264,7 +264,7 @@ function PrepareMeeting({ teamId, proposed }: { teamId: string; proposed: Meetin
       <p className={styles.section}>
         <button
           type="button"
-          className={teamStyles.primary}
+          className={controls.default}
           // Pre-filled from the proposal when the board has a schedule;
           // otherwise the member chooses both.
           onClick={() => setSlot(proposed ?? { date: '', time: '' })}
@@ -370,12 +370,12 @@ function SlotForm({
       <span className={teamStyles.actions}>
         <button
           type="submit"
-          className={`${teamStyles.primary} ${teamStyles.submit}`}
+          className={`${controls.default} ${teamStyles.submit}`}
           disabled={pending}
         >
           {submitLabel}
         </button>
-        <button type="button" className={teamStyles.button} onClick={onCancel}>
+        <button type="button" className={controls.button} onClick={onCancel}>
           {t('meetings.cancel')}
         </button>
       </span>
@@ -501,7 +501,7 @@ function MeetingRow({
         <span className={teamStyles.actions}>
           <button
             type="button"
-            className={teamStyles.button}
+            className={controls.button}
             onClick={startEditing}
             aria-label={t('meetings.changeLabel', { date })}
           >
@@ -509,7 +509,7 @@ function MeetingRow({
           </button>
           <button
             type="button"
-            className={teamStyles.button}
+            className={controls.button}
             disabled={deleteMeeting.isPending}
             onClick={() => deleteMeeting.mutate(meeting.id)}
             aria-label={t('meetings.deleteLabel', { date })}

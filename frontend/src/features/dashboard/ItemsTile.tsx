@@ -4,6 +4,7 @@ import type { AssignedItem, DashboardTeam, Funnel } from '../../api/dashboard';
 import { useFormat } from '../../i18n/format';
 import { ArchiveIcon, FunnelIcon, ProblemIcon, TaskIcon } from '../../components/icons';
 import { useHere } from '../../components/origin';
+import controls from '../../styles/controls.module.css';
 import { PdcaBall } from '../board/items/PdcaBall';
 import styles from './ItemsTile.module.css';
 
@@ -101,15 +102,19 @@ function TeamLinks({ teams }: { teams: DashboardTeam[] }) {
           <li key={team.id} className={styles.teamRow}>
             <span className={styles.teamName}>{team.name}</span>
             <span className={styles.links}>
-              <Link to={`${boardPath(team.id)}#problems`} state={here} className={styles.link}>
+              <Link to={`${boardPath(team.id)}#problems`} state={here} className={controls.link}>
                 <ProblemIcon />
                 {t('itemsTile.problemsLink')}
               </Link>
-              <Link to={`${boardPath(team.id)}#tasks`} state={here} className={styles.link}>
+              <Link to={`${boardPath(team.id)}#tasks`} state={here} className={controls.link}>
                 <TaskIcon />
                 {t('itemsTile.tasksLink')}
               </Link>
-              <Link to={`${boardPath(team.id)}?view=archived`} state={here} className={styles.link}>
+              <Link
+                to={`${boardPath(team.id)}?view=archived`}
+                state={here}
+                className={controls.link}
+              >
                 <ArchiveIcon />
                 {t('itemsTile.archiveLink')}
               </Link>

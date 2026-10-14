@@ -7,7 +7,7 @@ import { PulseCards } from './PulseCards';
 import { PulseForm } from './PulseForm';
 import { PulseTrend } from './PulseTrend';
 import { usePulse } from './usePulse';
-import teamStyles from '../../teams/teams.module.css';
+import controls from '../../../styles/controls.module.css';
 import boardStyles from '../board.module.css';
 import styles from './pulse.module.css';
 
@@ -57,7 +57,7 @@ export function PulseView({
       <div className={boardStyles.toolbar}>
         {!results.editable && <span className={boardStyles.muted}>{t('pulse.frozen')}</span>}
         {offered && (
-          <div role="group" aria-label={t('pulse.modesLabel')} className={boardStyles.segmented}>
+          <div role="group" aria-label={t('pulse.modesLabel')} className={controls.segmented}>
             {(
               [
                 ['results', 'pulse.results'],
@@ -108,7 +108,7 @@ export function PulseView({
             <p className={styles.empty}>
               {t('pulse.empty')}{' '}
               {offered && (
-                <button type="button" className={teamStyles.button} onClick={() => setMode('form')}>
+                <button type="button" className={controls.button} onClick={() => setMode('form')}>
                   {t('pulse.answerFirst')}
                 </button>
               )}

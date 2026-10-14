@@ -14,10 +14,21 @@ import { changeLanguage } from '../../i18n';
 import { en } from '../../i18n/en';
 import { pl } from '../../i18n/pl';
 import type { AssignedItem } from '../../api/dashboard';
+import controls from '../../styles/controls.module.css';
 import { ItemsTile } from './ItemsTile';
 import { dashboardSummary } from './dashboardFixture';
 
 const summary = dashboardSummary();
+
+/** A class of the shared controls; a missing one must fail, not pass as undefined. */
+function control(name: 'button' | 'default' | 'link'): string {
+  const resolved = controls[name];
+  if (!resolved) throw new Error(`controls.module.css has no .${name}`);
+  return resolved;
+}
+const BUTTON = control('button');
+const DEFAULT = control('default');
+const LINK = control('link');
 
 afterEach(async () => {
   await changeLanguage('en');
@@ -84,6 +95,22 @@ describe('the lists of each team', () => {
 
     await userEvent.click(within(payments).getByRole('link', { name: en.itemsTile.archiveLink }));
     expect(address()).toHaveTextContent(/^\/teams\/payments\?view=archived$/);
+  });
+
+  it("The dashboard's list links are links", async () => {
+    await renderTile();
+    const lists = screen.getByRole('region', { name: en.itemsTile.teamLinksHeading });
+
+    const links = within(lists).getAllByRole('link');
+    // Three per team, each in the link style and none drawn as a button.
+    expect(links).toHaveLength(3 * summary.teams.length);
+    for (const link of links) {
+      expect(link).toHaveClass(LINK);
+      expect(link).not.toHaveClass(BUTTON);
+      expect(link).not.toHaveClass(DEFAULT);
+      expect(link.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    }
+    expect(within(lists).queryByRole('button')).not.toBeInTheDocument();
   });
 });
 

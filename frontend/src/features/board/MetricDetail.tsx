@@ -8,6 +8,7 @@ import { describeThreshold, GlobalMark, StatusBadge, ThresholdList } from '../me
 import { useThresholds, useTrend } from '../metrics/useMetrics';
 import { Modal } from '../../components/Modal';
 import { StatusDot } from './Sparkline';
+import controls from '../../styles/controls.module.css';
 import styles from './board.module.css';
 
 /** One meeting as the chart plots it: the number, and each boundary in force then. */
@@ -83,7 +84,7 @@ export function MetricDetail({
             </h2>
             {metric.scope === 'global' && <GlobalMark />}
           </span>
-          <button ref={close} type="button" className={styles.button} onClick={onClose}>
+          <button ref={close} type="button" className={controls.button} onClick={onClose}>
             {t('detail.close')}
           </button>
         </header>

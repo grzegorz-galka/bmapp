@@ -6,13 +6,15 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderWithLanguage } from '../../test/render';
+import { AddressProbe } from '../../test/AddressProbe';
 import { changeLanguage } from '../../i18n';
 import { en } from '../../i18n/en';
 import { pl } from '../../i18n/pl';
 import { AppHeader } from '../../components/AppHeader';
 import { DashboardPage } from './DashboardPage';
-import { dashboardSummary, NOW, TODAYS_MEETING } from './dashboardFixture';
+import { dashboardSummary, LATER_TEAMS, NOW, TODAYS_MEETING } from './dashboardFixture';
 
 const fetchMock = vi.fn();
 const summary = dashboardSummary();
@@ -39,7 +41,13 @@ afterEach(() => {
 
 /** Render the dashboard and wait for the summary to land. */
 async function renderDashboard(language: 'en' | 'pl' = 'en') {
-  const result = await renderWithLanguage(<DashboardPage />, language);
+  const result = await renderWithLanguage(
+    <>
+      <DashboardPage />
+      <AddressProbe />
+    </>,
+    language,
+  );
   const band = language === 'pl' ? pl.declarations.band : en.declarations.band;
   await screen.findByRole('heading', { name: band });
   return result;
@@ -47,6 +55,17 @@ async function renderDashboard(language: 'en' | 'pl' = 'en') {
 
 const declarations = () => screen.getByRole('region', { name: en.declarations.band });
 const teamsPanel = () => screen.getByRole('region', { name: en.myTeams.heading });
+const teamRows = () => within(within(teamsPanel()).getByRole('list')).getAllByRole('listitem');
+const address = () => screen.getByTestId('address');
+/** The state the last link navigated with: where the page was opened from. */
+const navigatedState = () => JSON.parse(screen.getByTestId('location-state').textContent!);
+const FROM_DASHBOARD = { from: { screen: 'dashboard', path: '/' } };
+
+/** The summary's teams with LATER_TEAMS before Infrastructure: five, in the server's order. */
+function fiveTeams() {
+  const [platformCore, payments, infrastructure] = summary.teams;
+  return [platformCore!, payments!, ...LATER_TEAMS, infrastructure!];
+}
 
 describe('the declarations', () => {
   it('The declarations are displayed', async () => {
@@ -189,6 +208,69 @@ describe('the teams', () => {
     );
   });
 
+  it("A team's name leads to its members and its meeting to its meetings", async () => {
+    await renderDashboard();
+
+    await userEvent.click(within(teamRows()[1]!).getByRole('link', { name: 'Payments' }));
+
+    expect(address()).toHaveTextContent(/^\/teams\/payments\/members$/);
+    expect(navigatedState()).toEqual(FROM_DASHBOARD);
+
+    await userEvent.click(within(teamRows()[1]!).getByRole('link', { name: /22 Sept?/ }));
+
+    expect(address()).toHaveTextContent(/^\/teams\/payments\/meetings$/);
+    expect(navigatedState().from.screen).toBe('dashboard');
+  });
+
+  it('At most three teams are listed', async () => {
+    respondWith(dashboardSummary({ teams: fiveTeams() }));
+
+    await renderDashboard();
+    const rows = teamRows();
+
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent('Platform Core');
+    expect(rows[1]).toHaveTextContent('Payments');
+    expect(rows[2]).toHaveTextContent('Data Platform');
+    expect(within(teamsPanel()).queryByText('Security')).not.toBeInTheDocument();
+    expect(within(teamsPanel()).queryByText('Infrastructure')).not.toBeInTheDocument();
+    // The count is of all the viewer's teams, not of the rows.
+    expect(screen.getByLabelText(en.myTeams.count.replace('{{count}}', '5'))).toHaveTextContent(
+      '5',
+    );
+
+    const more = within(teamsPanel()).getByRole('link', { name: en.dashboard.moreTeams });
+    expect(more).toHaveTextContent(en.dashboard.more);
+    expect(more.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+
+    await userEvent.click(more);
+
+    expect(address()).toHaveTextContent(/^\/my-teams$/);
+    expect(navigatedState()).toEqual(FROM_DASHBOARD);
+  });
+
+  it('Three teams need no link to more', async () => {
+    await renderDashboard();
+
+    expect(teamRows()).toHaveLength(3);
+    expect(
+      within(teamsPanel()).queryByRole('link', { name: en.dashboard.moreTeams }),
+    ).not.toBeInTheDocument();
+    expect(within(teamsPanel()).queryByText(en.dashboard.more)).not.toBeInTheDocument();
+  });
+
+  it('The nearest team is not repeated', async () => {
+    respondWith(dashboardSummary({ teams: summary.teams.slice(0, 2) }));
+
+    await renderDashboard();
+    const panel = teamsPanel();
+
+    expect(teamRows()).toHaveLength(2);
+    expect(within(panel).getAllByText('Platform Core')).toHaveLength(1);
+    expect(within(panel).getAllByText('Payments')).toHaveLength(1);
+    expect(panel.textContent!.match(/17 Sept?/g)).toHaveLength(1);
+  });
+
   it("The viewer's role is shown per team", async () => {
     const [leads, deputises, belongs] = summary.teams;
     respondWith(
@@ -226,7 +308,14 @@ describe('the teams', () => {
 
     expect(infrastructure).toHaveTextContent('Infrastructure');
     expect(infrastructure).toHaveTextContent(en.myTeams.noSchedule);
-    expect(infrastructure).toHaveTextContent(en.myTeams.noNextMeeting);
+    expect(within(infrastructure).queryByRole('timer')).not.toBeInTheDocument();
+
+    await userEvent.click(
+      within(infrastructure).getByRole('link', { name: en.myTeams.noNextMeeting }),
+    );
+
+    expect(address()).toHaveTextContent(/^\/teams\/infrastructure\/meetings$/);
+    expect(navigatedState()).toEqual(FROM_DASHBOARD);
   });
 
   it('A viewer on no team', async () => {
@@ -251,8 +340,11 @@ describe('the countdown', () => {
     // 2026-09-17T12:00Z to 13:30Z is 0 days, 1 hour, 30 minutes. Asserted as
     // 29: the clock has moved on a few milliseconds by the time it renders.
     expect(timer).toHaveTextContent(/00.*01.*29/);
-    expect(timer.parentElement).toHaveTextContent('Platform Core');
+    // On the nearest team's own row, beside its date and time, and only there.
+    expect(teamRows()[0]).toContainElement(timer);
+    expect(teamRows()[0]).toHaveTextContent('Platform Core');
     expect(timer.parentElement).toHaveTextContent(/17 Sept?/);
+    expect(panel.getAllByRole('timer')).toHaveLength(1);
   });
 
   it('The countdown advances while the page is open', async () => {

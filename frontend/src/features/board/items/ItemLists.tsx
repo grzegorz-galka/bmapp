@@ -13,6 +13,7 @@ import { describeFailure } from '../../../i18n/apiErrors';
 import { ConfirmCloseDialog, ItemDialog, type DialogTarget } from './ItemDialog';
 import { ItemEntry } from './ItemEntry';
 import { useChangeProblem, useChangeTask, useProblems, useTasks } from './useItems';
+import controls from '../../../styles/controls.module.css';
 import teamStyles from '../../teams/teams.module.css';
 import styles from './items.module.css';
 
@@ -131,7 +132,7 @@ export function ItemLists({
           {mayChange && (
             <button
               type="button"
-              className={`${teamStyles.button} ${styles.add}`}
+              className={`${controls.button} ${styles.add}`}
               onClick={() => open({ kind } as DialogTarget)}
             >
               {t(kind === 'problem' ? 'items.addProblem' : 'items.addTask')}

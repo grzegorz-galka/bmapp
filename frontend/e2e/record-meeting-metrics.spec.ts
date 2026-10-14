@@ -60,9 +60,8 @@ test('a member records values in Polish and sees them judged', async ({ page, re
   await expect(page.getByText(pl.recording.saved).first()).toBeVisible();
   await page.getByRole('textbox', { name: 'Wartość: Otwarte błędy' }).fill('3');
   await page
-    .getByRole('radiogroup', { name: 'Status: Otwarte błędy' })
-    .getByText(pl.status.red, { exact: true })
-    .click();
+    .getByRole('combobox', { name: 'Status: Otwarte błędy' })
+    .selectOption({ label: pl.status.red });
   await page.getByRole('textbox', { name: 'Komentarz: Otwarte błędy' }).fill('Krytyczny błąd');
   await page.getByRole('textbox', { name: 'Wartość: Przychód' }).click();
   await expect(

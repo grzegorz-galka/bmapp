@@ -50,6 +50,9 @@ export const pl: Translations = {
       'Zapisz wartości wskaźników z tego spotkania, przepracuj problemy, ustal zadania. Każda wartość należy do spotkania, na którym ją zapisano — trend biegnie po kolejnych spotkaniach, nie po kalendarzu.',
     footerNote: 'instalacja lokalna · aplikacja spotkań przy tablicy',
     footerEnv: 'v0.1.0 · szkielet',
+    more: 'Więcej…',
+    moreTeams: 'Więcej zespołów',
+    moreMeetings: 'Więcej spotkań',
   },
   declarations: {
     band: 'Deklaracje firmy',

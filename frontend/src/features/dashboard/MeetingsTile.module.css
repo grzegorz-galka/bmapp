@@ -103,25 +103,8 @@
   gap: var(--sp-2);
 }
 
-.action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border: 1px solid var(--line-control);
-  border-radius: var(--r-sm);
-  background: var(--panel-2);
-  color: var(--ink);
-  font: 500 var(--fs-xs) var(--font-sans);
-  cursor: pointer;
-}
-
-.action:hover {
-  background: color-mix(in oklch, var(--accent) var(--tint), var(--panel-2));
-}
-
-.action:disabled {
-  cursor: progress;
+.more {
+  margin-top: var(--sp-3);
 }
 
 .status,

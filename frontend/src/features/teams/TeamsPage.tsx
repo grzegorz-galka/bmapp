@@ -7,6 +7,7 @@ import { translateErrorCode } from '../../i18n/apiErrors';
 import { useFormat } from '../../i18n/format';
 import { useRegisterTeam, useTeams } from './useTeams';
 import { useIsAdmin } from '../auth/useCurrentUser';
+import controls from '../../styles/controls.module.css';
 import styles from './teams.module.css';
 
 export function TeamsPage() {
@@ -35,7 +36,7 @@ export function TeamsPage() {
           <button
             ref={registerButton}
             type="button"
-            className={styles.primary}
+            className={controls.default}
             aria-expanded={registering}
             aria-controls="register-team-section"
             onClick={() => setRegistering((open) => !open)}
@@ -193,10 +194,10 @@ function RegisterTeamSection({ onClose }: { onClose: () => void }) {
           )}
         </div>
         <span className={`${styles.actions} ${styles.submit}`}>
-          <button type="submit" className={styles.primary} disabled={registerTeam.isPending}>
+          <button type="submit" className={controls.default} disabled={registerTeam.isPending}>
             {registerTeam.isPending ? t('teams.registering') : t('teams.registerSubmit')}
           </button>
-          <button type="button" className={styles.button} onClick={onClose}>
+          <button type="button" className={controls.button} onClick={onClose}>
             {t('teams.cancel')}
           </button>
         </span>

@@ -6,6 +6,7 @@ import { describeFieldFailure, describeOtherFailure } from '../../i18n/apiErrors
 import { useFormat } from '../../i18n/format';
 import { organizationToday } from '../board/organizationDate';
 import { ThresholdList } from './display';
+import controls from '../../styles/controls.module.css';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
 import styles from './metrics.module.css';
@@ -149,10 +150,10 @@ export function ThresholdDialog({
           )}
         </div>
         <span className={`${teamStyles.actions} ${teamStyles.submit}`}>
-          <button type="submit" className={teamStyles.primary} disabled={pending}>
+          <button type="submit" className={controls.default} disabled={pending}>
             {pending ? t('metrics.saving') : t('metrics.recordThreshold')}
           </button>
-          <button type="button" className={teamStyles.button} onClick={onClose}>
+          <button type="button" className={controls.button} onClick={onClose}>
             {t('metrics.cancel')}
           </button>
         </span>

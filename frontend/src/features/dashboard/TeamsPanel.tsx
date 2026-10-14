@@ -1,19 +1,25 @@
+import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import type { DashboardTeam } from '../../api/dashboard';
 import { useFormat } from '../../i18n/format';
-import { PeopleIcon } from '../../components/icons';
+import { ArrowRightIcon, PeopleIcon } from '../../components/icons';
+import { useHere } from '../../components/origin';
+import controls from '../../styles/controls.module.css';
 import { Countdown } from './Countdown';
+import { TILE_LIMIT } from './tileLimit';
 import styles from './TeamsPanel.module.css';
 
 /**
- * The viewer's teams, soonest next meeting first, with a countdown to the
- * nearest. The order is the server's; a team with no next meeting comes last
- * there, so the first team that has one is the nearest.
+ * The viewer's first few teams, soonest next meeting first, with a countdown
+ * on the nearest one's row. The order is the server's; a team with no next
+ * meeting comes last there, so the first row that has one is the nearest.
  */
 export function TeamsPanel({ teams }: { teams: DashboardTeam[] }) {
   const { t } = useTranslation();
   const format = useFormat();
-  const nearest = teams.find((team) => team.next_meeting_at !== null);
+  const here = useHere('dashboard');
+  const shown = teams.slice(0, TILE_LIMIT);
+  const nearest = shown.find((team) => team.next_meeting_at !== null);
 
   return (
     <section className={styles.panel} aria-labelledby="my-teams-heading">
@@ -29,25 +35,17 @@ export function TeamsPanel({ teams }: { teams: DashboardTeam[] }) {
 
       {teams.length === 0 && <p className={styles.empty}>{t('myTeams.noTeams')}</p>}
 
-      {nearest?.next_meeting_at && (
-        <div className={styles.nearest}>
-          <div>
-            <div className={styles.nearestName}>{nearest.name}</div>
-            <div className={styles.nearestWhen}>{format.dateTime(nearest.next_meeting_at)}</div>
-          </div>
-          <Countdown until={nearest.next_meeting_at} />
-        </div>
-      )}
-
-      {teams.length > 0 && (
+      {shown.length > 0 && (
         <ul className={styles.list}>
-          {teams.map((team) => (
+          {shown.map((team) => (
             <li key={team.id} className={styles.team}>
               <span className={styles.initials} aria-hidden="true">
                 {team.initials}
               </span>
               <div className={styles.identity}>
-                <div className={styles.name}>{team.name}</div>
+                <Link to={`/teams/${team.id}/members`} state={here} className={styles.name}>
+                  {team.name}
+                </Link>
                 <div className={styles.meta}>
                   {t(`myTeams.role_${team.role}`)} ·{' '}
                   {team.schedule
@@ -60,15 +58,34 @@ export function TeamsPanel({ teams }: { teams: DashboardTeam[] }) {
                 </div>
               </div>
               <div className={styles.when}>
-                {team.next_meeting_at ? (
-                  format.dateTime(team.next_meeting_at)
-                ) : (
-                  <span className={styles.none}>{t('myTeams.noNextMeeting')}</span>
+                <Link
+                  to={`/teams/${team.id}/meetings`}
+                  state={here}
+                  className={team.next_meeting_at ? styles.date : styles.none}
+                >
+                  {team.next_meeting_at
+                    ? format.dateTime(team.next_meeting_at)
+                    : t('myTeams.noNextMeeting')}
+                </Link>
+                {team === nearest && team.next_meeting_at && (
+                  <Countdown until={team.next_meeting_at} />
                 )}
               </div>
             </li>
           ))}
         </ul>
+      )}
+
+      {teams.length > TILE_LIMIT && (
+        <Link
+          to="/my-teams"
+          state={here}
+          className={`${controls.link} ${styles.more}`}
+          aria-label={t('dashboard.moreTeams')}
+        >
+          {t('dashboard.more')}
+          <ArrowRightIcon />
+        </Link>
       )}
     </section>
   );

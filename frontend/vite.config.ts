@@ -38,5 +38,9 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
     exclude: ['e2e/**', 'node_modules/**'],
+    // Without this a CSS module imports as {}, so a component test comparing
+    // classes (controls.button and the like) would compare undefined. Vitest's
+    // default class-name strategy is stable, so a test can import the module.
+    css: { include: [/\.module\.css$/] },
   },
 });

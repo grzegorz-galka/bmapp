@@ -12,6 +12,7 @@ import { changeLanguage } from '../../i18n';
 import { en } from '../../i18n/en';
 import { pl } from '../../i18n/pl';
 import type { DashboardMeeting } from '../../api/dashboard';
+import controls from '../../styles/controls.module.css';
 import { MeetingsTile } from './MeetingsTile';
 import { DashboardPage } from './DashboardPage';
 import {
@@ -21,6 +22,16 @@ import {
   PROPOSED_MEETING,
   TODAYS_MEETING,
 } from './dashboardFixture';
+
+/** A class of the shared controls; a missing one must fail, not pass as undefined. */
+function control(name: 'button' | 'default' | 'link'): string {
+  const resolved = controls[name];
+  if (!resolved) throw new Error(`controls.module.css has no .${name}`);
+  return resolved;
+}
+const BUTTON = control('button');
+const DEFAULT = control('default');
+const LINK = control('link');
 
 const fetchMock = vi.fn();
 
@@ -66,6 +77,18 @@ const address = () => screen.getByTestId('address');
 /** The state the action navigated with: where the board was opened from. */
 const navigatedState = () => JSON.parse(screen.getByTestId('location-state').textContent!);
 const FROM_DASHBOARD = { from: { screen: 'dashboard', path: '/' } };
+
+/** Meetings later than the fixture's, one week apart, as the server orders them. */
+function laterMeetings(count: number): DashboardMeeting[] {
+  return Array.from({ length: count }, (_, index) => ({
+    ...NEXT_WEEKS_MEETING,
+    meeting_id: `meeting-later-${index}`,
+    date: `2026-10-${String(1 + 7 * index).padStart(2, '0')}`,
+  }));
+}
+
+/** The "More…" link, found by the accessible name that says what there is more of. */
+const moreLink = () => screen.queryByRole('link', { name: en.dashboard.moreMeetings });
 
 describe('the meeting rows', () => {
   it("Today's and the next meeting are listed", async () => {
@@ -122,6 +145,73 @@ describe('the meeting rows', () => {
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
 
     await changeLanguage('en');
+  });
+});
+
+describe('the cap of the tile', () => {
+  it('At most three meetings are listed', async () => {
+    await renderTile([TODAYS_MEETING, PROPOSED_MEETING, NEXT_WEEKS_MEETING, ...laterMeetings(2)]);
+
+    // The three that start soonest, in the server's order.
+    expect(rows()).toHaveLength(3);
+    expect(rows()[2]).toHaveTextContent(/24 Sep/);
+    expect(screen.queryByText(/1 Oct/)).not.toBeInTheDocument();
+
+    const more = moreLink()!;
+    expect(more).toHaveTextContent(en.dashboard.more);
+    expect(more).toHaveClass(LINK);
+    expect(more.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+
+    await userEvent.click(more);
+    expect(address()).toHaveTextContent(/^\/my-meetings$/);
+    expect(navigatedState()).toEqual(FROM_DASHBOARD);
+  });
+
+  it('Three meetings need no link to more', async () => {
+    await renderTile([TODAYS_MEETING, PROPOSED_MEETING, NEXT_WEEKS_MEETING]);
+
+    expect(rows()).toHaveLength(3);
+    expect(moreLink()).not.toBeInTheDocument();
+    expect(screen.queryByText(en.dashboard.more)).not.toBeInTheDocument();
+  });
+
+  it('names the link to more in Polish when Polish is active', async () => {
+    await renderTile([TODAYS_MEETING, ...laterMeetings(3)], 'pl');
+
+    const more = screen.getByRole('link', { name: pl.dashboard.moreMeetings });
+    expect(more).toHaveTextContent(pl.dashboard.more);
+
+    await changeLanguage('en');
+  });
+});
+
+describe('the look of the actions', () => {
+  it("Start meeting is the row's default", async () => {
+    await renderTile([TODAYS_MEETING]);
+    const row = rowOf('Platform Core', /17 Sep/);
+
+    expect(within(row).getByRole('button', { name: en.meetingsTile.start })).toHaveClass(DEFAULT);
+    for (const caption of [en.meetingsTile.prepare, en.meetingsTile.fillPulse]) {
+      const action = within(row).getByRole('button', { name: caption });
+      expect(action).toHaveClass(BUTTON);
+      expect(action).not.toHaveClass(DEFAULT);
+    }
+  });
+
+  it('Actions on different pages look alike', async () => {
+    // The dashboard's share of the scenario: every action on the tile is one
+    // of the shared buttons, and nothing else styles it.
+    await renderTile([TODAYS_MEETING, PROPOSED_MEETING, NEXT_WEEKS_MEETING]);
+    // `.default` composes `.button`, so it resolves to two class names.
+    const allowed = new Set([BUTTON, ...DEFAULT.split(' ')]);
+
+    const buttons = screen.getAllByRole('button');
+    expect(buttons).toHaveLength(7);
+    for (const button of buttons) {
+      const classes = [...button.classList];
+      expect(classes.length).toBeGreaterThan(0);
+      for (const name of classes) expect(allowed).toContain(name);
+    }
   });
 });
 
@@ -185,6 +275,11 @@ describe('Start a meeting', () => {
     expect(
       within(row).queryByRole('button', { name: en.meetingsTile.start }),
     ).not.toBeInTheDocument();
+    // No action on a later row is marked as the default.
+    for (const action of within(row).getAllByRole('button')) {
+      expect(action).toHaveClass(BUTTON);
+      expect(action).not.toHaveClass(DEFAULT);
+    }
   });
 });
 

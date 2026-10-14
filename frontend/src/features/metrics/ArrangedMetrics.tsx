@@ -28,6 +28,7 @@ import {
   useDeleteMetricGroup,
   useRenameMetricGroup,
 } from './useMetrics';
+import controls from '../../styles/controls.module.css';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
 import styles from './metrics.module.css';
@@ -319,7 +320,7 @@ function MetricMoves({
       {index > 0 && (
         <button
           type="button"
-          className={teamStyles.button}
+          className={controls.button}
           aria-label={t('metrics.moveUpLabel', { name })}
           onClick={() => move(container, ids[index - 1] ?? null)}
         >
@@ -329,7 +330,7 @@ function MetricMoves({
       {index < ids.length - 1 && (
         <button
           type="button"
-          className={teamStyles.button}
+          className={controls.button}
           aria-label={t('metrics.moveDownLabel', { name })}
           onClick={() => move(container, ids[index + 2] ?? null)}
         >
@@ -412,7 +413,7 @@ function GroupHeader({
           {!first && (
             <button
               type="button"
-              className={teamStyles.button}
+              className={controls.button}
               aria-label={t('metrics.moveGroupUpLabel', { name })}
               onClick={() => onMove('up')}
             >
@@ -422,7 +423,7 @@ function GroupHeader({
           {!last && (
             <button
               type="button"
-              className={teamStyles.button}
+              className={controls.button}
               aria-label={t('metrics.moveGroupDownLabel', { name })}
               onClick={() => onMove('down')}
             >
@@ -431,7 +432,7 @@ function GroupHeader({
           )}
           <button
             type="button"
-            className={teamStyles.button}
+            className={controls.button}
             aria-haspopup="dialog"
             aria-label={t('metrics.renameGroupLabel', { name })}
             onClick={() => setDialog('rename')}
@@ -440,7 +441,7 @@ function GroupHeader({
           </button>
           <button
             type="button"
-            className={teamStyles.button}
+            className={controls.button}
             disabled={remove.isPending}
             aria-label={t('metrics.deleteGroupLabel', { name })}
             onClick={handleDelete}
@@ -468,13 +469,13 @@ function GroupHeader({
             <span className={teamStyles.actions}>
               <button
                 type="button"
-                className={teamStyles.primary}
+                className={controls.default}
                 disabled={remove.isPending}
                 onClick={() => remove.mutate(group.id, { onSuccess: close })}
               >
                 {t('metrics.deleteGroup')}
               </button>
-              <button type="button" className={teamStyles.button} onClick={close}>
+              <button type="button" className={controls.button} onClick={close}>
                 {t('metrics.cancel')}
               </button>
             </span>
@@ -542,7 +543,7 @@ export function GroupNameDialog({
             )}
           </div>
           <span className={`${teamStyles.actions} ${teamStyles.submit}`}>
-            <button type="submit" className={teamStyles.primary} disabled={save.isPending}>
+            <button type="submit" className={controls.default} disabled={save.isPending}>
               {save.isPending
                 ? group
                   ? t('metrics.saving')
@@ -551,7 +552,7 @@ export function GroupNameDialog({
                   ? t('metrics.save')
                   : t('metrics.addGroup')}
             </button>
-            <button type="button" className={teamStyles.button} onClick={onClose}>
+            <button type="button" className={controls.button} onClick={onClose}>
               {t('metrics.cancel')}
             </button>
           </span>
