@@ -1,14 +1,22 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { DashboardMeeting } from '../../api/dashboard';
 import { useFormat } from '../../i18n/format';
 import { describeFailure } from '../../i18n/apiErrors';
-import { CalendarIcon, ClipboardIcon, PlayIcon, PulseIcon } from '../../components/icons';
+import {
+  ArrowRightIcon,
+  CalendarIcon,
+  ClipboardIcon,
+  PlayIcon,
+  PulseIcon,
+} from '../../components/icons';
 import { useHere } from '../../components/origin';
 import { useOpenMeeting } from '../meetings/useMeetings';
+import controls from '../../styles/controls.module.css';
 import { DASHBOARD_QUERY_KEY } from './useDashboardSummary';
+import { TILE_LIMIT } from './tileLimit';
 import styles from './MeetingsTile.module.css';
 
 /** Where each action lands on the board, given the meeting's id. */
@@ -25,10 +33,12 @@ type Action = keyof typeof ADDRESSES;
 
 /**
  * The viewer's current and upcoming board meetings, soonest first, each with
- * what is left to do for it and the ways into the board to do it.
+ * what is left to do for it and the ways into the board to do it. Only the
+ * soonest few are shown; the rest are on My meetings.
  */
 export function MeetingsTile({ meetings }: { meetings: DashboardMeeting[] }) {
   const { t } = useTranslation();
+  const here = useHere('dashboard');
 
   return (
     <section className={styles.tile} aria-labelledby="my-meetings-heading">
@@ -41,7 +51,7 @@ export function MeetingsTile({ meetings }: { meetings: DashboardMeeting[] }) {
         <p className={styles.empty}>{t('meetingsTile.empty')}</p>
       ) : (
         <ul className={styles.list}>
-          {meetings.map((meeting) => (
+          {meetings.slice(0, TILE_LIMIT).map((meeting) => (
             <MeetingRow
               // A team has one meeting per date at most. Keyed by date rather
               // than id, a proposed row that turns out to have been opened
@@ -51,6 +61,18 @@ export function MeetingsTile({ meetings }: { meetings: DashboardMeeting[] }) {
             />
           ))}
         </ul>
+      )}
+
+      {meetings.length > TILE_LIMIT && (
+        <Link
+          to="/my-meetings"
+          state={here}
+          className={[controls.link, styles.more].join(' ')}
+          aria-label={t('dashboard.moreMeetings')}
+        >
+          {t('dashboard.more')}
+          <ArrowRightIcon />
+        </Link>
       )}
     </section>
   );
@@ -87,10 +109,11 @@ function MeetingRow({ meeting }: { meeting: DashboardMeeting }) {
     void navigate(ADDRESSES[action](meeting.team_id, meetingId), { state: here });
   };
 
+  // Start meeting is today's row's default; no other row has one.
   const button = (action: Action, icon: ReactNode, caption: string) => (
     <button
       type="button"
-      className={styles.action}
+      className={action === 'start' ? controls.default : controls.button}
       disabled={open.isPending}
       onClick={() => void act(action)}
     >

@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { describeFieldFailure, describeOtherFailure } from '../../i18n/apiErrors';
+import controls from '../../styles/controls.module.css';
 import styles from './DevLoginDialog.module.css';
 
 const FIELDS = ['email', 'password'] as const;
@@ -123,10 +124,10 @@ export function DevLoginDialog({ initialEmail, onSubmit, onClose }: Props) {
         )}
 
         <div className={styles.actions}>
-          <button type="button" className={styles.button} onClick={onClose}>
+          <button type="button" className={controls.button} onClick={onClose}>
             {t('auth.devLoginClose')}
           </button>
-          <button type="submit" className={styles.primary} disabled={submitting}>
+          <button type="submit" className={controls.default} disabled={submitting}>
             {submitting ? t('auth.devLoginSubmitting') : t('auth.devLoginSubmit')}
           </button>
         </div>

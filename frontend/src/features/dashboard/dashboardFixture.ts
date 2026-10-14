@@ -7,7 +7,7 @@
  * would: Platform Core meets today, Payments' next meeting is only proposed,
  * and Infrastructure has neither a schedule nor a meeting.
  */
-import type { DashboardMeeting, DashboardSummary } from '../../api/dashboard';
+import type { DashboardMeeting, DashboardSummary, DashboardTeam } from '../../api/dashboard';
 
 /** A Thursday, 14:00 in Warsaw. */
 export const NOW = new Date('2026-09-17T12:00:00Z');
@@ -62,6 +62,30 @@ export const NEXT_WEEKS_MEETING: DashboardMeeting = {
   total: 14,
   pulse_answered: true,
 };
+
+/**
+ * Two more teams, both meeting after Payments, for a viewer on more teams than
+ * the My teams tile lists. Placed in the summary's teams before
+ * Infrastructure, which has no meeting, they keep the server's order.
+ */
+export const LATER_TEAMS: DashboardTeam[] = [
+  {
+    id: 'data-platform',
+    name: 'Data Platform',
+    initials: 'DP',
+    role: 'deputy',
+    schedule: { weekday: 2, start_time: '10:00' },
+    next_meeting_at: '2026-09-29T08:00:00Z',
+  },
+  {
+    id: 'security',
+    name: 'Security',
+    initials: 'SE',
+    role: 'member',
+    schedule: { weekday: 4, start_time: '09:00' },
+    next_meeting_at: '2026-10-01T07:00:00Z',
+  },
+];
 
 export function dashboardSummary(overrides: Partial<DashboardSummary> = {}): DashboardSummary {
   return {

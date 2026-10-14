@@ -173,6 +173,111 @@ test("an assigned task leads to the board's tasks list", async ({ page, request 
   ).toBeInViewport();
 });
 
+/**
+ * A viewer who leads four teams, each with a meeting opened on a later day, so
+ * both the My teams and the My board meetings tiles have one more than they show.
+ */
+async function fourTeams(request: APIRequestContext) {
+  const suffix = uniqueSuffix();
+  const viewer = `e2e.dashboard.four.${suffix}@example.com`;
+  const today = organizationToday();
+  const admin = await apiAs(request, ADMIN_EMAIL);
+  const teams = [];
+  for (const day of [1, 2, 3, 4]) {
+    const name = `E2E Four ${day} ${suffix}`;
+    teams.push({ ...(await admin.registerTeam(name, viewer)), name });
+  }
+  // Signed in only now: the development login accepts a recorded employee.
+  const leader = await apiAs(request, viewer);
+  for (const [index, team] of teams.entries()) {
+    await leader.openMeeting(team.id, addDays(today, index + 1));
+  }
+  return { viewer, teams };
+}
+
+test("a team's name leads to its members and its next meeting to its meetings", async ({
+  page,
+  request,
+}) => {
+  const { viewer, teams } = await fourTeams(request);
+  await useLanguage(page, 'en');
+  await signInAs(page, viewer);
+  await page.goto('/');
+
+  const tile = page.getByRole('region', { name: en.myTeams.heading, exact: true });
+  const first = tile.getByRole('listitem').filter({ hasText: teams[0]!.name });
+  await first.getByRole('link', { name: teams[0]!.name }).click();
+  await expect(page).toHaveURL(new RegExp(`/teams/${teams[0]!.id}/members$`));
+  await expect(
+    page.getByRole('heading', {
+      name: en.members.heading.replace('{{name}}', teams[0]!.name),
+    }),
+  ).toBeVisible();
+  await page.getByRole('link', { name: en.back.dashboard }).click();
+
+  // The date is the link to the team's meetings; it is the only other link on the row.
+  const links = first.getByRole('link');
+  await expect(links).toHaveCount(2);
+  await links.nth(1).click();
+  await expect(page).toHaveURL(new RegExp(`/teams/${teams[0]!.id}/meetings$`));
+  await expect(
+    page.getByRole('heading', {
+      name: en.meetings.heading.replace('{{name}}', teams[0]!.name),
+    }),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: en.back.dashboard })).toBeVisible();
+});
+
+test('the dashboard lists three teams and three meetings, and links to the rest', async ({
+  page,
+  request,
+}) => {
+  const { viewer, teams } = await fourTeams(request);
+  await useLanguage(page, 'en');
+  await signInAs(page, viewer);
+  await page.goto('/');
+
+  const teamsTile = page.getByRole('region', { name: en.myTeams.heading, exact: true });
+  await expect(teamsTile.getByRole('listitem')).toHaveCount(3);
+  await expect(teamsTile).not.toContainText(teams[3]!.name);
+  await expect(page.getByRole('timer', { name: en.myTeams.countdownLabel })).toHaveCount(1);
+
+  const meetingsTile = page.getByRole('region', { name: en.meetingsTile.heading });
+  // A row lists its facts in a list of its own; a row is the item with the actions.
+  await expect(
+    meetingsTile.getByRole('listitem').filter({ has: page.getByRole('button') }),
+  ).toHaveCount(3);
+  await expect(meetingsTile).not.toContainText(teams[3]!.name);
+
+  await teamsTile.getByRole('link', { name: en.dashboard.moreTeams }).click();
+  await expect(page).toHaveURL(/\/my-teams$/);
+  await expect(
+    page.getByRole('heading', { level: 1, name: en.personal.teamsHeading }),
+  ).toBeVisible();
+  await expect(page.getByText(teams[3]!.name)).toBeVisible();
+
+  await page.goto('/');
+  await meetingsTile.getByRole('link', { name: en.dashboard.moreMeetings }).click();
+  await expect(page).toHaveURL(/\/my-meetings$/);
+  await expect(page.getByRole('heading', { name: en.personal.meetingsHeading })).toBeVisible();
+  await expect(page.getByText(teams[3]!.name)).toBeVisible();
+});
+
+test("today's meeting is started from the dashboard", async ({ page, request }) => {
+  const { viewer, teamName, team, leader, today } = await scene(request);
+  const meeting = await leader.openMeeting(team.id, today);
+  await useLanguage(page, 'en');
+  await signInAs(page, viewer);
+  await page.goto('/');
+
+  await meetingRow(page, teamName).getByRole('button', { name: en.meetingsTile.start }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/teams/${team.id}\\?meeting=${meeting.id}$`));
+  await expect(
+    page.getByRole('heading', { name: en.board.heading.replace('{{name}}', teamName) }),
+  ).toBeVisible();
+});
+
 test('the dashboard reads in Polish and switches back without a reload', async ({ page }) => {
   await signInAs(page);
   await useLanguage(page, 'en');

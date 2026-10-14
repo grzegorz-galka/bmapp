@@ -15,6 +15,7 @@ import {
 import { useAuth } from '../auth/AuthProvider';
 import { useIsAdmin } from '../auth/useCurrentUser';
 import { BackLink } from '../../components/BackLink';
+import controls from '../../styles/controls.module.css';
 import styles from './teams.module.css';
 
 export function TeamMembersPage() {
@@ -123,7 +124,7 @@ export function TeamMembersPage() {
           </div>
           <button
             type="submit"
-            className={`${styles.primary} ${styles.submit}`}
+            className={`${controls.default} ${styles.submit}`}
             disabled={addMember.isPending}
           >
             {addMember.isPending ? t('members.adding') : t('members.add')}
@@ -163,7 +164,7 @@ export function TeamMembersPage() {
                   {authority.handOver && (
                     <button
                       type="button"
-                      className={styles.button}
+                      className={controls.button}
                       disabled={busy}
                       onClick={() => act(makeLeader, member)}
                       aria-label={t('members.makeLeaderLabel', { email: member.email })}
@@ -174,7 +175,7 @@ export function TeamMembersPage() {
                   {authority.chooseDeputies && !member.is_deputy && (
                     <button
                       type="button"
-                      className={styles.button}
+                      className={controls.button}
                       disabled={busy}
                       onClick={() => act(appointDeputy, member)}
                       aria-label={t('members.makeDeputyLabel', { email: member.email })}
@@ -185,7 +186,7 @@ export function TeamMembersPage() {
                   {authority.chooseDeputies && member.is_deputy && (
                     <button
                       type="button"
-                      className={styles.button}
+                      className={controls.button}
                       disabled={busy}
                       onClick={() => act(revokeDeputy, member)}
                       aria-label={t('members.revokeDeputyLabel', { email: member.email })}
@@ -196,7 +197,7 @@ export function TeamMembersPage() {
                   {mayRemove && (
                     <button
                       type="button"
-                      className={styles.button}
+                      className={controls.button}
                       disabled={busy}
                       onClick={() => act(removeMember, member)}
                       aria-label={t('members.removeLabel', { email: member.email })}

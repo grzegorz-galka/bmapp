@@ -109,6 +109,17 @@ export function RecordingView({
   );
 }
 
+/**
+ * Each choice of the status list in its own colour, and the closed list in the
+ * chosen one; the option's name and the badge beside it say it in words too.
+ */
+const COLOUR_CLASS: Record<Colour | '', string | undefined> = {
+  '': styles.statusAutomatic,
+  green: styles.statusGreen,
+  amber: styles.statusAmber,
+  red: styles.statusRed,
+};
+
 type RowState = 'idle' | 'saving' | 'saved' | 'notANumber' | 'failed';
 
 function RecordingRow({
@@ -226,33 +237,23 @@ function RecordingRow({
         />
       </td>
       <td data-label={captions.status}>
-        <fieldset
-          role="radiogroup"
-          className={styles.statusField}
-          // Saved when focus leaves the toggle, as the other fields save on blur.
-          onBlur={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) save();
-          }}
-        >
-          <legend className="visually-hidden">
-            {t('recording.statusLabel', { name: metric.name })}
-          </legend>
-          <StatusBadge status={entry.status} setByHand={entry.set_by_hand} />
-          <span className={styles.statusToggle}>
+        <div className={styles.statusField}>
+          <select
+            id={id('status')}
+            aria-label={t('recording.statusLabel', { name: metric.name })}
+            className={`${teamStyles.input} ${styles.statusSelect} ${COLOUR_CLASS[colour] ?? ''}`}
+            value={colour}
+            onChange={(event) => setColour(event.target.value as Colour | '')}
+            onBlur={save}
+          >
             {(['', ...COLOURS] as const).map((option) => (
-              <label key={option || 'automatic'} className={styles.statusOption}>
-                <input
-                  type="radio"
-                  name={id('status')}
-                  value={option}
-                  checked={colour === option}
-                  onChange={() => setColour(option)}
-                />
-                <span>{option ? t(`status.${option}`) : t('recording.automatic')}</span>
-              </label>
+              <option key={option || 'automatic'} value={option} className={COLOUR_CLASS[option]}>
+                {option ? t(`status.${option}`) : t('recording.automatic')}
+              </option>
             ))}
-          </span>
-        </fieldset>
+          </select>
+          <StatusBadge status={entry.status} setByHand={entry.set_by_hand} />
+        </div>
       </td>
       <td data-label={captions.comment}>
         <input

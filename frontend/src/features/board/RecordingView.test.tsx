@@ -5,10 +5,11 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { BoardPage } from './BoardPage';
 import { RecordingView } from './RecordingView';
+import styles from './board.module.css';
 import { renderWithLanguage } from '../../test/render';
 import { en } from '../../i18n/en';
 import { pl } from '../../i18n/pl';
@@ -69,11 +70,23 @@ async function openRecording(
   return user;
 }
 
-/** One option of a metric's status toggle. */
-function statusOption(metric: string, option: string): HTMLElement {
-  return within(screen.getByRole('radiogroup', { name: `Status: ${metric}` })).getByRole('radio', {
-    name: option,
-  });
+/** A metric's status list. */
+function statusList(metric: string): HTMLSelectElement {
+  return screen.getByRole('combobox', { name: `Status: ${metric}` });
+}
+
+/** Chooses one option of a metric's status list by its caption. */
+async function chooseStatus(user: UserEvent, metric: string, option: string) {
+  await user.selectOptions(
+    statusList(metric),
+    within(statusList(metric)).getByRole('option', { name: option }),
+  );
+}
+
+/** The caption of the option a metric's status list shows as chosen. */
+function chosenStatus(metric: string): string | undefined {
+  const list = statusList(metric);
+  return list.selectedOptions[0]?.textContent ?? undefined;
 }
 
 function lastWrite(): { url: string; body: unknown } {
@@ -192,7 +205,7 @@ describe('the recording view', () => {
         within(cells[0]!).getByRole('textbox', { name: `Value: ${name}` }),
       ).toBeInTheDocument();
       expect(
-        within(cells[1]!).getByRole('radiogroup', { name: `Status: ${name}` }),
+        within(cells[1]!).getByRole('combobox', { name: `Status: ${name}` }),
       ).toBeInTheDocument();
       expect(
         within(cells[2]!).getByRole('textbox', { name: `Comment: ${name}` }),
@@ -217,7 +230,7 @@ describe('the recording view', () => {
 
     for (const name of ['Revenue', 'NPS']) {
       expect(screen.getByRole('textbox', { name: `Wartość: ${name}` })).toBeInTheDocument();
-      expect(screen.getByRole('radiogroup', { name: `Status: ${name}` })).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: `Status: ${name}` })).toBeInTheDocument();
       expect(screen.getByRole('textbox', { name: `Komentarz: ${name}` })).toBeInTheDocument();
     }
     // The bare captions appear once, as column headers, not on every row.
@@ -298,7 +311,7 @@ describe('the recording view', () => {
   it('sends the number, the comment and the colour together', async () => {
     const user = await openRecording();
 
-    await user.click(statusOption('Revenue', en.status.red));
+    await chooseStatus(user, 'Revenue', en.status.red);
     await user.type(screen.getByRole('textbox', { name: 'Comment: Revenue' }), 'Release slipped');
     await user.tab();
 
@@ -312,7 +325,7 @@ describe('the recording view', () => {
   it('A status is set by hand with the toggle', async () => {
     const user = await openRecording();
 
-    await user.click(statusOption('Revenue', en.status.red));
+    await chooseStatus(user, 'Revenue', en.status.red);
     await user.type(screen.getByRole('textbox', { name: 'Comment: Revenue' }), 'Release slipped');
     await user.tab();
 
@@ -321,8 +334,40 @@ describe('the recording view', () => {
       manual_status: 'red',
       comment: 'Release slipped',
     });
-    expect(statusOption('Revenue', en.status.red)).toBeChecked();
-    expect(screen.getAllByText(en.recording.status).length).toBeGreaterThan(0);
+    expect(statusList('Revenue')).toHaveValue('red');
+    expect(chosenStatus('Revenue')).toBe(en.status.red);
+    expect(screen.getByRole('columnheader', { name: en.recording.status })).toBeInTheDocument();
+  });
+
+  it('The list defaults to Automatic', async () => {
+    await openRecording();
+
+    expect(statusList('Revenue')).toHaveValue('');
+    expect(chosenStatus('Revenue')).toBe(en.recording.automatic);
+    expect(
+      within(statusList('Revenue'))
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual([en.recording.automatic, en.status.green, en.status.amber, en.status.red]);
+  });
+
+  it('The colours are shown in colour', async () => {
+    // The class names are what a test can see; contrast.test.ts holds each
+    // colour to 4.5:1 in both themes.
+    fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
+      metrics: [tile({ manual_status: 'amber', set_by_hand: true, comment: 'Close call' })],
+    });
+    await openRecording();
+
+    const list = statusList('Revenue');
+    const option = (name: string) => within(list).getByRole('option', { name });
+    expect(option(en.recording.automatic)).toHaveClass(styles.statusAutomatic!);
+    expect(option(en.status.green)).toHaveClass(styles.statusGreen!);
+    expect(option(en.status.amber)).toHaveClass(styles.statusAmber!);
+    expect(option(en.status.red)).toHaveClass(styles.statusRed!);
+    expect(list).toHaveValue('amber');
+    expect(list).toHaveClass(styles.statusAmber!);
+    expect(list).not.toHaveClass(styles.statusAutomatic!);
   });
 
   it('Automatic clears a status set by hand', async () => {
@@ -330,9 +375,9 @@ describe('the recording view', () => {
       metrics: [tile({ manual_status: 'red', set_by_hand: true, comment: 'Release slipped' })],
     });
     const user = await openRecording();
-    expect(statusOption('Revenue', en.status.red)).toBeChecked();
+    expect(statusList('Revenue')).toHaveValue('red');
 
-    await user.click(statusOption('Revenue', en.recording.automatic));
+    await chooseStatus(user, 'Revenue', en.recording.automatic);
     await user.tab();
 
     expect(lastWrite().body).toEqual({
@@ -340,6 +385,7 @@ describe('the recording view', () => {
       manual_status: null,
       comment: 'Release slipped',
     });
+    expect(statusList('Revenue')).toHaveClass(styles.statusAutomatic!);
   });
 
   it('The number field fits ten characters', async () => {
@@ -374,7 +420,7 @@ describe('the recording view', () => {
     fixtures.write = () => errorResponse(422, 'comment', 'metric_value.comment_required');
     const user = await openRecording();
 
-    await user.click(statusOption('Revenue', en.status.red));
+    await chooseStatus(user, 'Revenue', en.status.red);
     await user.tab();
 
     expect(await screen.findByRole('alert')).toHaveTextContent(

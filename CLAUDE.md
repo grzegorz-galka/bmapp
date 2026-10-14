@@ -141,6 +141,14 @@ ink/surface pairing is held to 4.5:1 and control boundaries to 3:1 by
 `src/styles/contrast.test.ts`, which parses the stylesheet rather than
 restating it. Use `--line-control`, not `--line`, on anything operable.
 
+**Buttons come from `src/styles/controls.module.css`, nowhere else.** Four
+classes: `.button`, an outlined action; `.default`, the group's default
+(a form's submit, Start meeting), accent-outlined; `.segmented`, a set of
+views; `.link`, navigation drawn as a link with an icon. Solid accent fill
+only marks an on state (`aria-pressed`, `aria-expanded`), never an action.
+`src/styles/controls.test.ts` reads every CSS module and fails on a page's
+own button rules or a filled action.
+
 **Changing a frontend dependency needs more than `docker compose up -d`.** The
 frontend container installs into an anonymous `/app/node_modules` volume that
 survives both a rebuild and `up -d`. After adding or upgrading a package, run
@@ -253,7 +261,11 @@ horizon travelling with the text. An action on a proposed row opens the meeting
 through `POST /teams/:id/meetings` first; the summary itself never writes. The
 board's address opens the recording view (`?meeting=…&mode=record`), the pulse
 answer form (`?meeting=…&view=pulse&mode=answer`) and a list (`#problems`,
-`#tasks`) directly.
+`#tasks`) directly. The My teams and My board meetings tiles show at most three
+rows, soonest first, and a "More…" link to `/my-teams` or `/my-meetings` when
+there are more. On My teams a team's name leads to its members, its next
+meeting (or "No next meeting") to its meetings, and only the nearest row
+carries the countdown.
 
 `authentication` and `authorization` are implemented too: every endpoint needs a
 verified token, the dashboard reports the caller rather than a placeholder, and writes

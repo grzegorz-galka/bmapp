@@ -6,6 +6,7 @@ import { renderWithLanguage } from '../../test/render';
 import { en } from '../../i18n/en';
 import { pl } from '../../i18n/pl';
 import type { Team } from '../../api/teams';
+import controls from '../../styles/controls.module.css';
 
 function team(name: string, leaderEmail = 'lead@example.com', memberCount = 1): Team {
   return {
@@ -274,6 +275,45 @@ describe('A team is registered from a section of the teams page', () => {
 
     // Only the list was ever fetched: nothing was registered.
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Register team is a disclosure', () => {
+  it('A disclosure is filled while it is open', async () => {
+    // specs/appearance/spec.md. controls.button fills under aria-expanded, so
+    // the state it announces is the state it shows.
+    fetchMock.mockResolvedValue(jsonResponse([team('Platform')]));
+
+    await renderWithLanguage(<TeamsPage />, 'en', { auth: { isAdmin: true } });
+    await screen.findByRole('listitem');
+    const button = screen.getByRole('button', { name: en.teams.register });
+    expect(button).toHaveClass(controls.default!);
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+
+    await userEvent.click(button);
+    expect(button).toHaveClass(controls.default!);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+
+    await userEvent.click(button);
+    expect(button).toHaveClass(controls.default!);
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('region', { name: en.teams.register })).not.toBeInTheDocument();
+  });
+
+  it("makes the section's submit the default and Cancel an ordinary button", async () => {
+    fetchMock.mockResolvedValue(jsonResponse([]));
+
+    await renderWithLanguage(<TeamsPage />, 'en', { auth: { isAdmin: true } });
+    await screen.findByText(en.teams.empty);
+    await userEvent.click(screen.getByRole('button', { name: en.teams.register }));
+
+    const section = within(screen.getByRole('region', { name: en.teams.register }));
+    expect(section.getByRole('button', { name: en.teams.registerSubmit })).toHaveClass(
+      controls.default!,
+    );
+    const cancel = section.getByRole('button', { name: en.teams.cancel });
+    expect(cancel).toHaveClass(controls.button!);
+    expect(cancel).not.toHaveClass(controls.default!);
   });
 });
 

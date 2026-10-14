@@ -75,31 +75,3 @@
   justify-content: flex-end;
   gap: var(--sp-2);
 }
-
-.button,
-.primary {
-  padding: 8px var(--sp-4);
-  border: 1px solid var(--line-control);
-  border-radius: var(--r-sm);
-  font: 500 var(--fs-sm) var(--font-sans);
-  cursor: pointer;
-}
-
-.button {
-  background: var(--panel);
-  color: var(--ink);
-}
-
-.button:hover {
-  background: var(--panel-2);
-}
-
-.primary {
-  background: var(--accent-solid);
-  color: var(--on-accent-solid);
-}
-
-.primary:disabled {
-  cursor: default;
-  opacity: 0.7;
-}

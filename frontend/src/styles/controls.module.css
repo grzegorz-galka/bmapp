@@ -1,0 +1,93 @@
+/*
+ * The one button scheme (unify-gui-style, design decisions 1 and 2).
+ *
+ * An action is outlined; the default of a group is outlined in the accent;
+ * the solid accent is reserved for a control that is on. The on state is read
+ * from the ARIA attribute the control already reports, so what is shown and
+ * what is announced cannot drift apart. controls.test.ts keeps the solid
+ * accent and these class names out of every other module.
+ */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px var(--sp-4);
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font: 500 var(--fs-sm) var(--font-sans);
+  cursor: pointer;
+}
+
+.button:hover {
+  background: color-mix(in oklch, var(--accent) var(--tint), var(--panel));
+}
+
+/* After :hover, so a pressed or expanded control stays filled under the pointer. */
+.button[aria-pressed='true'],
+.button[aria-expanded='true'] {
+  border-color: var(--accent-solid);
+  background: var(--accent-solid);
+  color: var(--on-accent-solid);
+}
+
+.button:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+/* The weight, not only the hue, tells the default apart (WCAG 1.4.1). */
+.default {
+  composes: button;
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.segmented button {
+  padding: 6px var(--sp-3);
+  border: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font: 500 var(--fs-sm) var(--font-sans);
+  cursor: pointer;
+}
+
+.segmented button + button {
+  border-left: 1px solid var(--line-control);
+}
+
+.segmented button:hover {
+  background: color-mix(in oklch, var(--accent) var(--tint), var(--panel));
+}
+
+.segmented button[aria-pressed='true'] {
+  background: var(--accent-solid);
+  color: var(--on-accent-solid);
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.link:hover,
+.link:focus-visible {
+  text-decoration: underline;
+}

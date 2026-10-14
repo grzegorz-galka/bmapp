@@ -17,6 +17,7 @@ import {
   useGlobalMetrics,
   useGlobalThresholds,
 } from './useGlobalMetrics';
+import controls from '../../styles/controls.module.css';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
 import metricStyles from '../metrics/metrics.module.css';
@@ -81,7 +82,7 @@ function AddGlobalMetric() {
       <div className={metricStyles.addRow}>
         <button
           type="button"
-          className={teamStyles.primary}
+          className={controls.default}
           aria-haspopup="dialog"
           onClick={() => setAdding(true)}
         >
@@ -185,7 +186,7 @@ function GlobalMetricRow({ metric, mayDefine }: { metric: GlobalMetric; mayDefin
       <span className={teamStyles.actions}>
         <button
           type="button"
-          className={teamStyles.button}
+          className={controls.button}
           aria-expanded={panel === 'history'}
           aria-label={t('metrics.historyLabel', { name })}
           onClick={() => open('history')}
@@ -196,7 +197,7 @@ function GlobalMetricRow({ metric, mayDefine }: { metric: GlobalMetric; mayDefin
           <>
             <button
               type="button"
-              className={teamStyles.button}
+              className={controls.button}
               aria-label={t('metrics.editLabel', { name })}
               onClick={() => open('edit')}
             >
@@ -204,7 +205,7 @@ function GlobalMetricRow({ metric, mayDefine }: { metric: GlobalMetric; mayDefin
             </button>
             <button
               type="button"
-              className={teamStyles.button}
+              className={controls.button}
               aria-label={t('metrics.changeThresholdLabel', { name })}
               onClick={() => open('threshold')}
             >
@@ -212,7 +213,7 @@ function GlobalMetricRow({ metric, mayDefine }: { metric: GlobalMetric; mayDefin
             </button>
             <button
               type="button"
-              className={teamStyles.button}
+              className={controls.button}
               disabled={change.isPending}
               aria-label={t(metric.retired ? 'metrics.bringBackLabel' : 'metrics.retireLabel', {
                 name,
@@ -225,7 +226,7 @@ function GlobalMetricRow({ metric, mayDefine }: { metric: GlobalMetric; mayDefin
             </button>
             <button
               type="button"
-              className={teamStyles.button}
+              className={controls.button}
               disabled={remove.isPending}
               aria-label={t('metrics.deleteLabel', { name })}
               onClick={() => remove.mutate(metric.id)}

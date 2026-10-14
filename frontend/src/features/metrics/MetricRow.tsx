@@ -9,6 +9,7 @@ import { describeThreshold, GlobalMark } from './display';
 import { MetricForm } from './MetricForm';
 import { ThresholdDialog, ThresholdHistory } from './thresholds';
 import { useAddThreshold, useChangeMetric, useDeleteMetric, useThresholds } from './useMetrics';
+import controls from '../../styles/controls.module.css';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
 
@@ -106,7 +107,7 @@ export function MetricRow({
         {arrange}
         <button
           type="button"
-          className={teamStyles.button}
+          className={controls.button}
           aria-expanded={panel === 'history'}
           aria-label={t('metrics.historyLabel', { name })}
           onClick={() => open('history')}
@@ -117,7 +118,7 @@ export function MetricRow({
           <>
             <button
               type="button"
-              className={teamStyles.button}
+              className={controls.button}
               aria-label={t(global ? 'metrics.editPlacementLabel' : 'metrics.editLabel', { name })}
               onClick={() => open('edit')}
             >
@@ -126,7 +127,7 @@ export function MetricRow({
             {!global && (
               <button
                 type="button"
-                className={teamStyles.button}
+                className={controls.button}
                 aria-label={t('metrics.changeThresholdLabel', { name })}
                 onClick={() => open('threshold')}
               >
@@ -137,7 +138,7 @@ export function MetricRow({
             {!metric.retired_in_catalogue && (
               <button
                 type="button"
-                className={teamStyles.button}
+                className={controls.button}
                 disabled={changeMetric.isPending}
                 aria-label={t(metric.retired ? 'metrics.bringBackLabel' : 'metrics.retireLabel', {
                   name,
@@ -151,7 +152,7 @@ export function MetricRow({
             )}
             <button
               type="button"
-              className={teamStyles.button}
+              className={controls.button}
               disabled={deleteMetric.isPending}
               aria-label={t(global ? 'metrics.removeLabel' : 'metrics.deleteLabel', { name })}
               onClick={() => deleteMetric.mutate(metric.id)}

@@ -140,25 +140,7 @@
 .links {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--sp-2);
-}
-
-.link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border: 1px solid var(--line-control);
-  border-radius: var(--r-sm);
-  color: var(--ink);
-  font-size: var(--fs-xs);
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.link:hover,
-.link:focus-visible {
-  background: color-mix(in oklch, var(--accent) var(--tint), var(--panel));
+  gap: var(--sp-2) var(--sp-4);
 }
 
 /* The items assigned to the viewer. */

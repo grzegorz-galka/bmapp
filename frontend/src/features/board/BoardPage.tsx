@@ -6,6 +6,7 @@ import type { BoardMetric, MeetingBoard, MetricDefinition } from '../../api/metr
 import { describeFailure, isNotFound } from '../../i18n/apiErrors';
 import { useFormat } from '../../i18n/format';
 import { BackLink } from '../../components/BackLink';
+import { CalendarIcon, SettingsIcon } from '../../components/icons';
 import { useHere } from '../../components/origin';
 import { useAuth } from '../auth/AuthProvider';
 import { useIsAdmin } from '../auth/useCurrentUser';
@@ -23,6 +24,7 @@ import { PulseView } from './pulse/PulseView';
 import { usePulse } from './pulse/usePulse';
 import { ArchivedView } from './items/ArchivedView';
 import { ItemLists } from './items/ItemLists';
+import controls from '../../styles/controls.module.css';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
 import styles from './board.module.css';
@@ -165,10 +167,12 @@ export function BoardPage() {
       <header className={styles.header}>
         <h1 className={teamStyles.heading}>{t('board.heading', { name: team.data.name })}</h1>
         <nav className={teamStyles.actions} aria-label={t('nav.label')}>
-          <Link className={teamStyles.button} to={`${teamPath}/meetings`} state={here}>
+          <Link className={controls.link} to={`${teamPath}/meetings`} state={here}>
+            <CalendarIcon />
             {t('board.meetingsLink')}
           </Link>
-          <Link className={teamStyles.button} to={`${teamPath}/metrics`} state={here}>
+          <Link className={controls.link} to={`${teamPath}/metrics`} state={here}>
+            <SettingsIcon />
             {t('board.settingsLink')}
           </Link>
         </nav>
@@ -180,7 +184,7 @@ export function BoardPage() {
           <div
             role="group"
             aria-label={t('pulse.viewSwitchLabel')}
-            className={`${styles.segmented} ${styles.viewSwitch}`}
+            className={`${controls.segmented} ${styles.viewSwitch}`}
           >
             <button type="button" aria-pressed={view !== 'archived'} onClick={() => setSearch({})}>
               {t('pulse.metricsView')}
@@ -212,7 +216,7 @@ export function BoardPage() {
           <div role="group" aria-label={t('board.navigatorLabel')} className={styles.navigator}>
             <button
               type="button"
-              className={teamStyles.button}
+              className={controls.button}
               disabled={index <= 0}
               onClick={() => all[index - 1] && go(all[index - 1]!)}
             >
@@ -238,7 +242,7 @@ export function BoardPage() {
             </select>
             <button
               type="button"
-              className={teamStyles.button}
+              className={controls.button}
               disabled={index >= all.length - 1}
               onClick={() => all[index + 1] && go(all[index + 1]!)}
             >
@@ -249,7 +253,7 @@ export function BoardPage() {
           <div
             role="group"
             aria-label={t('pulse.viewSwitchLabel')}
-            className={`${styles.segmented} ${styles.viewSwitch}`}
+            className={`${controls.segmented} ${styles.viewSwitch}`}
           >
             <button
               type="button"
@@ -377,7 +381,7 @@ function BoardBody({
         {!board.editable && <span className={styles.muted}>{t('board.frozen')}</span>}
         <button
           type="button"
-          className={listing ? teamStyles.button : teamStyles.primary}
+          className={controls.button}
           aria-pressed={listing}
           onClick={() => onListing(!listing)}
         >
@@ -477,7 +481,7 @@ function Tile({
       <Sparkline name={metric.name} points={entry.sparkline} />
       <button
         type="button"
-        className={teamStyles.button}
+        className={controls.button}
         aria-label={t('board.detailsLabel', { name: metric.name })}
         onClick={() => onDetail(metric)}
       >

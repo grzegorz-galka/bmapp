@@ -14,6 +14,9 @@ import styles from './DeclarationsBand.module.css';
  * carrying both languages, so switching language re-reads what is already
  * loaded rather than fetching again. Pictograms are decoration beside the
  * words.
+ *
+ * Every text is set in one of four type styles - label, headline, subheading
+ * and body - and nothing else, so the band cannot drift into a fifth.
  */
 export function DeclarationsBand({ declarations }: { declarations: Declarations }) {
   const { t, i18n } = useTranslation();
@@ -21,8 +24,8 @@ export function DeclarationsBand({ declarations }: { declarations: Declarations 
   const read = (text: LocalizedText) => localized(text, language);
 
   const heading = (icon: ReactNode, text: string) => (
-    <h3 className={styles.columnHeading}>
-      <span className={styles.pictogram}>{icon}</span>
+    <h3 className={`${styles.columnHeading} ${styles.label}`}>
+      {icon && <span className={styles.pictogram}>{icon}</span>}
       {text}
     </h3>
   );
@@ -30,10 +33,10 @@ export function DeclarationsBand({ declarations }: { declarations: Declarations 
   return (
     <section className={styles.band} aria-labelledby="declarations-heading">
       <div className={styles.bandHead}>
-        <h2 id="declarations-heading" className={styles.bandLabel}>
+        <h2 id="declarations-heading" className={styles.label}>
           {t('declarations.band')}
         </h2>
-        <span className={styles.bandNote}>{t('declarations.bandNote')}</span>
+        <span className={styles.label}>{t('declarations.bandNote')}</span>
       </div>
 
       <div className={styles.grid}>
@@ -45,12 +48,12 @@ export function DeclarationsBand({ declarations }: { declarations: Declarations 
         </div>
 
         <div className={styles.column}>
-          <h3 className={styles.columnHeading}>{t('declarations.values')}</h3>
+          {heading(null, t('declarations.values'))}
           <ul className={styles.values}>
             {declarations.values.map((value) => (
               <li key={value.icon} className={styles.value}>
                 <ValueIcon icon={value.icon} className={styles.hexagon} width={28} height={32} />
-                <span className={styles.valueName}>{read(value.name)}</span>
+                <span className={styles.headline}>{read(value.name)}</span>
               </li>
             ))}
           </ul>
@@ -58,9 +61,9 @@ export function DeclarationsBand({ declarations }: { declarations: Declarations 
 
         <div className={styles.column}>
           {heading(<CompassIcon />, t('declarations.strategy'))}
-          <h4 className={styles.horizon}>{read(declarations.strategy.horizon)}</h4>
+          <h4 className={styles.subheading}>{read(declarations.strategy.horizon)}</h4>
           {declarations.strategy.statements.map((statement) => (
-            <p key={statement.en} className={styles.prose}>
+            <p key={statement.en} className={styles.body}>
               {read(statement)}
             </p>
           ))}
@@ -70,12 +73,12 @@ export function DeclarationsBand({ declarations }: { declarations: Declarations 
           {heading(<FlagIcon />, t('declarations.goals'))}
           {declarations.goals.map((group) => (
             <div key={group.horizon.en} className={styles.goalGroup}>
-              <h4 className={styles.horizon}>{read(group.horizon)}</h4>
+              <h4 className={styles.subheading}>{read(group.horizon)}</h4>
               <ul className={styles.goals}>
                 {group.items.map((goal) => (
                   <li key={goal.en} className={styles.goal}>
                     <span className={styles.bullet} aria-hidden="true" />
-                    <span>{read(goal)}</span>
+                    <span className={styles.body}>{read(goal)}</span>
                   </li>
                 ))}
               </ul>

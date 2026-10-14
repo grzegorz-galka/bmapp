@@ -45,14 +45,3 @@
 .dateField {
   flex: 0 0 11rem;
 }
-
-/* An action written into a sentence, such as "Change schedule". */
-.linkButton {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-}

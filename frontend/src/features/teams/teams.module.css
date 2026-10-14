@@ -1,6 +1,7 @@
 /*
  * Shared by the team page and the members page: both are a form above a list,
- * and keeping one sheet keeps their fields and buttons identical.
+ * and keeping one sheet keeps their fields identical. Buttons come from
+ * styles/controls.module.css.
  *
  * Nothing here has a fixed width. Fields wrap under one another and actions
  * under their member, because the Polish captions run noticeably longer.
@@ -70,35 +71,6 @@
 /* Lines the button up with the inputs rather than with their labels. */
 .submit {
   align-self: flex-end;
-}
-
-.button,
-.primary {
-  padding: 8px var(--sp-4);
-  border: 1px solid var(--line-control);
-  border-radius: var(--r-sm);
-  font: 500 var(--fs-sm) var(--font-sans);
-  cursor: pointer;
-}
-
-.button {
-  background: var(--panel);
-  color: var(--ink);
-}
-
-.button:hover {
-  background: var(--panel-2);
-}
-
-.primary {
-  background: var(--accent-solid);
-  color: var(--on-accent-solid);
-}
-
-.button:disabled,
-.primary:disabled {
-  cursor: default;
-  opacity: 0.7;
 }
 
 .list {

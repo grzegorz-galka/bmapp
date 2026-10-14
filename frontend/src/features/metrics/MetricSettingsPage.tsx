@@ -14,6 +14,7 @@ import { MetricForm } from './MetricForm';
 import { Modal } from '../../components/Modal';
 import { BackLink } from '../../components/BackLink';
 import { useAddMetric, useMetricGroups, useMetrics } from './useMetrics';
+import controls from '../../styles/controls.module.css';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
 import styles from './metrics.module.css';
@@ -119,7 +120,7 @@ function AddMetric({
   const opener = (what: Adding, caption: string) => (
     <button
       type="button"
-      className={what === 'create' ? teamStyles.primary : teamStyles.button}
+      className={what === 'create' ? controls.default : controls.button}
       aria-haspopup="dialog"
       onClick={() => setAdding(what)}
     >

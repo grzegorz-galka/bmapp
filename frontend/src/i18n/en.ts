@@ -54,6 +54,11 @@ export const en = {
       'Record this meeting’s metric values, work the problems, agree the tasks. Every value belongs to the meeting it was recorded at, so the trend follows the sequence of meetings — not the calendar.',
     footerNote: 'on-premise · board meetings application',
     footerEnv: 'v0.1.0 · walking skeleton',
+    // A tile shows at most TILE_LIMIT rows; the visible caption is the same
+    // on both tiles, so the accessible name says what there is more of.
+    more: 'More…',
+    moreTeams: 'More teams',
+    moreMeetings: 'More board meetings',
   },
   declarations: {
     band: 'Company declarations',

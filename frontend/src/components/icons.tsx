@@ -119,6 +119,36 @@ export function ArchiveIcon(props: IconProps) {
   );
 }
 
+/** A board's metric settings: sliders. */
+export function SettingsIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M4 7h9M17 7h3M4 17h3M11 17h9" />
+      <circle cx="15" cy="7" r="2" />
+      <circle cx="9" cy="17" r="2" />
+    </Glyph>
+  );
+}
+
+/** A team's board: tiles on a board. */
+export function BoardIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <rect x="3.5" y="4" width="17" height="16" rx="2" />
+      <path d="M3.5 10h17M12 10v10" />
+    </Glyph>
+  );
+}
+
+/** "More…": the rest of a tile's list, on its own page. */
+export function ArrowRightIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M4.5 12h15M13 5.5l6.5 6.5-6.5 6.5" />
+    </Glyph>
+  );
+}
+
 /** The mission. */
 export function TargetIcon(props: IconProps) {
   return (

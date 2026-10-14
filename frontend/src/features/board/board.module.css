@@ -15,6 +15,12 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+}
+
+/* The header keeps the heading's margin, so links wrapped below it keep it too. */
+.header > h1 {
+  margin-bottom: 0;
 }
 
 .navigator {
@@ -131,16 +137,6 @@
   overflow-wrap: anywhere;
 }
 
-.button {
-  padding: 6px var(--sp-3);
-  border: 1px solid var(--line-control);
-  border-radius: var(--r-sm);
-  background: var(--panel);
-  color: var(--ink);
-  font: 500 var(--fs-sm) var(--font-sans);
-  cursor: pointer;
-}
-
 /* The recording list. */
 
 .recording {
@@ -196,57 +192,40 @@
   width: 12ch;
 }
 
-/* The colour set by hand, as one toggle of four: automatic, green, amber, red. */
+/* The colour set by hand, as a list of four, with the computed status under it. */
 .statusField {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--sp-1);
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
 }
 
-.statusToggle {
-  display: inline-flex;
-  flex-wrap: wrap;
-  border: 1px solid var(--line-control);
-  border-radius: var(--r-sm);
-  overflow: hidden;
+.recordTable .statusSelect {
+  width: auto;
 }
 
-.statusOption {
-  position: relative;
-  display: inline-flex;
-  font-size: var(--fs-sm);
-  cursor: pointer;
-}
-
-.statusOption + .statusOption {
-  border-left: 1px solid var(--line-control);
-}
-
-.statusOption input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.statusOption span {
-  padding: 7px var(--sp-3);
+/*
+ * Each choice in its status colour, and the closed list in the chosen one.
+ * Options get the panel behind them, the pairing contrast.test.ts checks.
+ */
+.recordTable .statusSelect option {
   background: var(--panel);
+}
+
+.recordTable .statusAutomatic {
   color: var(--ink);
 }
 
-.statusOption input:checked + span {
-  background: var(--accent-solid);
-  color: var(--on-accent-solid);
+.recordTable .statusGreen {
+  color: var(--status-green);
 }
 
-.statusOption input:focus-visible + span {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+.recordTable .statusAmber {
+  color: var(--status-amber);
+}
+
+.recordTable .statusRed {
+  color: var(--status-red);
 }
 
 .rowState {
@@ -422,34 +401,7 @@
   list-style: none;
 }
 
-/* Two or more choices as one control: the metrics or the pulse check, results or the form. */
-
-.segmented {
-  display: inline-flex;
-  flex-wrap: wrap;
-  border: 1px solid var(--line-control);
-  border-radius: var(--r-sm);
-  overflow: hidden;
-}
-
-.segmented button {
-  padding: 6px var(--sp-3);
-  border: 0;
-  background: var(--panel);
-  color: var(--ink);
-  font: 500 var(--fs-sm) var(--font-sans);
-  cursor: pointer;
-}
-
-.segmented button + button {
-  border-left: 1px solid var(--line-control);
-}
-
-.segmented button[aria-pressed='true'] {
-  background: var(--accent-solid);
-  color: var(--on-accent-solid);
-}
-
+/* The view switch itself is controls.segmented; this only spaces it. */
 .viewSwitch {
   margin-bottom: var(--sp-4);
 }

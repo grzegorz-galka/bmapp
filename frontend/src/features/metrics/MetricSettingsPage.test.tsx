@@ -16,6 +16,7 @@ import type { Language } from '../../i18n/languages';
 import type { Metric, MetricGroup, MetricLayout, Threshold } from '../../api/metrics';
 import type { GlobalMetric } from '../../api/globalMetrics';
 import type { Team, TeamDetail } from '../../api/teams';
+import controls from '../../styles/controls.module.css';
 
 const TEAM_ID = 'team-1';
 const LEADER = 'anna@example.com';
@@ -1211,5 +1212,46 @@ describe('arranging a board’s metrics', () => {
       'Delivery',
       en.metrics.ungrouped,
     ]);
+  });
+});
+
+describe('the settings page follows the one button scheme', () => {
+  // specs/appearance/spec.md, by class: controls.test.ts pins what each draws.
+  const BUTTON = controls.button!;
+  const DEFAULT = controls.default!;
+
+  it('Creating a metric is the default way to add one', async () => {
+    await renderSettings();
+
+    expect(screen.getByRole('button', { name: en.metrics.create })).toHaveClass(DEFAULT);
+    for (const name of [en.metrics.copy, en.metrics.include]) {
+      const button = screen.getByRole('button', { name });
+      expect(button).toHaveClass(BUTTON);
+      expect(button).not.toHaveClass(DEFAULT);
+    }
+  });
+
+  it("A form's submit is the default", async () => {
+    const user = userEvent.setup();
+    await renderSettings();
+
+    await user.click(screen.getByRole('button', { name: en.metrics.create }));
+    const dialog = within(screen.getByRole('dialog', { name: en.metrics.create }));
+
+    expect(dialog.getByRole('button', { name: en.metrics.add })).toHaveClass(DEFAULT);
+    const cancel = dialog.getByRole('button', { name: en.metrics.cancel });
+    expect(cancel).toHaveClass(BUTTON);
+    expect(cancel).not.toHaveClass(DEFAULT);
+  });
+
+  it('Actions on different pages look alike', async () => {
+    // controls.default composes controls.button, so every action carries it.
+    await renderSettings();
+
+    const buttons = screen.getAllByRole('button');
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const button of buttons) {
+      expect(button).toHaveClass(BUTTON);
+    }
   });
 });

@@ -19,6 +19,7 @@ import type { Member } from '../../../api/teams';
 import { describeFieldFailure, describeOtherFailure } from '../../../i18n/apiErrors';
 import { Modal } from '../../../components/Modal';
 import { useChangeProblem, useChangeTask, useRaiseProblem, useRaiseTask } from './useItems';
+import controls from '../../../styles/controls.module.css';
 import teamStyles from '../../teams/teams.module.css';
 import meetingStyles from '../../meetings/meetings.module.css';
 import styles from './items.module.css';
@@ -100,10 +101,10 @@ function CloseConfirmation({
       </h2>
       <p className={styles.hint}>{t('items.confirmCloseBody', { summary })}</p>
       <span className={teamStyles.actions}>
-        <button type="button" className={teamStyles.primary} disabled={pending} onClick={onConfirm}>
+        <button type="button" className={controls.default} disabled={pending} onClick={onConfirm}>
           {t('items.confirmClose')}
         </button>
-        <button type="button" className={teamStyles.button} onClick={onBack}>
+        <button type="button" className={controls.button} onClick={onBack}>
           {t('items.confirmBack')}
         </button>
       </span>
@@ -420,14 +421,14 @@ export function ItemDialog({
           )}
           <span className={`${teamStyles.actions} ${styles.dialogActions}`}>
             {kind === 'problem' && item && (
-              <button type="button" className={teamStyles.button} onClick={() => onRaiseTask(item)}>
+              <button type="button" className={controls.button} onClick={() => onRaiseTask(item)}>
                 {t('items.taskFromProblem')}
               </button>
             )}
-            <button type="submit" className={teamStyles.primary} disabled={mutation.isPending}>
+            <button type="submit" className={controls.default} disabled={mutation.isPending}>
               {mutation.isPending ? t('items.saving') : t('items.save')}
             </button>
-            <button type="button" className={teamStyles.button} onClick={onClose}>
+            <button type="button" className={controls.button} onClick={onClose}>
               {t('items.cancel')}
             </button>
           </span>

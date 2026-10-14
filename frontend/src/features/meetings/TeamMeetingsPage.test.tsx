@@ -13,6 +13,7 @@ import { pl } from '../../i18n/pl';
 import type { Language } from '../../i18n/languages';
 import type { Meeting, MeetingList } from '../../api/meetings';
 import type { Member, TeamDetail } from '../../api/teams';
+import controls from '../../styles/controls.module.css';
 
 const TEAM_ID = 'team-1';
 // A Monday morning: the 7th has been, the 14th is coming.
@@ -413,5 +414,32 @@ describe('a team that cannot be read', () => {
     );
 
     expect(await screen.findByRole('heading', { name: en.meetings.notFound })).toBeInTheDocument();
+  });
+});
+
+describe('the meetings page follows the one button scheme', () => {
+  it('Actions on different pages look alike', async () => {
+    // specs/appearance/spec.md, by class: controls.default composes
+    // controls.button, so every action carries it.
+    serve();
+    await renderPage();
+
+    const buttons = screen.getAllByRole('button');
+    expect(buttons.length).toBeGreaterThan(1);
+    for (const button of buttons) {
+      expect(button).toHaveClass(controls.button!);
+    }
+  });
+
+  it("The meetings page's own links are links", async () => {
+    serve();
+    await renderPage();
+
+    for (const name of [en.teams.boardLink, en.board.settingsLink]) {
+      const link = screen.getByRole('link', { name });
+      expect(link).toHaveClass(controls.link!);
+      expect(link).not.toHaveClass(controls.button!);
+      expect(link.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+    }
   });
 });
