@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.config import Mode, Settings
+from app.core.config import Mode, Settings, get_settings
 from app.core.exceptions import UnauthenticatedError
 from app.core.security import issue_dev_token, verify_token
 from app.models import Employee
@@ -40,7 +40,7 @@ def test_a_local_token_is_obtained_in_development_mode(
 ) -> None:
     _record_employee(client, "jan.kowalski@pse.pl")
 
-    status, body = _sign_in(anonymous_client, "jan.kowalski@pse.pl", "jkpp")
+    status, body = _sign_in(anonymous_client, "jan.kowalski@pse.pl", "jakopspl")
 
     assert status == 200
     assert body["token_type"] == "Bearer"
@@ -58,7 +58,7 @@ def test_the_local_login_takes_an_email_and_a_password(anonymous_client: TestCli
 
 @pytest.mark.parametrize(
     ("email", "password"),
-    [("grzegorz.galka@pse.pl", "ggpp"), ("admin@company.com", "acc")],
+    [("grzegorz.galka@pse.pl", "grgapspl"), ("admin@company.com", "adcoco")],
 )
 def test_dots_and_the_at_sign_split_the_email(
     client: TestClient, anonymous_client: TestClient, email: str, password: str
@@ -73,13 +73,13 @@ def test_any_character_that_is_not_a_letter_or_digit_splits_the_email(
     client: TestClient, anonymous_client: TestClient
 ) -> None:
     _record_employee(client, "jan_k-x@a.pl")
-    status, _ = _sign_in(anonymous_client, "jan_k-x@a.pl", "jkxap")
+    status, _ = _sign_in(anonymous_client, "jan_k-x@a.pl", "jakxapl")
     assert status == 200
 
 
 def test_a_run_of_separators_counts_once(client: TestClient, anonymous_client: TestClient) -> None:
     _record_employee(client, "a..b@c.pl")
-    status, _ = _sign_in(anonymous_client, "a..b@c.pl", "abcp")
+    status, _ = _sign_in(anonymous_client, "a..b@c.pl", "abcpl")
     assert status == 200
 
 
@@ -88,13 +88,13 @@ def test_the_password_follows_the_normalised_email(
 ) -> None:
     _record_employee(client, "grzegorz.galka@pse.pl")
 
-    status, body = _sign_in(anonymous_client, "  Grzegorz.Galka@PSE.pl ", "ggpp")
+    status, body = _sign_in(anonymous_client, "  Grzegorz.Galka@PSE.pl ", "grgapspl")
 
     assert status == 200
     assert _who(anonymous_client, body["access_token"]) == "grzegorz.galka@pse.pl"
 
 
-@pytest.mark.parametrize("password", ["", "ggp", "ggppx", "GGPP", "wrong"])
+@pytest.mark.parametrize("password", ["", "grgapsp", "grgapsplx", "GRGAPSPL", "wrong"])
 def test_a_wrong_password_is_refused(
     client: TestClient, anonymous_client: TestClient, password: str
 ) -> None:
@@ -108,12 +108,40 @@ def test_a_wrong_password_is_refused(
     assert body["errors"][0]["field"] == "password"
 
 
+def test_the_one_letter_password_of_the_earlier_rule_is_refused(
+    client: TestClient, anonymous_client: TestClient
+) -> None:
+    _record_employee(client, "grzegorz.galka@pse.pl")
+
+    status, body = _sign_in(anonymous_client, "grzegorz.galka@pse.pl", "ggpp")
+
+    assert status == 401
+    assert body["errors"][0]["code"] == "auth.password_incorrect"
+    assert body["errors"][0]["field"] == "password"
+
+
+def test_the_administrators_password(
+    anonymous_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The address the compose stack and the demo make administrator."""
+    settings = get_settings()
+    with_example = settings.model_copy(
+        update={"admin_emails": settings.admin_emails | {"admin@example.com"}}
+    )
+    monkeypatch.setattr("app.api.auth.get_settings", lambda: with_example)
+
+    status, body = _sign_in(anonymous_client, "admin@example.com", "adexco")
+
+    assert status == 200
+    assert "access_token" in body
+
+
 def test_an_administrator_who_is_not_an_employee_signs_in(
     anonymous_client: TestClient, session: Session
 ) -> None:
     assert session.scalars(select(Employee).where(Employee.email == ADMIN_EMAIL)).first() is None
 
-    status, body = _sign_in(anonymous_client, ADMIN_EMAIL, "app")
+    status, body = _sign_in(anonymous_client, ADMIN_EMAIL, "adpspl")
 
     assert status == 200
     whoami = anonymous_client.get(
@@ -125,7 +153,7 @@ def test_an_administrator_who_is_not_an_employee_signs_in(
 def test_an_unknown_email_is_refused(anonymous_client: TestClient, session: Session) -> None:
     employees_before = session.scalar(select(func.count()).select_from(Employee))
 
-    status, body = _sign_in(anonymous_client, "nobody@pse.pl", "npp")
+    status, body = _sign_in(anonymous_client, "nobody@pse.pl", "nopspl")
 
     assert status == 401
     assert "access_token" not in body
@@ -139,15 +167,15 @@ def test_a_sign_in_is_logged_without_the_password(
 ) -> None:
     _record_employee(client, "grzegorz.galka@pse.pl")
     with caplog.at_level(logging.INFO):
-        _sign_in(anonymous_client, "grzegorz.galka@pse.pl", "ggpp")
+        _sign_in(anonymous_client, "grzegorz.galka@pse.pl", "grgapspl")
         _sign_in(anonymous_client, "grzegorz.galka@pse.pl", "secret-guess")
-        _sign_in(anonymous_client, "nobody@pse.pl", "npp")
+        _sign_in(anonymous_client, "nobody@pse.pl", "nopspl")
 
     messages = [r.getMessage() for r in caplog.records if r.name.startswith("app.")]
     assert "Development sign-in by grzegorz.galka@pse.pl" in messages
     assert "Development sign-in refused for grzegorz.galka@pse.pl: password incorrect" in messages
     assert "Development sign-in refused for nobody@pse.pl: employee unknown" in messages
-    assert not any("ggpp" in m or "secret-guess" in m or "npp" in m for m in messages)
+    assert not any("grgapspl" in m or "secret-guess" in m or "nopspl" in m for m in messages)
 
 
 @pytest.mark.parametrize("email", ["", "   ", "not-an-email", "a@b"])

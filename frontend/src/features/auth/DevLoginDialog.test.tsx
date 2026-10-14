@@ -36,10 +36,10 @@ describe('DevLoginDialog', () => {
     await renderWithLanguage(<DevLoginDialog {...props} />, 'en');
 
     await userEvent.type(screen.getByLabelText(en.auth.devLoginEmail), 'admin@company.com');
-    await userEvent.type(screen.getByLabelText(en.auth.devLoginPassword), 'acc');
+    await userEvent.type(screen.getByLabelText(en.auth.devLoginPassword), 'adcoco');
     await userEvent.click(screen.getByRole('button', { name: en.auth.devLoginSubmit }));
 
-    expect(props.onSubmit).toHaveBeenCalledWith('admin@company.com', 'acc');
+    expect(props.onSubmit).toHaveBeenCalledWith('admin@company.com', 'adcoco');
   });
 
   it('shows a refusal beside the field it concerns, in the active language', async () => {

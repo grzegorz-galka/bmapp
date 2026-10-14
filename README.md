@@ -62,15 +62,16 @@ mode** (`BMAPP_MODE=dev` for the API, `VITE_AUTH_MODE=dev` for the web app),
 which signs you in through a login window instead of the broker. The window
 opens when the page loads and asks for an email and a password.
 
-The password is not a secret. It is derived from the email: the first character,
-then the first character after each dot, at-sign or other run of characters that
-are not letters or digits.
+The password is not a secret. It is derived from the email: the first two
+characters of each run of letters and digits, in order - the parts between the
+dots, the at-sign and any other characters that are not letters or digits. A
+one-character part gives its one character.
 
-| Email                   | Password |
-|-------------------------|----------|
-| `admin@example.com`     | `aec`    |
-| `grzegorz.galka@pse.pl` | `ggpp`   |
-| `admin@company.com`     | `acc`    |
+| Email                   | Password   |
+|-------------------------|------------|
+| `admin@example.com`     | `adexco`   |
+| `grzegorz.galka@pse.pl` | `grgapspl` |
+| `admin@company.com`     | `adcoco`   |
 
 Only a recorded employee - someone who has been put on a team - or an
 administrator can sign in. The compose file makes `admin@example.com` the

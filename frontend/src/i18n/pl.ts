@@ -569,7 +569,7 @@ export const pl: Translations = {
     signedOutBody: 'Nie jesteś zalogowany. Zaloguj się, aby zobaczyć tę stronę.',
     devLoginTitle: 'Logowanie (tryb deweloperski)',
     devLoginHint:
-      'Hasło to pierwszy znak adresu e-mail i pierwszy znak po każdej kropce, małpie lub innym separatorze - grzegorz.galka@pse.pl loguje się hasłem ggpp.',
+      'Hasło to pierwsze dwa znaki każdej części adresu e-mail między kropkami, małpą i innymi separatorami - grzegorz.galka@pse.pl loguje się hasłem grgapspl.',
     devLoginEmail: 'E-mail',
     devLoginPassword: 'Hasło',
     devLoginSubmit: 'Zaloguj się',
