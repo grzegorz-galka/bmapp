@@ -37,9 +37,9 @@ def _register_dev_login(router: APIRouter) -> None:
         summary="Obtain a local token (development mode only)",
         description=(
             "Mints a token for a recorded employee or an administrator without the "
-            "identity broker. The password is not a secret: it is the email's first "
-            "character followed by the first character after each run of characters "
-            "that are not letters or digits (grzegorz.galka@pse.pl -> ggpp). This "
+            "identity broker. The password is not a secret: it is the first two "
+            "characters of each run of letters and digits in the email, in order "
+            "(grzegorz.galka@pse.pl -> grgapspl). This "
             "route exists only while BMAPP_MODE=dev, and the token it returns is "
             "signed with an algorithm a broker-mode server never accepts."
         ),

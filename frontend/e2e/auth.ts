@@ -11,20 +11,21 @@ import type { Locator, Page } from '@playwright/test';
 export const ADMIN_EMAIL = 'admin@example.com';
 
 /**
- * The development password for an email: its first character, then the first
- * after each run of characters that are not letters or digits.
+ * The development password for an email: the first two characters of each run
+ * of letters and digits, in order.
  *
  * A copy of the backend's rule, which the browser deliberately does not hold.
  * If the two drift, every sign-in in the suite fails at once.
  */
 export function devPassword(email: string): string {
-  const normalised = email.trim().toLowerCase();
   return (
-    normalised.slice(0, 1) +
-    (normalised.slice(1).match(/[^\p{L}\p{N}]+[\p{L}\p{N}]/gu) ?? [])
-      .map((run) => run.slice(-1))
-      .join('')
-  );
+    email
+      .trim()
+      .toLowerCase()
+      .match(/[\p{L}\p{N}]+/gu) ?? []
+  )
+    .map((run) => run.slice(0, 2))
+    .join('');
 }
 
 /**

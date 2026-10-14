@@ -18,7 +18,7 @@ import { DEV_EMAIL_KEY, DevAuthProvider } from './DevAuthProvider';
 import { stubDialog } from './dialogStub';
 
 const EMAIL = 'grzegorz.galka@pse.pl';
-const PASSWORD = 'ggpp';
+const PASSWORD = 'grgapspl';
 
 beforeAll(stubDialog);
 

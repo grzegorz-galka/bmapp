@@ -9,6 +9,7 @@ No HTTP, and no session lifecycle: the caller provides the session.
 
 import logging
 from collections.abc import Set
+from itertools import groupby
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -20,20 +21,13 @@ logger = logging.getLogger(__name__)
 
 
 def dev_password(email: str) -> str:
-    """The first character, then the first after each run of non-alphanumerics.
+    """The first two characters of each run of letters and digits, in order.
 
-    `grzegorz.galka@pse.pl` gives `ggpp`. Expects the email already normalised
-    (trimmed, lower-cased), as the request schema leaves it.
+    `grzegorz.galka@pse.pl` gives `grgapspl`; a one-character run gives its one
+    character. Expects the email already normalised (trimmed, lower-cased), as
+    the request schema leaves it.
     """
-    password = email[:1]
-    after_separator = False
-    for character in email[1:]:
-        if not character.isalnum():
-            after_separator = True
-        elif after_separator:
-            password += character
-            after_separator = False
-    return password
+    return "".join("".join(run)[:2] for is_alnum, run in groupby(email, str.isalnum) if is_alnum)
 
 
 def authenticate_dev_login(
