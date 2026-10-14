@@ -319,12 +319,19 @@ asking for an email and a password. The window SHALL open when the page loads wi
 no session, when the person signs out, and when the person chooses to sign in.
 Closing it SHALL leave them signed out. It SHALL be pre-filled with the email last
 signed in with, and SHALL NOT remember a password. A refusal SHALL be shown in the
-active language.
+active language. The window SHALL NOT state how the password is derived from the
+email.
 
 #### Scenario: The window opens on a page with no session
 
 - **WHEN** the application loads in development mode and nobody is signed in
 - **THEN** the login window is shown, asking for an email and a password
+
+#### Scenario: The window does not say how the password is derived
+
+- **WHEN** the login window is shown, in either language
+- **THEN** it shows its title, the email and password fields and its actions, and no
+  text describing the password rule or giving an example password
 
 #### Scenario: The window opens after signing out
 
