@@ -96,7 +96,13 @@ export interface DashboardMeeting {
   /** Active metrics with a value at this meeting, and how many there are. None when proposed. */
   recorded: number | null;
   total: number | null;
+  /** Whether the viewer has answered this meeting's pulse check. */
   pulse_answered: boolean;
+  /** Pulse answers at this meeting, of the team's current members. None when proposed. */
+  pulse_answers: number | null;
+  members: number | null;
+  /** People still owing a metric value or a pulse answer, each counted once. None when proposed. */
+  owing: number | null;
 }
 
 export interface FunnelStage {

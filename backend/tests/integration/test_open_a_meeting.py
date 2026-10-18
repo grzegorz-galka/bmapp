@@ -5,7 +5,7 @@ import uuid
 from fastapi.testclient import TestClient
 
 from tests.integration.meetings_api import error_of, meetings_of, open_meeting
-from tests.integration.teams_api import register
+from tests.integration.teams_api import add, member_id, register
 
 
 def test_a_meeting_is_opened(client: TestClient) -> None:
@@ -20,6 +20,38 @@ def test_a_meeting_is_opened(client: TestClient) -> None:
     assert meeting["starts_at"] == "2026-10-14T11:00:00Z"
     assert meeting["host"] is None
     assert meetings_of(client, team["id"])["meetings"] == [meeting]
+
+
+def test_a_meeting_is_opened_with_its_host(client: TestClient) -> None:
+    """Scenario: A meeting is opened with its host."""
+    team = register(client)
+    host = member_id(add(client, team["id"], "anna@example.com"), "anna@example.com")
+
+    response = client.post(
+        f"/teams/{team['id']}/meetings",
+        json={"date": "2026-10-14", "time": "13:00", "host_employee_id": host},
+    )
+
+    assert response.status_code == 201, response.json()
+    meeting = response.json()
+    assert meeting["host"] == {"id": host, "email": "anna@example.com"}
+    assert meetings_of(client, team["id"])["meetings"] == [meeting]
+
+
+def test_a_meeting_is_opened_with_a_host_from_outside_the_team(client: TestClient) -> None:
+    """Scenario: A meeting is opened with a host from outside the team."""
+    team = register(client)
+    other = register(client, "Other", "lead.other@example.com")
+    outsider = member_id(add(client, other["id"], "outsider@example.com"), "outsider@example.com")
+
+    response = client.post(
+        f"/teams/{team['id']}/meetings",
+        json={"date": "2026-10-14", "time": "13:00", "host_employee_id": outsider},
+    )
+
+    assert response.status_code == 409
+    assert error_of(response) == ("host_employee_id", "meeting_host.not_member")
+    assert meetings_of(client, team["id"])["meetings"] == []
 
 
 def test_a_second_meeting_on_the_same_date(client: TestClient) -> None:

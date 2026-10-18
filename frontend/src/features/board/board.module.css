@@ -401,6 +401,95 @@
   list-style: none;
 }
 
+/* The board's bar: the meeting navigator, and the switch that hides names beside it. */
+.boardBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+
+.boardBar > .navigator {
+  margin-bottom: 0;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.check input {
+  accent-color: var(--accent-solid);
+}
+
+/* The readiness panel, above the tiles of a coming meeting. */
+
+.readiness {
+  margin-bottom: var(--sp-5);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
+}
+
+.readinessSummary {
+  cursor: pointer;
+}
+
+/* The heading sits inside the summary, beside its disclosure marker. */
+.readinessHeading {
+  display: inline;
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.readinessOwing {
+  margin: var(--sp-3) 0;
+  font-weight: 600;
+}
+
+.readinessColumns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--sp-4);
+}
+
+.readinessSubheading {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.readinessList {
+  margin: 0;
+  padding-left: var(--sp-4);
+  overflow-wrap: anywhere;
+}
+
+.readinessCopy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+}
+
+.readinessCopy > p {
+  margin: 0;
+}
+
+.readinessField {
+  flex: 1 1 100%;
+  font-family: var(--font-mono);
+  resize: vertical;
+}
+
 /* The view switch itself is controls.segmented; this only spaces it. */
 .viewSwitch {
   margin-bottom: var(--sp-4);

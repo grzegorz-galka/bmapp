@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Route, Routes, useLocation } from 'react-router';
+import { Link, Route, Routes, useLocation } from 'react-router';
 import { BoardPage, defaultMeeting } from './BoardPage';
 import { renderWithLanguage } from '../../test/render';
 import { AddressProbe } from '../../test/AddressProbe';
@@ -20,7 +20,11 @@ import {
   MEETINGS,
   MEMBER,
   MONDAY,
+  noItems,
+  problem,
+  pulseResults,
   serveBoard,
+  SEVEN_ANSWERS,
   TEAM_ID,
   tile,
   TREND,
@@ -117,7 +121,9 @@ describe('the board page', () => {
     });
     await renderBoard();
 
-    const tiles = await screen.findAllByRole('listitem');
+    const tiles = within(await screen.findByRole('region', { name: 'Finance' })).getAllByRole(
+      'listitem',
+    );
     expect(tiles[0]).toHaveTextContent(en.status.amber);
     expect(tiles[1]).toHaveTextContent(`${en.status.red}${en.status.setByHand}`);
     expect(tiles[1]).toHaveTextContent('Release slipped');
@@ -128,7 +134,7 @@ describe('the board page', () => {
     // Scenario: A board without metrics.
     fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
       metrics: [],
-      completeness: { recorded: 0, total: 0, missing: [] },
+      completeness: { recorded: 0, total: 0, missing: [], owing: 0 },
     });
     await renderBoard('en', { email: LEADER });
 
@@ -207,7 +213,9 @@ describe('the board page', () => {
     });
     await renderBoard();
 
-    const tiles = await screen.findAllByRole('listitem');
+    const tiles = within(await screen.findByRole('region', { name: 'Finance' })).getAllByRole(
+      'listitem',
+    );
     expect(tiles[0]).toHaveTextContent('-2.0 % since the last meeting · worse');
     expect(tiles[1]).toHaveTextContent('+0.5 % since the last meeting');
     expect(tiles[1]).not.toHaveTextContent(/better|worse/);
@@ -484,7 +492,7 @@ describe('the recording view has its own address', () => {
 
 describe('the view switch counts the recorded metrics', () => {
   function countedBoard(recorded: number) {
-    return board('2026-10-14', { completeness: { recorded, total: 14, missing: [] } });
+    return board('2026-10-14', { completeness: { recorded, total: 14, missing: [], owing: 0 } });
   }
 
   it('The metrics switch shows the count', async () => {
@@ -593,5 +601,145 @@ describe("the board's back link", () => {
     expect(JSON.parse(screen.getByTestId('location-state').textContent!)).toEqual({
       from: { screen: 'board', path: `/teams/${TEAM_ID}?view=pulse`, state: { from: origin } },
     });
+  });
+});
+
+describe('names can be hidden across the board', () => {
+  const hideNames = () => screen.getByRole('checkbox', { name: en.pulse.hideNames });
+  const viewSwitch = () => screen.getByRole('group', { name: en.pulse.viewSwitchLabel });
+  /** Every email the page shows, wherever it is: an answer, a member, an owner, a responsible. */
+  const namesShown = () => document.body.textContent?.match(/[\w.]+@example\.com/g) ?? [];
+  // The fixture's answers quote their author; what a member writes is not hidden, only who.
+  const anonymousTexts = SEVEN_ANSWERS.map((answer) => ({
+    ...answer,
+    positive: 'Calm week',
+    negative: 'Flaky builds',
+    better: 'Fewer interruptions',
+  }));
+
+  beforeEach(() => {
+    fixtures.pulse = {
+      'm-2026-10-14': pulseResults('m-2026-10-14', { answers: anonymousTexts }),
+      'm-2026-10-21': pulseResults('m-2026-10-21', { answers: anonymousTexts }),
+    };
+    // A coming meeting at which Anna owes a value and four members an answer.
+    fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
+      completeness: {
+        recorded: 0,
+        total: 1,
+        missing: [
+          {
+            metric_id: 'metric-revenue',
+            name: 'Revenue',
+            owner: { id: 'emp-anna', email: LEADER },
+          },
+        ],
+        owing: 5,
+      },
+    });
+    fixtures.items = noItems();
+    fixtures.items.problems.active = [
+      problem({ responsible: { employee_id: 'emp-anna', email: LEADER } }),
+    ];
+  });
+
+  /** The board's pulse check view of the coming meeting, with every name in. */
+  async function openPulse() {
+    const user = userEvent.setup();
+    await renderBoard('en', { email: MEMBER }, `/teams/${TEAM_ID}?view=pulse`);
+    await screen.findByRole('region', { name: en.pulse.answersHeading });
+    return user;
+  }
+
+  it('Names are hidden', async () => {
+    const user = await openPulse();
+
+    await user.click(hideNames());
+
+    const rows = within(screen.getByRole('region', { name: en.pulse.answersHeading }))
+      .getAllByRole('row')
+      .slice(1);
+    expect(rows.map((row) => within(row).getByRole('rowheader').textContent)).toEqual(
+      [1, 2, 3, 4, 5, 6, 7].map((n) => `Person ${n}`),
+    );
+    expect(screen.getByRole('region', { name: en.pulse.answeredLabel })).toHaveTextContent(
+      'Answers missing: 4',
+    );
+    expect(screen.queryByText(/@example\.com$/)).not.toBeInTheDocument();
+  });
+
+  it('Hidden names stay hidden across views', async () => {
+    const user = await openPulse();
+    expect(namesShown()).not.toEqual([]);
+    await user.click(hideNames());
+    expect(namesShown()).toEqual([]);
+
+    // To the metrics: the readiness panel, the recording list and the problem.
+    await user.click(within(viewSwitch()).getAllByRole('button')[0]!);
+    await screen.findByRole('group', { name: en.readiness.heading });
+    await screen.findByText('Builds are flaky');
+    expect(hideNames()).toBeChecked();
+    expect(namesShown()).toEqual([]);
+    await user.click(screen.getByRole('button', { name: en.board.record }));
+    await screen.findByText(new RegExp(en.recording.missing));
+    expect(namesShown()).toEqual([]);
+
+    // The archive, and back to the pulse check.
+    await user.click(within(viewSwitch()).getAllByRole('button')[2]!);
+    await screen.findByText(en.archive.empty);
+    expect(namesShown()).toEqual([]);
+    await user.click(within(viewSwitch()).getAllByRole('button')[1]!);
+    await screen.findByRole('region', { name: en.pulse.answersHeading });
+    expect(namesShown()).toEqual([]);
+
+    // On to the next meeting.
+    await user.click(screen.getByRole('button', { name: `${en.board.nextMeeting} →` }));
+    await waitFor(() => expect(meetingShown()).toBe('m-2026-10-21'));
+    await screen.findByRole('region', { name: en.pulse.answersHeading });
+    expect(hideNames()).toBeChecked();
+    expect(namesShown()).toEqual([]);
+  });
+
+  it('The readiness panel and the item lists name no one', async () => {
+    const user = userEvent.setup();
+    await renderBoard();
+    const panel = await screen.findByRole('group', { name: en.readiness.heading });
+    await within(panel).findByText('hania@example.com');
+    expect(within(panel).getByRole('button', { name: en.readiness.copy })).toBeInTheDocument();
+
+    await user.click(hideNames());
+
+    expect(panel).toHaveTextContent('5 people still owe data');
+    expect(panel).toHaveTextContent('4 members have not answered');
+    expect(within(panel).queryByRole('button', { name: en.readiness.copy })).toBeNull();
+    const problems = screen.getByRole('region', { name: en.items.problemsHeading });
+    expect(within(problems).getByText('Builds are flaky')).toBeInTheDocument();
+    expect(problems).not.toHaveTextContent(LEADER);
+    expect(namesShown()).toEqual([]);
+  });
+
+  it('Leaving the board forgets the switch', async () => {
+    const user = userEvent.setup();
+    await renderWithLanguage(
+      <Routes>
+        <Route path="/teams/:teamId" element={<BoardPage />} />
+        <Route
+          path="/teams/:teamId/meetings"
+          element={<Link to={`/teams/${TEAM_ID}`}>To the board</Link>}
+        />
+      </Routes>,
+      'en',
+      { route: `/teams/${TEAM_ID}`, auth: { email: MEMBER } },
+    );
+    await screen.findByText('Builds are flaky');
+    await user.click(hideNames());
+    expect(namesShown()).toEqual([]);
+
+    await user.click(screen.getByRole('link', { name: en.board.meetingsLink }));
+    await user.click(screen.getByRole('link', { name: 'To the board' }));
+
+    await screen.findByText('Builds are flaky');
+    expect(hideNames()).not.toBeChecked();
+    await waitFor(() => expect(namesShown()).toContain(LEADER));
   });
 });

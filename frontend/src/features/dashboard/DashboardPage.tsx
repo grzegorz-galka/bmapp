@@ -43,7 +43,10 @@ export function DashboardPage() {
 
       {summary.data && (
         <div className={styles.tiles}>
-          <MeetingsTile meetings={summary.data.meetings} />
+          <MeetingsTile
+            meetings={summary.data.meetings}
+            viewerEmail={summary.data.current_user.email}
+          />
           <ItemsTile
             funnel={summary.data.funnel}
             teams={summary.data.teams}

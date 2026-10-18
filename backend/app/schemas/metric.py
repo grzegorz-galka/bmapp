@@ -511,11 +511,13 @@ class MissingMetric(BaseModel):
 
 
 class Completeness(BaseModel):
-    """How many active metrics have a number at a meeting, and which do not."""
+    """How many active metrics have a number at a meeting, which do not, and who owes data."""
 
     recorded: int
     total: int
     missing: list[MissingMetric]
+    #: How many people owe data for the meeting, as `owing_by_meeting` counts them.
+    owing: int
 
 
 class MeetingBoard(BaseModel):

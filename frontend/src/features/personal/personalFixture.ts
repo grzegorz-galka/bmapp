@@ -62,14 +62,19 @@ export const ALL_TEAMS: Team[] = [
 
 /**
  * Answer the requests these pages make. `pulse` is keyed by meeting id; a
- * meeting without an entry does not take answers.
+ * meeting without an entry does not take answers. `meetings` is keyed by team.
  */
 export function serve(
   fetchMock: ReturnType<typeof vi.fn>,
   {
     summary = dashboardSummary(),
     pulse = {},
-  }: { summary?: ReturnType<typeof dashboardSummary>; pulse?: Record<string, PulseResults> } = {},
+    meetings = MEETINGS,
+  }: {
+    summary?: ReturnType<typeof dashboardSummary>;
+    pulse?: Record<string, PulseResults>;
+    meetings?: Record<string, MeetingList>;
+  } = {},
 ) {
   fetchMock.mockImplementation((url: string) => {
     const path = new URL(String(url), 'http://localhost').pathname;
@@ -80,7 +85,7 @@ export function serve(
     else if (pulseMatch) {
       const meetingId = decodeURIComponent(pulseMatch[1]!);
       body = pulse[meetingId] ?? pulseResults(meetingId, { editable: false });
-    } else if (meetingsMatch) body = MEETINGS[decodeURIComponent(meetingsMatch[1]!)];
+    } else if (meetingsMatch) body = meetings[decodeURIComponent(meetingsMatch[1]!)];
     else if (path.endsWith('/teams')) body = ALL_TEAMS;
     return Promise.resolve({ ok: true, status: 200, json: async () => body } as Response);
   });

@@ -3,7 +3,9 @@ import { en, type Translations } from '../src/i18n/en';
 import { pl } from '../src/i18n/pl';
 import { formatMeetingDate } from '../src/i18n/format';
 import { LANGUAGE_STORAGE_KEY, type Language } from '../src/i18n/languages';
+import { organizationToday } from '../src/features/board/organizationDate';
 import { ADMIN_EMAIL, signInAs } from './auth';
+import { addDays, apiAs, isoWeekday } from './api';
 
 /*
  * The meetings flow: the leader sets the schedule, then a member prepares the
@@ -143,4 +145,139 @@ test('a member prepares and manages a meeting', async ({ page }) => {
 
 test('the same flow reads in Polish', async ({ page }) => {
   await prepareAMeeting(page, 'pl');
+});
+
+/** A meeting's row in the dashboard's tile, apart from the tile's other lists. */
+function dashboardRow(page: Page, teamName: string) {
+  return page
+    .getByRole('region', { name: en.meetingsTile.heading })
+    .getByRole('listitem')
+    .filter({ hasText: teamName })
+    .filter({ has: page.getByRole('button') });
+}
+
+/*
+ * The host's loop before a meeting: the leader plans the next meeting naming
+ * its host, one member answers the pulse check, and the host checks readiness
+ * from the dashboard, copies the addresses of whoever still owes data, then
+ * hides names to share the screen. The team, its schedule, its metrics and an
+ * older meeting are set through the API; what is proven goes through the UI.
+ */
+test('the host checks readiness and chases who still owes data', async ({
+  page,
+  context,
+  request,
+  baseURL,
+}) => {
+  const suffix = uniqueSuffix();
+  const name = `E2E Readiness ${suffix}`;
+  // Named so that email order is host, leader, other.
+  const host = `e2e.ready.host.${suffix}@example.com`;
+  const leader = `e2e.ready.lead.${suffix}@example.com`;
+  const other = `e2e.ready.other.${suffix}@example.com`;
+  const today = organizationToday();
+  const coming = addDays(today, 3);
+  await seedLanguage(page, 'en');
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: baseURL });
+
+  const admin = await apiAs(request, ADMIN_EMAIL);
+  const team = await admin.registerTeam(name, leader);
+  await admin.addMember(team.id, host);
+  await admin.addMember(team.id, other);
+  const { members } = await admin.team(team.id);
+  const idOf = (email: string) => members.find((member) => member.email === email)!.employee_id;
+  await admin.setSchedule(team.id, isoWeekday(coming), '13:00');
+  // A meeting held last week, to switch to with names hidden.
+  await admin.openMeeting(team.id, addDays(today, -7));
+  await admin.addMetric(team.id, {
+    name: 'Lead time',
+    direction: 'higher_is_better',
+    owner_employee_id: idOf(other),
+  });
+  await admin.addMetric(team.id, { name: 'Open bugs', direction: 'lower_is_better' });
+  // A responsible member in the item lists, which hiding names covers too.
+  await admin.raiseTask(team.id, {
+    summary: 'Chase the data',
+    responsible_employee_id: idOf(host),
+  });
+
+  // 1. The leader plans the next meeting from the proposal and names its host.
+  await signInAs(page, leader);
+  await page.goto(`/teams/${team.id}/meetings`);
+  await page.getByRole('button', { name: en.meetings.prepare }).click();
+  const form = prepareForm(page, en);
+  await expect(form.getByLabel(en.meetings.dateLabel)).toHaveValue(coming);
+  await form.getByLabel(en.meetings.hostLabel).selectOption({ label: host });
+  await page.getByRole('button', { name: en.meetings.open }).click();
+  await expect(form).toBeHidden();
+  await expect(meetingRow(page, 'en', coming)).toContainText(
+    fill(en.meetings.host, { email: host }),
+  );
+
+  // 2. Another member answers the pulse check from the dashboard.
+  await signInAs(page, other);
+  await page.goto('/');
+  await dashboardRow(page, name).getByRole('button', { name: en.meetingsTile.fillPulse }).click();
+  await page.getByRole('radio', { name: `4 – ${en.pulse.rating4}` }).check();
+  await page.getByRole('button', { name: en.pulse.save, exact: true }).click();
+  await expect(page.getByRole('button', { name: en.pulse.yourAnswer })).toBeVisible();
+
+  // 3. The host sees their meeting marked, with what is left counted, not named.
+  await signInAs(page, host);
+  await page.goto('/');
+  const row = dashboardRow(page, name);
+  await expect(row).toContainText(en.meetingsTile.youHost);
+  await expect(row).toContainText(
+    fill(en.meetingsTile.pulseProgress, { answers: '1', members: '3' }),
+  );
+  await expect(row).toContainText(fill(en.meetingsTile.owing_other, { count: '3' }));
+  await expect(row).not.toContainText('@');
+  await row.getByRole('button', { name: en.meetingsTile.checkReadiness }).click();
+  await expect(page).toHaveURL(/#readiness$/);
+
+  // 4. The panel, scrolled into view, lists the remaining gaps and who owes them.
+  const panel = page.getByRole('group', { name: en.readiness.heading });
+  await expect(panel).toBeInViewport();
+  await expect(panel).toContainText(fill(en.readiness.owing_other, { count: '3' }));
+  const missing = panel.getByRole('region', { name: en.readiness.metricsHeading });
+  await expect(missing.getByRole('listitem').filter({ hasText: 'Lead time' })).toContainText(other);
+  await expect(missing.getByRole('listitem').filter({ hasText: 'Open bugs' })).toContainText(
+    en.readiness.noOwner,
+  );
+  const unanswered = panel.getByRole('region', { name: en.readiness.pulseHeading });
+  await expect(unanswered.getByRole('listitem')).toHaveText([host, leader]);
+
+  // 5. The addresses go to the clipboard, each once, in email order.
+  await panel.getByRole('button', { name: en.readiness.copy }).click();
+  await expect(panel.getByRole('status')).toHaveText(
+    fill(en.readiness.copied_other, { count: '3' }),
+  );
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toBe(`${host}; ${leader}; ${other}`);
+
+  // 6. With names hidden for screen sharing, no view names anyone.
+  const main = page.getByRole('main');
+  await expect(main.getByText(host).first()).toBeVisible();
+  const hide = page.getByLabel(en.pulse.hideNames);
+  await hide.check();
+  await expect(main).not.toContainText('@');
+  await expect(panel.getByRole('button', { name: en.readiness.copy })).toBeHidden();
+  await expect(panel).toContainText(fill(en.readiness.unanswered_other, { count: '2' }));
+
+  const views = page.getByRole('group', { name: en.pulse.viewSwitchLabel });
+  await views.getByRole('button', { name: /^Pulse check/ }).click();
+  await expect(page.getByRole('region', { name: en.pulse.view, exact: true })).toBeVisible();
+  await expect(main).not.toContainText('@');
+
+  await views.getByRole('button', { name: /^Metrics/ }).click();
+  await expect(panel).toBeVisible();
+  await expect(main).not.toContainText('@');
+
+  // Last week's meeting: past, so no panel, and still no name.
+  await page.getByRole('button', { name: en.board.previousMeeting }).click();
+  await expect(page).toHaveURL(/[?&]meeting=/);
+  await expect(panel).toBeHidden();
+  await expect(page.getByText('Chase the data')).toBeVisible();
+  await expect(main).not.toContainText('@');
+  await expect(hide).toBeChecked();
 });

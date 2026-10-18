@@ -4,6 +4,7 @@ Collects each team member's answers to the weekly pulse check at the team's meet
 
 ## Requirements
 
+
 ### Requirement: Answer the pulse check at a meeting
 
 The system SHALL allow a member of a team to record their own answer at a meeting of that team: a rating from 1 to 5 and three optional texts — what had a positive effect on the week, what had a negative one, and what the team or the leader could do better. A member SHALL have at most one answer per meeting; answering again SHALL replace it. The answer SHALL carry its respondent and when it was last changed.
@@ -178,12 +179,27 @@ The system SHALL present, on a team's board and for the meeting it shows, a puls
 
 ### Requirement: Names can be hidden for screen sharing
 
-The system SHALL offer, in the pulse check view, a switch that hides who answered. While it is on, the answers SHALL be labelled "Person 1", "Person 2" and so on, and the missing members SHALL be reported only as a number. The switch SHALL change only the viewer's own screen.
+The system SHALL offer, on a team's board, a switch that hides who answered and who owes data. While it is on, the pulse check answers SHALL be labelled "Person 1", "Person 2" and so on, the missing members SHALL be reported only as a number, the readiness panel SHALL name no one and offer no addresses, and the problem and task lists SHALL not show who is responsible. The switch SHALL stay on across the board's views and meetings until the board is left, SHALL NOT be remembered, and SHALL change only the viewer's own screen.
 
 #### Scenario: Names are hidden
 
 - **WHEN** a member turns on hiding names in a pulse check view with 7 answers and 4 missing members
 - **THEN** the table labels the answers Person 1 to Person 7, and the card reads that 4 answers are missing without naming anyone
+
+#### Scenario: Hidden names stay hidden across views
+
+- **WHEN** a member turns on hiding names in the pulse check view, switches to the metrics and back, then moves to the next meeting
+- **THEN** no answer, missing member, metric owner or responsible member is named at any point
+
+#### Scenario: The readiness panel and the item lists name no one
+
+- **WHEN** names are hidden on the board of a coming meeting at which two people owe data and a problem has a responsible member
+- **THEN** the readiness panel reports only how many people owe data and offers no addresses to copy, and the problem's row shows no responsible member
+
+#### Scenario: Leaving the board forgets the switch
+
+- **WHEN** a member hides names, leaves the board and opens it again
+- **THEN** names are shown
 
 ### Requirement: The answer form
 

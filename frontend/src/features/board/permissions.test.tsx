@@ -181,7 +181,8 @@ describe('the pulse check view offers only what its viewer may do', () => {
     expect(screen.queryByRole('region', { name: en.pulse.answersHeading })).not.toBeInTheDocument();
     expect(screen.queryByText(/@example\.com/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: en.pulse.yourAnswer })).not.toBeInTheDocument();
-    expect(screen.queryByRole('checkbox', { name: en.pulse.hideNames })).not.toBeInTheDocument();
+    // The switch belongs to the board now, and the item lists name people to anyone.
+    expect(screen.getByRole('checkbox', { name: en.pulse.hideNames })).toBeInTheDocument();
   });
 
   it('An administrator sees the answers and no form', async () => {

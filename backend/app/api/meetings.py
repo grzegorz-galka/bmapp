@@ -65,9 +65,16 @@ def create_meeting(
     session: SessionDependency,
     current_user: CurrentUserDependency,
 ) -> MeetingRead:
-    """Open a meeting of the team on a date at a start time."""
+    """Open a meeting of the team on a date at a start time, with its host if one is named."""
     _require_team_member(session, current_user, team_id)
-    meeting = open_meeting(session, team_id, payload.date, payload.time, current_user.email)
+    meeting = open_meeting(
+        session,
+        team_id,
+        payload.date,
+        payload.time,
+        current_user.email,
+        host_employee_id=payload.host_employee_id,
+    )
     return MeetingRead.model_validate(meeting)
 
 

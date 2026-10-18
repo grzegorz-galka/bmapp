@@ -293,6 +293,7 @@ describe('the recording view', () => {
           { metric_id: 'a', name: 'NPS', owner: { id: 'emp-bartek', email: MEMBER } },
           { metric_id: 'b', name: 'OTIF', owner: null },
         ],
+        owing: 2,
       },
     });
     await openRecording();

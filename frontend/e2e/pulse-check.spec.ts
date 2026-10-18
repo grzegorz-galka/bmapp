@@ -109,7 +109,8 @@ test('members answer the pulse check in Polish and the team reads the results', 
   await expect(rows.nth(2)).toContainText('Udane wdrożenie');
 
   // Hiding names, for sharing the screen, leaves people numbered in that order.
-  await view.getByLabel(pl.pulse.hideNames).check();
+  // The switch is the board's, on its toolbar, not the pulse view's.
+  await page.getByLabel(pl.pulse.hideNames).check();
   await expect(rows.nth(1).getByRole('rowheader')).toHaveText(
     pl.pulse.person.replace('{{n}}', '1'),
   );
@@ -137,7 +138,6 @@ test('members answer the pulse check in Polish and the team reads the results', 
   await expect(bar(4)).toHaveText(`${caption(4)}1`);
   await expect(view.getByText(pl.pulse.missingCount.replace('{{count}}', '1'))).toBeVisible();
   await expect(answers).toBeHidden();
-  await expect(view.getByLabel(pl.pulse.hideNames)).toBeHidden();
   await expect(page.getByRole('button', { name: pl.pulse.yourAnswer })).toBeHidden();
   await expect(view.getByText(first)).toBeHidden();
   await expect(view.getByText(leader)).toBeHidden();

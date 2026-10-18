@@ -78,7 +78,8 @@ function controls() {
   return {
     // Shown as a link-styled button; the fields appear only once it is chosen.
     schedule: screen.queryByRole('button', { name: en.meetings.changeSchedule }),
-    prepare: screen.queryByRole('button', { name: en.meetings.prepare }),
+    // Captioned with the proposal; the caption starts with the plain one.
+    prepare: screen.queryByRole('button', { name: new RegExp(`^${en.meetings.prepare}`) }),
     change: screen.queryByRole('button', { name: /^Change: meeting on/ }),
     delete: screen.queryByRole('button', { name: /^Delete: meeting on/ }),
   };

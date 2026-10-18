@@ -17,12 +17,15 @@ export function ItemEntry({
   meetingId,
   onOpen,
   onMoveOn,
+  hideNames = false,
 }: {
   item: ProblemRead | TaskRead;
   /** The meeting the board shows: an item raised at it is new. */
   meetingId: string | undefined;
   onOpen?: () => void;
   onMoveOn?: () => void;
+  /** Names hidden for screen sharing: the responsible member is left out. */
+  hideNames?: boolean;
 }) {
   const { t } = useTranslation();
   const format = useFormat();
@@ -47,7 +50,7 @@ export function ItemEntry({
         <PdcaBall stage={item.stage} onMoveOn={onMoveOn} />
       </span>
       <span className={styles.meta}>
-        <span>{item.responsible?.email ?? t('items.noResponsible')}</span>
+        {!hideNames && <span>{item.responsible?.email ?? t('items.noResponsible')}</span>}
         {item.due_on === null ? (
           <span>{t('items.noDueDate')}</span>
         ) : item.overdue ? (

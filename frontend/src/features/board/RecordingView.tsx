@@ -32,10 +32,13 @@ export function RecordingView({
   teamId,
   board,
   mode,
+  hideNames = false,
 }: {
   teamId: string;
   board: MeetingBoard;
   mode: RecordingMode;
+  /** Names hidden for screen sharing: missing metrics are listed without owners. */
+  hideNames?: boolean;
 }) {
   const { t } = useTranslation();
   const format = useFormat();
@@ -55,7 +58,7 @@ export function RecordingView({
           {t('recording.missing')}:{' '}
           {missing
             .map((metric) =>
-              metric.owner
+              metric.owner && !hideNames
                 ? t('recording.missingOwner', { name: metric.name, email: metric.owner.email })
                 : metric.name,
             )

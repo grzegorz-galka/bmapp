@@ -205,5 +205,5 @@ def test_a_board_of_14_metrics_takes_a_fixed_number_of_statements(
 
     assert len(board_of(client, team_id, current)["metrics"]) == 14
     # The caller's employee lookup, then the meeting, its team's meeting
-    # dates, the metrics, their thresholds and their values.
-    assert one == fourteen == 6
+    # dates, the metrics, their thresholds, their values and who owes data.
+    assert one == fourteen == 7

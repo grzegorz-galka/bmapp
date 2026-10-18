@@ -192,7 +192,8 @@ export interface MissingMetric {
 export interface MeetingBoard {
   meeting: Meeting;
   editable: boolean;
-  completeness: { recorded: number; total: number; missing: MissingMetric[] };
+  /** `owing` counts the people still owing a value or a pulse answer, each once. */
+  completeness: { recorded: number; total: number; missing: MissingMetric[]; owing: number };
   metrics: BoardMetric[];
 }
 
