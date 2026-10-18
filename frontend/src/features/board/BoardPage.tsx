@@ -17,6 +17,7 @@ import { teamAuthority } from '../teams/teamAuthority';
 import { useTeam } from '../teams/useTeams';
 import { MetricDetail } from './MetricDetail';
 import { organizationToday } from './organizationDate';
+import { ReadinessPanel, showsReadiness } from './ReadinessPanel';
 import { RecordingView, type RecordingMode } from './RecordingView';
 import { Sparkline } from './Sparkline';
 import { useBoard } from './useBoard';
@@ -65,6 +66,9 @@ export function BoardPage() {
   const [today] = useState(() => organizationToday());
   const [detail, setDetail] = useState<MetricDefinition | null>(null);
   const closeDetail = useCallback(() => setDetail(null), []);
+  // About the screen right now: kept while the board stays open, across its
+  // views and meetings, and never in the address or in storage (D6).
+  const [hideNames, setHideNames] = useState(false);
 
   const all = meetings.data?.meetings ?? [];
   const shown =
@@ -129,7 +133,19 @@ export function BoardPage() {
       members={team.data.members}
       metrics={linkable}
       mayChange={mayKeepItems}
+      hideNames={hideNames}
     />
+  );
+
+  const hideSwitch = (
+    <label className={styles.check}>
+      <input
+        type="checkbox"
+        checked={hideNames}
+        onChange={(event) => setHideNames(event.target.checked)}
+      />
+      {t('pulse.hideNames')}
+    </label>
   );
 
   /**
@@ -181,6 +197,7 @@ export function BoardPage() {
       {!shown ? (
         <>
           {/* No meeting, so no pulse check; items closed meanwhile still have an archive. */}
+          <div className={styles.boardBar}>{hideSwitch}</div>
           <div
             role="group"
             aria-label={t('pulse.viewSwitchLabel')}
@@ -198,7 +215,7 @@ export function BoardPage() {
             </button>
           </div>
           {view === 'archived' ? (
-            <ArchivedView teamId={teamId} />
+            <ArchivedView teamId={teamId} hideNames={hideNames} />
           ) : (
             <div className={styles.layout}>
               <p className={styles.layoutMain}>
@@ -213,41 +230,44 @@ export function BoardPage() {
         </>
       ) : (
         <>
-          <div role="group" aria-label={t('board.navigatorLabel')} className={styles.navigator}>
-            <button
-              type="button"
-              className={controls.button}
-              disabled={index <= 0}
-              onClick={() => all[index - 1] && go(all[index - 1]!)}
-            >
-              ← {t('board.previousMeeting')}
-            </button>
-            <label className="visually-hidden" htmlFor="board-meeting">
-              {t('board.meetingSelectLabel')}
-            </label>
-            <select
-              id="board-meeting"
-              className={`${meetingStyles.select} ${styles.meetingSelect}`}
-              value={shown.id}
-              onChange={(event) => {
-                const next = all.find((meeting) => meeting.id === event.target.value);
-                if (next) go(next);
-              }}
-            >
-              {all.map((meeting) => (
-                <option key={meeting.id} value={meeting.id}>
-                  {t('board.meetingOn', { date: format.meetingDate(meeting.date) })}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className={controls.button}
-              disabled={index >= all.length - 1}
-              onClick={() => all[index + 1] && go(all[index + 1]!)}
-            >
-              {t('board.nextMeeting')} →
-            </button>
+          <div className={styles.boardBar}>
+            <div role="group" aria-label={t('board.navigatorLabel')} className={styles.navigator}>
+              <button
+                type="button"
+                className={controls.button}
+                disabled={index <= 0}
+                onClick={() => all[index - 1] && go(all[index - 1]!)}
+              >
+                ← {t('board.previousMeeting')}
+              </button>
+              <label className="visually-hidden" htmlFor="board-meeting">
+                {t('board.meetingSelectLabel')}
+              </label>
+              <select
+                id="board-meeting"
+                className={`${meetingStyles.select} ${styles.meetingSelect}`}
+                value={shown.id}
+                onChange={(event) => {
+                  const next = all.find((meeting) => meeting.id === event.target.value);
+                  if (next) go(next);
+                }}
+              >
+                {all.map((meeting) => (
+                  <option key={meeting.id} value={meeting.id}>
+                    {t('board.meetingOn', { date: format.meetingDate(meeting.date) })}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className={controls.button}
+                disabled={index >= all.length - 1}
+                onClick={() => all[index + 1] && go(all[index + 1]!)}
+              >
+                {t('board.nextMeeting')} →
+              </button>
+            </div>
+            {hideSwitch}
           </div>
 
           <div
@@ -296,9 +316,10 @@ export function BoardPage() {
               mayAnswer={mayAnswer}
               answering={mode === 'answer'}
               onAnswering={(answering) => setMode(shown, answering ? 'answer' : null)}
+              hideNames={hideNames}
             />
           ) : view === 'archived' ? (
-            <ArchivedView teamId={teamId} />
+            <ArchivedView teamId={teamId} hideNames={hideNames} />
           ) : (
             <div className={styles.layout}>
               <div className={styles.layoutMain}>
@@ -307,16 +328,22 @@ export function BoardPage() {
                 ) : board.isError ? (
                   <p role="alert">{describeFailure(t, board.error)}</p>
                 ) : (
-                  <BoardBody
-                    teamId={teamId}
-                    board={board.data}
-                    mayConfigure={mayConfigure}
-                    mayRecord={mayRecord}
-                    isAdmin={isAdmin}
-                    listing={mode === 'record'}
-                    onListing={(listing) => setMode(shown, listing ? 'record' : null)}
-                    onDetail={setDetail}
-                  />
+                  <>
+                    {showsReadiness(board.data, today) && (
+                      <ReadinessPanel board={board.data} pulse={pulse.data} hideNames={hideNames} />
+                    )}
+                    <BoardBody
+                      teamId={teamId}
+                      board={board.data}
+                      mayConfigure={mayConfigure}
+                      mayRecord={mayRecord}
+                      isAdmin={isAdmin}
+                      listing={mode === 'record'}
+                      onListing={(listing) => setMode(shown, listing ? 'record' : null)}
+                      onDetail={setDetail}
+                      hideNames={hideNames}
+                    />
+                  </>
                 )}
               </div>
               {lists}
@@ -338,6 +365,7 @@ function BoardBody({
   listing,
   onListing,
   onDetail,
+  hideNames,
 }: {
   teamId: string;
   board: MeetingBoard;
@@ -347,6 +375,7 @@ function BoardBody({
   listing: boolean;
   onListing: (listing: boolean) => void;
   onDetail: (metric: MetricDefinition) => void;
+  hideNames: boolean;
 }) {
   const { t } = useTranslation();
   const here = useHere('board');
@@ -389,7 +418,13 @@ function BoardBody({
         </button>
       </p>
       {listing ? (
-        <RecordingView key={board.meeting.id} teamId={teamId} board={board} mode={mode} />
+        <RecordingView
+          key={board.meeting.id}
+          teamId={teamId}
+          board={board}
+          mode={mode}
+          hideNames={hideNames}
+        />
       ) : (
         <Tiles board={board} onDetail={onDetail} />
       )}

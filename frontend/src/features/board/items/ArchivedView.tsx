@@ -10,7 +10,14 @@ import styles from './items.module.css';
  * meetings at which each was raised and closed. Read-only for everyone:
  * archiving is the end state, and nothing here changes it.
  */
-export function ArchivedView({ teamId }: { teamId: string }) {
+export function ArchivedView({
+  teamId,
+  hideNames = false,
+}: {
+  teamId: string;
+  /** Names hidden for screen sharing: the responsible member is not shown. */
+  hideNames?: boolean;
+}) {
   const { t } = useTranslation();
   const problems = useProblems(teamId, 'archived');
   const tasks = useTasks(teamId, 'archived');
@@ -26,12 +33,14 @@ export function ArchivedView({ teamId }: { teamId: string }) {
         heading={t('archive.problemsHeading')}
         empty={t('archive.noProblems')}
         items={problems.data}
+        hideNames={hideNames}
       />
       <ArchiveTable
         id="archive-tasks"
         heading={t('archive.tasksHeading')}
         empty={t('archive.noTasks')}
         items={tasks.data}
+        hideNames={hideNames}
       />
     </>
   );
@@ -42,11 +51,13 @@ function ArchiveTable({
   heading,
   empty,
   items,
+  hideNames,
 }: {
   id: string;
   heading: string;
   empty: string;
   items: (ProblemRead | TaskRead)[];
+  hideNames: boolean;
 }) {
   const { t } = useTranslation();
   const format = useFormat();
@@ -82,7 +93,11 @@ function ArchiveTable({
               {items.map((item) => (
                 <tr key={item.id}>
                   <th scope="row">{item.summary}</th>
-                  <td>{item.responsible?.email ?? t('items.noResponsible')}</td>
+                  <td>
+                    {hideNames
+                      ? t('board.nameHidden')
+                      : (item.responsible?.email ?? t('items.noResponsible'))}
+                  </td>
                   <td>{item.due_on ? format.date(item.due_on) : t('items.noDueDate')}</td>
                   <td>{when(item.raised_meeting, item.raised_at)}</td>
                   <td>{when(item.closed_meeting, item.closed_at)}</td>

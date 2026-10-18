@@ -8,7 +8,7 @@ import { AddressProbe } from '../../test/AddressProbe';
 import { en } from '../../i18n/en';
 import { dashboardSummary } from '../dashboard/dashboardFixture';
 import { MyMeetingsPage } from './MyMeetingsPage';
-import { NOW, serve } from './personalFixture';
+import { MEETINGS, NOW, serve, teamMeeting } from './personalFixture';
 
 const fetchMock = vi.fn();
 
@@ -77,5 +77,50 @@ describe('My meetings', () => {
     await renderWithLanguage(<MyMeetingsPage />, 'en');
 
     expect(await screen.findByText(en.personal.noMeetings)).toBeInTheDocument();
+  });
+});
+
+describe("The viewer's own meetings to host are marked", () => {
+  /** Platform Core's meeting on the 14th, hosted by `host`. */
+  function hostedBy(host: string) {
+    fetchMock.mockReset();
+    serve(fetchMock, {
+      meetings: {
+        ...MEETINGS,
+        'platform-core': {
+          ...MEETINGS['platform-core']!,
+          meetings: [
+            teamMeeting('platform-core', '2026-10-07', 'anna@example.com'),
+            teamMeeting('platform-core', '2026-10-14', host),
+          ],
+        },
+      },
+    });
+  }
+
+  const upcomingRow = () =>
+    within(section(en.meetings.upcomingHeading))
+      .getAllByRole('listitem')
+      .find((item) => item.textContent?.includes('Platform Core'))!;
+
+  it('The host sees their meeting marked', async () => {
+    // The viewer of the summary, in another case: compared lower-cased.
+    hostedBy('G.Galka@pse.pl');
+    await renderWithLanguage(<MyMeetingsPage />, 'en');
+    await screen.findByRole('region', { name: en.meetings.upcomingHeading });
+
+    const row = upcomingRow();
+    expect(row).toHaveTextContent(en.meetings.youHost);
+    expect(row).not.toHaveTextContent(/galka/i);
+  });
+
+  it("Another member's meeting is not marked", async () => {
+    hostedBy('ewa@example.com');
+    await renderWithLanguage(<MyMeetingsPage />, 'en');
+    await screen.findByRole('region', { name: en.meetings.upcomingHeading });
+
+    const row = upcomingRow();
+    expect(row).toHaveTextContent('Host: ewa@example.com');
+    expect(row).not.toHaveTextContent(en.meetings.youHost);
   });
 });

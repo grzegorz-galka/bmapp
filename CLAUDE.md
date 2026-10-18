@@ -304,8 +304,23 @@ the ungrouped metrics last.
 meeting (`PUT …/meetings/:meetingId/pulse/me`, only ever one's own answer), and
 the board at `/teams/:teamId?view=pulse` shows the meeting's results laid out as
 in the legacy board - answers received, the average on a gauge, the
-distribution, the trend and the answers table, with names hideable for screen
-sharing. A meeting with answers can no longer be deleted.
+distribution, the trend and the answers table. A meeting with answers can no
+longer be deleted. "Hide names" is board state, not the pulse view's: it holds
+across the board's views and meetings until the page is left, is never
+remembered or put in the address, and hides every person the board names.
+
+`meeting-readiness` is implemented: for a meeting that takes values and is
+dated today or later, the board's metrics view opens with a readiness panel
+(`#readiness`) listing the missing metrics with their owners and the members
+who have not answered, and copies the owing people's addresses joined by `; `.
+Who owes data is counted by one backend function, `owing_by_meeting`, used
+by both the board (`completeness.owing`) and the dashboard rows (`owing`,
+beside `pulse_answers` and `members`), so the two cannot disagree. Dashboard
+rows offer "Check readiness" and mark "You host". Opening a meeting takes an
+optional host, and the meetings page names the proposal on its planning
+control and links each meeting to its board. A pluralised catalogue key
+carries `_one`, `_few`, `_many` and `_other` forms in both languages, because
+Polish needs all four and the catalogues must share their keys.
 
 `problems-and-tasks` is implemented: members raise and change a team's problems
 and tasks at any time (`/teams/:teamId/problems`, `/teams/:teamId/tasks`), the

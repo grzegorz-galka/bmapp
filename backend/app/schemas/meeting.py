@@ -62,10 +62,11 @@ class ScheduleRead(BaseModel):
 
 
 class MeetingOpen(BaseModel):
-    """A request to open a meeting."""
+    """A request to open a meeting, optionally naming its host."""
 
     date: datetime.date
     time: WallClockTime
+    host_employee_id: uuid.UUID | None = None
 
 
 class MeetingChange(BaseModel):

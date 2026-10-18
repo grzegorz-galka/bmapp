@@ -99,16 +99,27 @@ def open_meeting(
     date: datetime.date,
     time: datetime.time,
     actor_email: str,
+    host_employee_id: uuid.UUID | None = None,
 ) -> Meeting:
-    """Open a meeting of a team on a date at a start time, with no host.
+    """Open a meeting of a team on a date at a start time, with its host if one is named.
 
     The date may be in the past, for a meeting that was held and never
     entered. One meeting per team per date is the unique index's to enforce.
+    The host is checked before anything is inserted, as when one is named
+    later, so a rejected host opens nothing.
     """
     if session.get(Team, team_id) is None:
         raise TeamNotFoundError(team_id)
+    if (
+        host_employee_id is not None
+        and session.get(TeamMember, (team_id, host_employee_id)) is None
+    ):
+        raise MeetingHostNotMemberError(host_employee_id)
     meeting = Meeting(
-        team_id=team_id, starts_at=to_instant(date, time), created_by_email=actor_email
+        team_id=team_id,
+        starts_at=to_instant(date, time),
+        host_employee_id=host_employee_id,
+        created_by_email=actor_email,
     )
     session.add(meeting)
     _commit(session, date)

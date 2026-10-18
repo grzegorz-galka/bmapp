@@ -129,6 +129,13 @@ class DashboardMeeting(BaseModel):
     total: int | None
     #: Whether the viewer has answered this meeting's pulse check.
     pulse_answered: bool
+    #: How many current members have answered its pulse check, of how many
+    #: members the team has now. None for a proposed meeting.
+    pulse_answers: int | None
+    members: int | None
+    #: How many people still owe data for it, as `owing_by_meeting` counts
+    #: them - a count, never names. None for a proposed meeting.
+    owing: int | None
 
 
 class FunnelStage(BaseModel):

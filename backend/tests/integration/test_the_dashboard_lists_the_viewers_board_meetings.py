@@ -1,10 +1,12 @@
 """The API half of "The dashboard lists the viewer's board meetings" in specs/dashboard/spec.md.
 
 One test per scenario, and one holding the recording progress equal to the
-board's completeness. Today is pinned to Monday 12 October 2026 in the
-organization's zone.
+board's completeness. The figure for people owing data is held equal to the
+board's in test_a_meetings_board_reports_how_many_owe_data.py. Today is
+pinned to Monday 12 October 2026 in the organization's zone.
 """
 
+import json
 from collections.abc import Callable
 from typing import Any
 
@@ -36,6 +38,9 @@ def _row(meeting: Any) -> tuple[Any, ...]:
         meeting["recorded"],
         meeting["total"],
         meeting["pulse_answered"],
+        meeting["pulse_answers"],
+        meeting["members"],
+        meeting["owing"],
     )
 
 
@@ -57,9 +62,11 @@ def test_todays_and_the_next_meeting_are_listed(client: TestClient, client_as: C
     meetings = dashboard_of(client_as(VIEWER))["meetings"]
 
     assert [meeting["meeting_id"] for meeting in meetings] == [today["id"], following["id"]]
+    # The leader has answered neither meeting's pulse check, and nobody owns
+    # a metric, so today the leader owes data and next week both members do.
     assert [_row(meeting) for meeting in meetings] == [
-        ("Platform", "2026-10-12", "09:30", True, VIEWER, 1, 2, True),
-        ("Platform", "2026-10-19", "09:30", False, None, 0, 2, False),
+        ("Platform", "2026-10-12", "09:30", True, VIEWER, 1, 2, True, 1, 2, 1),
+        ("Platform", "2026-10-19", "09:30", False, None, 0, 2, False, 0, 2, 2),
     ]
 
 
@@ -100,6 +107,9 @@ def test_a_proposed_date_is_listed_as_not_yet_opened(
         "recorded": None,
         "total": None,
         "pulse_answered": False,
+        "pulse_answers": None,
+        "members": None,
+        "owing": None,
     }
 
 
@@ -125,15 +135,38 @@ def test_recording_progress_and_the_pulse_check_are_stated_in_words(
 
     The words are the frontend's; the summary carries the figures and the flag.
     """
-    team = team_with(client, "Platform", VIEWER)
+    others = [f"member{i}@example.com" for i in range(4)]
+    team = team_with(client, "Platform", VIEWER, *others)
     meeting = open_meeting(client, team["id"], "2026-10-14")
     metrics = [add_metric(client, team["id"], f"Metric {i:02}") for i in range(14)]
     for metric in metrics[:12]:
         record(client, team["id"], meeting["id"], metric["id"], value="1")
+    for email in others:
+        answer(client_as(email), team["id"], meeting["id"])
 
     (row,) = dashboard_of(client_as(VIEWER))["meetings"]
 
-    assert (row["recorded"], row["total"], row["pulse_answered"]) == (12, 14, False)
+    assert (row["recorded"], row["total"]) == (12, 14)
+    assert (row["pulse_answers"], row["members"], row["pulse_answered"]) == (4, 6, False)
+
+
+def test_the_people_owing_data_are_counted_not_named(
+    client: TestClient, client_as: ClientAs
+) -> None:
+    """Scenario: The people owing data are counted, not named.
+
+    The leader and the viewer have not answered, and Anna owns a metric with
+    no number yet: three people.
+    """
+    anna = "anna@example.com"
+    team = team_with(client, "Platform", VIEWER, anna)
+    meeting = open_meeting(client, team["id"], "2026-10-14")
+    add_metric(client, team["id"], "Lead time", owner_employee_id=member_id(team, anna))
+
+    (row,) = dashboard_of(client_as(VIEWER))["meetings"]
+
+    assert (row["meeting_id"], row["owing"]) == (meeting["id"], 3)
+    assert "@" not in json.dumps(row)
 
 
 def test_nothing_is_coming_up(client: TestClient, client_as: ClientAs) -> None:

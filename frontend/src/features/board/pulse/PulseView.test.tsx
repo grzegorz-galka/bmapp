@@ -1,7 +1,7 @@
 /**
  * The pulse check view on the board. One test per scenario of "The pulse check
- * view", "Names can be hidden for screen sharing" and "The answer form" in
- * specs/pulse-check/spec.md.
+ * view" and "The answer form" in specs/pulse-check/spec.md. Hiding names is
+ * the board's switch now, tested in BoardPage.test.tsx.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
@@ -241,24 +241,6 @@ describe('the pulse check view', () => {
 
     expect(await screen.findByText(en.pulse.trendPending)).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: en.pulse.trendLabel })).not.toBeInTheDocument();
-  });
-
-  it('Names are hidden', async () => {
-    await renderBoard();
-    const user = await openPulse();
-
-    await user.click(screen.getByRole('checkbox', { name: en.pulse.hideNames }));
-
-    const rows = within(screen.getByRole('region', { name: en.pulse.answersHeading }))
-      .getAllByRole('row')
-      .slice(1);
-    expect(rows.map((row) => within(row).getByRole('rowheader').textContent)).toEqual(
-      [1, 2, 3, 4, 5, 6, 7].map((n) => `Person ${n}`),
-    );
-    expect(screen.getByRole('region', { name: en.pulse.answeredLabel })).toHaveTextContent(
-      'Answers missing: 4',
-    );
-    expect(screen.queryByText(/@example\.com$/)).not.toBeInTheDocument();
   });
 
   it('Nobody has answered yet', async () => {

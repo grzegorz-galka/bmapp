@@ -11,7 +11,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import exists, func, select, union
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, contains_eager
 
@@ -19,7 +19,15 @@ from app.core.exceptions import CorrectionReasonBlankError, MeetingFrozenError, 
 from app.core.metric_enums import Direction, Status
 from app.core.time import ORGANIZATION_TZ
 from app.models import BoardMetric as Placement
-from app.models import Meeting, Metric, MetricThreshold, MetricValue, MetricValueCorrection
+from app.models import (
+    Meeting,
+    Metric,
+    MetricThreshold,
+    MetricValue,
+    MetricValueCorrection,
+    PulseAnswer,
+    TeamMember,
+)
 from app.schemas.meeting import MeetingRead
 from app.schemas.metric import (
     BoardMetric,
@@ -161,8 +169,8 @@ def build_board(
     """A meeting's board: every active metric, its value, status, change and sparkline.
 
     A fixed number of statements however many metrics the board has: the
-    meeting, the team's meeting dates, the metrics, their thresholds, and
-    their values over the sparkline's meetings.
+    meeting, the team's meeting dates, the metrics, their thresholds, their
+    values over the sparkline's meetings, and how many people owe data.
     """
     meeting = get_meeting(session, team_id, meeting_id)
     meetings = team_meeting_dates(session, team_id)
@@ -226,10 +234,59 @@ def build_board(
         meeting=MeetingRead.model_validate(meeting),
         editable=meeting.date in editable_meetings((m.date for m in meetings), today),
         completeness=Completeness(
-            recorded=len(placements) - len(missing), total=len(placements), missing=missing
+            recorded=len(placements) - len(missing),
+            total=len(placements),
+            missing=missing,
+            owing=owing_by_meeting(session, [meeting_id])[meeting_id],
         ),
         metrics=tiles,
     )
+
+
+def owing_by_meeting(session: Session, meeting_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, int]:
+    """How many people owe data for each of these meetings. One statement.
+
+    The distinct employees among the owners of the active metrics on the
+    meeting's team's board that have no number there, and the current
+    members of the team who have not answered its pulse check. A metric
+    without an owner adds no one; an owner counts whether or not they are
+    still a member; a former member is not chased for the pulse check. The
+    board and the dashboard both report this figure, so they cannot disagree.
+    """
+    owners = (
+        select(Meeting.id.label("meeting_id"), Placement.owner_employee_id.label("employee_id"))
+        .join(Placement, Placement.team_id == Meeting.team_id)
+        .join(Metric, Metric.id == Placement.metric_id)
+        .where(
+            Meeting.id.in_(meeting_ids),
+            Placement.owner_employee_id.is_not(None),
+            Placement.retired_on_board.is_(False),
+            Metric.retired.is_(False),
+            ~exists().where(
+                MetricValue.meeting_id == Meeting.id,
+                MetricValue.metric_id == Placement.metric_id,
+                MetricValue.value.is_not(None),
+            ),
+        )
+    )
+    unanswered = (
+        select(Meeting.id.label("meeting_id"), TeamMember.employee_id.label("employee_id"))
+        .join(TeamMember, TeamMember.team_id == Meeting.team_id)
+        .where(
+            Meeting.id.in_(meeting_ids),
+            ~exists().where(
+                PulseAnswer.meeting_id == Meeting.id,
+                PulseAnswer.employee_id == TeamMember.employee_id,
+            ),
+        )
+    )
+    # UNION, not UNION ALL: a person with several gaps counts once.
+    people = union(owners, unanswered).subquery()
+    rows = session.execute(
+        select(people.c.meeting_id, func.count()).group_by(people.c.meeting_id)
+    ).tuples()
+    counts = dict(rows.all())
+    return {meeting_id: counts.get(meeting_id, 0) for meeting_id in meeting_ids}
 
 
 def build_trend(session: Session, team_id: uuid.UUID, metric_id: uuid.UUID) -> MetricTrend:

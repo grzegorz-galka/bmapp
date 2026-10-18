@@ -23,6 +23,11 @@ export interface MeetingSlot {
   time: string;
 }
 
+/** What opening a meeting takes: its slot and, optionally, its host. */
+export interface MeetingOpen extends MeetingSlot {
+  host_employee_id?: string | null;
+}
+
 export interface MeetingList {
   schedule: Schedule | null;
   proposed: MeetingSlot | null;
@@ -48,7 +53,7 @@ export function getMeetings(teamId: string): Promise<MeetingList> {
   return request<MeetingList>(meetingsPath(teamId));
 }
 
-export function openMeeting(teamId: string, slot: MeetingSlot): Promise<Meeting> {
+export function openMeeting(teamId: string, slot: MeetingOpen): Promise<Meeting> {
   return request<Meeting>(meetingsPath(teamId), {
     method: 'POST',
     body: JSON.stringify(slot),

@@ -18,7 +18,10 @@ const day = (offset: number): string => {
   return date.toISOString().slice(0, 10);
 };
 
-/** Today's meeting of Platform Core, opened, part recorded, pulse check not answered. */
+/**
+ * Today's meeting of Platform Core, opened, part recorded, pulse check not
+ * answered by the viewer: 4 of 6 have, and 3 people still owe data.
+ */
 export const TODAYS_MEETING: DashboardMeeting = {
   team_id: 'platform-core',
   team: 'Platform Core',
@@ -31,6 +34,9 @@ export const TODAYS_MEETING: DashboardMeeting = {
   recorded: 12,
   total: 14,
   pulse_answered: false,
+  pulse_answers: 4,
+  members: 6,
+  owing: 3,
 };
 
 /** Payments' next Tuesday, proposed by its schedule and not yet opened. */
@@ -46,6 +52,9 @@ export const PROPOSED_MEETING: DashboardMeeting = {
   recorded: null,
   total: null,
   pulse_answered: false,
+  pulse_answers: null,
+  members: null,
+  owing: null,
 };
 
 /** Platform Core's meeting next week, opened ahead and already answered. */
@@ -61,6 +70,9 @@ export const NEXT_WEEKS_MEETING: DashboardMeeting = {
   recorded: 0,
   total: 14,
   pulse_answered: true,
+  pulse_answers: 1,
+  members: 6,
+  owing: 1,
 };
 
 /**

@@ -9,6 +9,7 @@ import {
   ArrowRightIcon,
   CalendarIcon,
   ClipboardIcon,
+  EyeIcon,
   PlayIcon,
   PulseIcon,
 } from '../../components/icons';
@@ -27,6 +28,8 @@ const ADDRESSES = {
     `/teams/${encodeURIComponent(teamId)}?meeting=${encodeURIComponent(meetingId)}&view=pulse&mode=answer`,
   start: (teamId: string, meetingId: string) =>
     `/teams/${encodeURIComponent(teamId)}?meeting=${encodeURIComponent(meetingId)}`,
+  checkReadiness: (teamId: string, meetingId: string) =>
+    `/teams/${encodeURIComponent(teamId)}?meeting=${encodeURIComponent(meetingId)}#readiness`,
 } as const;
 
 type Action = keyof typeof ADDRESSES;
@@ -36,7 +39,14 @@ type Action = keyof typeof ADDRESSES;
  * what is left to do for it and the ways into the board to do it. Only the
  * soonest few are shown; the rest are on My meetings.
  */
-export function MeetingsTile({ meetings }: { meetings: DashboardMeeting[] }) {
+export function MeetingsTile({
+  meetings,
+  viewerEmail,
+}: {
+  meetings: DashboardMeeting[];
+  /** The signed-in viewer, from the summary: their own rows read "You host". */
+  viewerEmail: string;
+}) {
   const { t } = useTranslation();
   const here = useHere('dashboard');
 
@@ -58,6 +68,7 @@ export function MeetingsTile({ meetings }: { meetings: DashboardMeeting[] }) {
               // meanwhile stays the same row, and keeps saying why.
               key={`${meeting.team_id}-${meeting.date}`}
               meeting={meeting}
+              viewerEmail={viewerEmail}
             />
           ))}
         </ul>
@@ -85,7 +96,7 @@ export function MeetingsTile({ meetings }: { meetings: DashboardMeeting[] }) {
  * opened the date meanwhile - the row says why and the list is refetched,
  * which then shows the opened meeting in its place.
  */
-function MeetingRow({ meeting }: { meeting: DashboardMeeting }) {
+function MeetingRow({ meeting, viewerEmail }: { meeting: DashboardMeeting; viewerEmail: string }) {
   const { t } = useTranslation();
   const format = useFormat();
   const navigate = useNavigate();
@@ -136,9 +147,11 @@ function MeetingRow({ meeting }: { meeting: DashboardMeeting }) {
       <ul className={styles.facts}>
         {!proposed && (
           <li>
-            {meeting.host
-              ? t('meetingsTile.host', { email: meeting.host })
-              : t('meetingsTile.noHost')}
+            {meeting.host === null
+              ? t('meetingsTile.noHost')
+              : meeting.host.toLowerCase() === viewerEmail.toLowerCase()
+                ? t('meetingsTile.youHost')
+                : t('meetingsTile.host', { email: meeting.host })}
           </li>
         )}
         {meeting.recorded !== null && meeting.total !== null && (
@@ -148,6 +161,18 @@ function MeetingRow({ meeting }: { meeting: DashboardMeeting }) {
               total: format.number(meeting.total),
             })}
           </li>
+        )}
+        {meeting.pulse_answers !== null && meeting.members !== null && (
+          <li>
+            {t('meetingsTile.pulseProgress', {
+              answers: format.number(meeting.pulse_answers),
+              members: format.number(meeting.members),
+            })}
+          </li>
+        )}
+        {meeting.owing !== null && (
+          // Counted, never named: the names are the readiness panel's.
+          <li>{t('meetingsTile.owing', { count: meeting.owing })}</li>
         )}
         <li className={meeting.pulse_answered ? styles.done : styles.pending}>
           {meeting.pulse_answered
@@ -159,6 +184,7 @@ function MeetingRow({ meeting }: { meeting: DashboardMeeting }) {
       <div className={styles.actions}>
         {button('prepare', <ClipboardIcon />, t('meetingsTile.prepare'))}
         {button('fillPulse', <PulseIcon />, t('meetingsTile.fillPulse'))}
+        {!proposed && button('checkReadiness', <EyeIcon />, t('meetingsTile.checkReadiness'))}
         {meeting.today && button('start', <PlayIcon />, t('meetingsTile.start'))}
       </div>
 

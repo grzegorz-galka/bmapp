@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Meeting } from '../../../api/meetings';
 import { describeFailure } from '../../../i18n/apiErrors';
@@ -27,10 +26,13 @@ export function PulseView({
   mayAnswer,
   answering,
   onAnswering,
+  hideNames,
 }: {
   teamId: string;
   meeting: Meeting;
   mayAnswer: boolean;
+  /** The board's switch: kept by the board, so it outlives this view. */
+  hideNames: boolean;
   /** Whether the address asks for the form; ignored where no form is offered. */
   answering: boolean;
   onAnswering: (answering: boolean) => void;
@@ -39,8 +41,6 @@ export function PulseView({
   const pulse = usePulse(teamId, meeting.id);
   const mode: Mode = answering ? 'form' : 'results';
   const setMode = (next: Mode) => onAnswering(next === 'form');
-  // About the screen right now, not a preference to remember.
-  const [hideNames, setHideNames] = useState(false);
 
   if (pulse.isPending) return <p>{t('pulse.loading')}</p>;
   if (pulse.isError) {
@@ -74,16 +74,6 @@ export function PulseView({
               </button>
             ))}
           </div>
-        )}
-        {shownMode === 'results' && answers !== null && (
-          <label className={styles.check}>
-            <input
-              type="checkbox"
-              checked={hideNames}
-              onChange={(event) => setHideNames(event.target.checked)}
-            />
-            {t('pulse.hideNames')}
-          </label>
         )}
       </div>
 

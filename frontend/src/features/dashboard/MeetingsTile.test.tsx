@@ -48,10 +48,17 @@ afterEach(() => {
   window.localStorage.clear();
 });
 
-async function renderTile(meetings: DashboardMeeting[], language: 'en' | 'pl' = 'en') {
+/** The viewer of the fixture's summary. */
+const VIEWER = dashboardSummary().current_user.email;
+
+async function renderTile(
+  meetings: DashboardMeeting[],
+  language: 'en' | 'pl' = 'en',
+  viewerEmail = VIEWER,
+) {
   await renderWithLanguage(
     <>
-      <MeetingsTile meetings={meetings} />
+      <MeetingsTile meetings={meetings} viewerEmail={viewerEmail} />
       <AddressProbe />
     </>,
     language,
@@ -115,6 +122,8 @@ describe('the meeting rows', () => {
     expect(row).toHaveTextContent(en.meetingsTile.notOpened);
     expect(row).not.toHaveTextContent(/Host/);
     expect(row).not.toHaveTextContent(/recorded/);
+    expect(row).not.toHaveTextContent(/Pulse check \d/);
+    expect(row).not.toHaveTextContent(/owe/);
   });
 
   it('Meetings of several teams are interleaved', async () => {
@@ -133,7 +142,45 @@ describe('the meeting rows', () => {
 
     const row = rowOf('Platform Core', /17/);
     expect(row).toHaveTextContent('Wpisano 12 z 14');
+    expect(row).toHaveTextContent('Pulse check 4 z 6');
     expect(row).toHaveTextContent(pl.meetingsTile.pulseNotAnswered);
+
+    await changeLanguage('en');
+    expect(row).toHaveTextContent('12 of 14 recorded');
+    expect(row).toHaveTextContent('Pulse check 4 of 6');
+    expect(row).toHaveTextContent(en.meetingsTile.pulseNotAnswered);
+  });
+
+  it('The people owing data are counted, not named', async () => {
+    await renderTile([TODAYS_MEETING]);
+
+    const row = rowOf('Platform Core', /17 Sep/);
+    expect(row).toHaveTextContent('3 people still owe data');
+    // The host is the only person the row names.
+    expect(row.textContent!.match(/@/g)).toHaveLength(1);
+  });
+
+  it('counts one person owing data in the singular', async () => {
+    await renderTile([{ ...TODAYS_MEETING, owing: 1 }]);
+    expect(rowOf('Platform Core', /17 Sep/)).toHaveTextContent('1 person still owes data');
+  });
+
+  it('follows the Polish plural forms of people owing data', async () => {
+    const owing = async (count: number) => {
+      const view = await renderWithLanguage(
+        <MeetingsTile meetings={[{ ...TODAYS_MEETING, owing: count }]} viewerEmail={VIEWER} />,
+        'pl',
+      );
+      const text = view.container.textContent;
+      view.unmount();
+      return text;
+    };
+
+    expect(await owing(1)).toContain('1 osoba jeszcze nie przekazała danych');
+    expect(await owing(3)).toContain('3 osoby jeszcze nie przekazały danych');
+    expect(await owing(5)).toContain('5 osób jeszcze nie przekazało danych');
+    expect(await owing(22)).toContain('22 osoby jeszcze nie przekazały danych');
+    expect(await owing(12)).toContain('12 osób jeszcze nie przekazało danych');
 
     await changeLanguage('en');
   });
@@ -206,7 +253,9 @@ describe('the look of the actions', () => {
     const allowed = new Set([BUTTON, ...DEFAULT.split(' ')]);
 
     const buttons = screen.getAllByRole('button');
-    expect(buttons).toHaveLength(7);
+    // Prepare and fill on each row, start on today's, check readiness on the
+    // two opened ones.
+    expect(buttons).toHaveLength(9);
     for (const button of buttons) {
       const classes = [...button.classList];
       expect(classes.length).toBeGreaterThan(0);
@@ -280,6 +329,58 @@ describe('Start a meeting', () => {
       expect(action).toHaveClass(BUTTON);
       expect(action).not.toHaveClass(DEFAULT);
     }
+  });
+});
+
+describe('Check readiness from a meeting row', () => {
+  it('The readiness of a coming meeting is checked', async () => {
+    await renderTile([NEXT_WEEKS_MEETING]);
+
+    await userEvent.click(screen.getByRole('button', { name: en.meetingsTile.checkReadiness }));
+
+    expect(address()).toHaveTextContent(/^\/teams\/platform-core\?meeting=meeting-next#readiness$/);
+    expect(navigatedState()).toEqual(FROM_DASHBOARD);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('Every member is offered it', async () => {
+    // The viewer hosts neither: one row has another host, one has none.
+    await renderTile([TODAYS_MEETING, NEXT_WEEKS_MEETING]);
+
+    for (const row of rows()) {
+      const action = within(row).getByRole('button', { name: en.meetingsTile.checkReadiness });
+      expect(action).toHaveClass(BUTTON);
+      expect(action).not.toHaveClass(DEFAULT);
+    }
+  });
+
+  it('A proposed row does not offer it', async () => {
+    await renderTile([PROPOSED_MEETING]);
+
+    expect(
+      within(rowOf('Payments', /22 Sep/)).queryByRole('button', {
+        name: en.meetingsTile.checkReadiness,
+      }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("The viewer's own meetings to host are marked", () => {
+  it('The host sees their meeting marked', async () => {
+    // Compared regardless of case, as the server lower-cases emails.
+    await renderTile([{ ...NEXT_WEEKS_MEETING, host: VIEWER }], 'en', VIEWER.toUpperCase());
+
+    const row = rowOf('Platform Core', /24 Sep/);
+    expect(row).toHaveTextContent(en.meetingsTile.youHost);
+    expect(row).not.toHaveTextContent(VIEWER);
+  });
+
+  it("Another member's meeting is not marked", async () => {
+    await renderTile([TODAYS_MEETING]);
+
+    const row = rowOf('Platform Core', /17 Sep/);
+    expect(row).toHaveTextContent('Host: anna.nowak@pse.pl');
+    expect(row).not.toHaveTextContent(en.meetingsTile.youHost);
   });
 });
 

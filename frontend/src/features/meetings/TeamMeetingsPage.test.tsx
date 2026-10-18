@@ -7,6 +7,8 @@ import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { TeamMeetingsPage } from './TeamMeetingsPage';
+import { BackLink } from '../../components/BackLink';
+import { AddressProbe } from '../../test/AddressProbe';
 import { renderWithLanguage } from '../../test/render';
 import { en } from '../../i18n/en';
 import { pl } from '../../i18n/pl';
@@ -120,6 +122,15 @@ async function renderPage(
   });
 }
 
+/** The control that plans the next meeting, captioned with the fixture's proposal. */
+function planControl(catalogue: typeof en | typeof pl = en) {
+  const [date, time] =
+    catalogue === en ? ['Wed, 28 Oct 2026', '13:00'] : ['śr., 28 paź 2026', '13:00'];
+  return screen.getByRole('button', {
+    name: catalogue.meetings.prepareProposed.replace('{{date}}', date).replace('{{time}}', time),
+  });
+}
+
 function listUnder(heading: string) {
   return screen.getByRole('list', { name: heading });
 }
@@ -159,7 +170,7 @@ describe('Meetings are managed from the meetings page', () => {
     serve(listing(), { POST: jsonResponse(meeting('2026-10-29', '2026-10-29T08:30:00Z'), 201) });
     await renderPage();
 
-    await userEvent.click(screen.getByRole('button', { name: en.meetings.prepare }));
+    await userEvent.click(planControl());
 
     expect(prepareForm().getByLabelText(en.meetings.dateLabel)).toHaveValue('2026-10-28');
     expect(prepareForm().getByLabelText(en.meetings.timeLabel)).toHaveValue('13:00');
@@ -179,22 +190,154 @@ describe('Meetings are managed from the meetings page', () => {
     );
   });
 
+  it('The planning control names the proposal', async () => {
+    serve();
+    await renderPage();
+
+    // Named before it is chosen: the date and the start time the schedule proposes.
+    expect(planControl()).toHaveTextContent('Plan next meeting: Wed, 28 Oct 2026, 13:00');
+  });
+
+  it('The planning control names the proposal - in Polish', async () => {
+    serve();
+    await renderPage('pl');
+
+    expect(planControl(pl)).toHaveTextContent(
+      'Zaplanuj następne spotkanie: śr., 28 paź 2026, 13:00',
+    );
+  });
+
   it('Preparing a meeting without a schedule', async () => {
     serve(listing({ schedule: null, proposed: null }));
-    await renderPage();
+    // A member who may not configure the board.
+    await renderPage('en', { email: BARTEK.email });
 
     await userEvent.click(screen.getByRole('button', { name: en.meetings.prepare }));
 
     expect(prepareForm().getByLabelText(en.meetings.dateLabel)).toHaveValue('');
     expect(prepareForm().getByLabelText(en.meetings.timeLabel)).toHaveValue('');
+    expect(prepareForm().getByText(en.meetings.noProposal)).toBeInTheDocument();
     expect(screen.getByText(en.meetings.scheduleNone)).toBeInTheDocument();
+    // Nothing to set: the schedule is the leader's, a deputy's or an administrator's.
+    expect(screen.queryByRole('button', { name: en.meetings.setSchedule })).not.toBeInTheDocument();
+  });
+
+  it('offers whoever may configure the board to set the schedule from the planning form', async () => {
+    serve(listing({ schedule: null, proposed: null }));
+    await renderPage('en', { email: ANNA.email });
+
+    await userEvent.click(screen.getByRole('button', { name: en.meetings.prepare }));
+    expect(prepareForm().getByText(en.meetings.noProposal)).toBeInTheDocument();
+    await userEvent.click(prepareForm().getByRole('button', { name: en.meetings.setSchedule }));
+
+    expect(screen.getByLabelText(en.meetings.weekdayLabel)).toHaveValue('');
+    expect(screen.getByRole('button', { name: en.meetings.saveSchedule })).toBeInTheDocument();
+  });
+
+  it('says nothing about a missing schedule when there is one', async () => {
+    serve();
+    await renderPage();
+
+    await userEvent.click(planControl());
+
+    expect(screen.queryByText(en.meetings.noProposal)).not.toBeInTheDocument();
+  });
+
+  it('The host is named while planning', async () => {
+    const opened = meeting('2026-10-28', '2026-10-28T12:00:00Z', BARTEK);
+    let created = false;
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        created = true;
+        return Promise.resolve(jsonResponse(opened, 201));
+      }
+      if (!url.endsWith('/meetings')) return Promise.resolve(jsonResponse(TEAM));
+      const meetings = created ? [SEP_30, OCT_07, OCT_14, OCT_21, opened] : undefined;
+      return Promise.resolve(jsonResponse(listing(meetings ? { meetings } : {})));
+    });
+    await renderPage();
+
+    await userEvent.click(planControl());
+    const host = prepareForm().getByLabelText(en.meetings.hostLabel);
+    // Optional: nobody is chosen until someone is.
+    expect(host).toHaveValue('');
+    expect(
+      within(host)
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual([en.meetings.noHost, ANNA.email, BARTEK.email]);
+    await userEvent.selectOptions(host, BARTEK.employee_id);
+    await userEvent.click(screen.getByRole('button', { name: en.meetings.open }));
+
+    await vi.waitFor(() =>
+      expect(sent('POST')).toEqual([
+        {
+          url: `/api/teams/${TEAM_ID}/meetings`,
+          body: { date: '2026-10-28', time: '13:00', host_employee_id: BARTEK.employee_id },
+        },
+      ]),
+    );
+    const upcoming = await vi.waitFor(() => {
+      const items = within(listUnder(en.meetings.upcomingHeading)).getAllByRole('listitem');
+      expect(items).toHaveLength(3);
+      return items;
+    });
+    expect(upcoming[2]).toHaveTextContent('28 Oct 2026');
+    expect(upcoming[2]).toHaveTextContent('Host: bartek@example.com');
+  });
+
+  it('shows a host from outside the team next to the host field', async () => {
+    serve(listing(), {
+      POST: errorResponse(422, 'host_employee_id', 'meeting_host.not_member'),
+    });
+    await renderPage();
+
+    await userEvent.click(planControl());
+    await userEvent.selectOptions(
+      prepareForm().getByLabelText(en.meetings.hostLabel),
+      ANNA.employee_id,
+    );
+    await userEvent.click(screen.getByRole('button', { name: en.meetings.open }));
+
+    expect(await prepareForm().findByRole('alert')).toHaveTextContent(
+      en.errors['meeting_host.not_member'],
+    );
+  });
+
+  it('A meeting leads to its board', async () => {
+    serve();
+    await renderWithLanguage(
+      <>
+        <Routes>
+          <Route path="/teams/:teamId/meetings" element={<TeamMeetingsPage />} />
+          <Route
+            path="/teams/:teamId"
+            element={<BackLink fallback={{ to: '/teams', label: en.board.back }} />}
+          />
+        </Routes>
+        <AddressProbe />
+      </>,
+      'en',
+      { route: `/teams/${TEAM_ID}/meetings`, auth: { isAdmin: true } },
+    );
+    const upcoming = await screen.findByRole('list', { name: en.meetings.upcomingHeading });
+
+    await userEvent.click(within(upcoming).getByRole('link', { name: /14 Oct 2026/ }));
+
+    expect(screen.getByTestId('address')).toHaveTextContent(
+      new RegExp(`^/teams/${TEAM_ID}\\?meeting=${OCT_14.id}$`),
+    );
+    // The board's back link names the meetings page and leads back to it.
+    const back = screen.getByRole('link', { name: en.back.meetings });
+    await userEvent.click(back);
+    expect(screen.getByTestId('address')).toHaveTextContent(`/teams/${TEAM_ID}/meetings`);
   });
 
   it('A rejection is shown in the active language', async () => {
     serve(listing(), { POST: errorResponse(409, 'date', 'meeting_date.taken') });
     await renderPage('pl');
 
-    await userEvent.click(screen.getByRole('button', { name: pl.meetings.prepare }));
+    await userEvent.click(planControl(pl));
     await userEvent.click(screen.getByRole('button', { name: pl.meetings.open }));
 
     const message = await screen.findByText(pl.errors['meeting_date.taken']);
@@ -388,7 +531,7 @@ describe('the schedule', () => {
     serve(listing());
     await renderPage();
     await userEvent.click(screen.getByRole('button', { name: en.meetings.changeSchedule }));
-    await userEvent.click(screen.getByRole('button', { name: en.meetings.prepare }));
+    await userEvent.click(planControl());
 
     // The layout itself is the e2e flow's to measure; here, each field
     // carries its own width rather than the page's.

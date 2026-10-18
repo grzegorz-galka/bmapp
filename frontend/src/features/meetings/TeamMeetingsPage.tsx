@@ -1,7 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
-import type { Meeting, MeetingSlot } from '../../api/meetings';
+import type { Meeting, MeetingOpen, MeetingSlot } from '../../api/meetings';
 import type { Member, Schedule } from '../../api/teams';
 import {
   describeFailure,
@@ -41,6 +41,9 @@ export function TeamMeetingsPage() {
   // instant each meeting starts - read once, as the dashboard's countdown does.
   const [now] = useState(() => Date.now());
   const here = useHere('meetings');
+  // Lifted here so that the planning form can open the schedule's fields
+  // when it says the board has no schedule.
+  const [editingSchedule, setEditingSchedule] = useState(false);
 
   const back = (
     <BackLink className={teamStyles.back} fallback={{ to: '/teams', label: t('meetings.back') }} />
@@ -102,9 +105,19 @@ export function TeamMeetingsPage() {
         teamId={teamId}
         schedule={meetings.data.schedule}
         mayConfigure={mayConfigure}
+        editing={editingSchedule}
+        setEditing={setEditingSchedule}
       />
 
-      {mayManage && <PrepareMeeting teamId={teamId} proposed={meetings.data.proposed} />}
+      {mayManage && (
+        <PrepareMeeting
+          teamId={teamId}
+          proposed={meetings.data.proposed}
+          hasSchedule={meetings.data.schedule !== null}
+          members={members}
+          onSetSchedule={mayConfigure ? () => setEditingSchedule(true) : undefined}
+        />
+      )}
 
       <MeetingSection
         id="upcoming"
@@ -132,27 +145,38 @@ function ScheduleSection({
   teamId,
   schedule,
   mayConfigure,
+  editing,
+  setEditing,
 }: {
   teamId: string;
   schedule: Schedule | null;
   mayConfigure: boolean;
+  editing: boolean;
+  setEditing: (editing: boolean) => void;
 }) {
   const { t } = useTranslation();
   const format = useFormat();
   const setSchedule = useSetSchedule(teamId);
   // The fields stay out of the way until asked for: a schedule is set once
-  // and changed rarely, while the page is visited every week.
-  const [editing, setEditing] = useState(false);
+  // and changed rarely, while the page is visited every week. Asked for from
+  // the planning form too, so the fields are filled when editing starts,
+  // whichever way it does.
   const [weekday, setWeekday] = useState('');
   const [time, setTime] = useState('');
+  const [wasEditing, setWasEditing] = useState(editing);
+  if (editing !== wasEditing) {
+    setWasEditing(editing);
+    if (editing) {
+      setWeekday(schedule ? String(schedule.weekday) : '');
+      setTime(schedule?.time ?? '');
+    }
+  }
 
   const weekdayError = describeFieldFailure(t, setSchedule.error, 'weekday');
   const timeError = describeFieldFailure(t, setSchedule.error, 'time');
   const otherError = describeOtherFailure(t, setSchedule.error, ['weekday', 'time']);
 
   function edit() {
-    setWeekday(schedule ? String(schedule.weekday) : '');
-    setTime(schedule?.time ?? '');
     setEditing(true);
   }
 
@@ -254,10 +278,25 @@ function ScheduleSection({
   );
 }
 
-function PrepareMeeting({ teamId, proposed }: { teamId: string; proposed: MeetingSlot | null }) {
+function PrepareMeeting({
+  teamId,
+  proposed,
+  hasSchedule,
+  members,
+  onSetSchedule,
+}: {
+  teamId: string;
+  proposed: MeetingSlot | null;
+  hasSchedule: boolean;
+  members: Member[];
+  /** Opens the schedule's fields; only for a viewer who may configure the board. */
+  onSetSchedule?: () => void;
+}) {
   const { t } = useTranslation();
+  const format = useFormat();
   const openMeeting = useOpenMeeting(teamId);
   const [slot, setSlot] = useState<MeetingSlot | null>(null);
+  const [hostId, setHostId] = useState('');
 
   if (slot === null) {
     return (
@@ -269,7 +308,12 @@ function PrepareMeeting({ teamId, proposed }: { teamId: string; proposed: Meetin
           // otherwise the member chooses both.
           onClick={() => setSlot(proposed ?? { date: '', time: '' })}
         >
-          {t('meetings.prepare')}
+          {proposed
+            ? t('meetings.prepareProposed', {
+                date: format.meetingDate(proposed.date),
+                time: format.meetingTime(proposed.time),
+              })
+            : t('meetings.prepare')}
         </button>
       </p>
     );
@@ -277,16 +321,32 @@ function PrepareMeeting({ teamId, proposed }: { teamId: string; proposed: Meetin
 
   function close() {
     setSlot(null);
+    setHostId('');
     openMeeting.reset();
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (slot) openMeeting.mutate(slot, { onSuccess: close });
+    if (!slot) return;
+    // No host is no field at all: the request a meeting has always been opened with.
+    const request: MeetingOpen = hostId ? { ...slot, host_employee_id: hostId } : slot;
+    openMeeting.mutate(request, { onSuccess: close });
   }
+
+  const hostError = describeFieldFailure(t, openMeeting.error, 'host_employee_id');
 
   return (
     <section className={styles.section} aria-label={t('meetings.prepare')}>
+      {!hasSchedule && (
+        <p>
+          {t('meetings.noProposal')}{' '}
+          {onSetSchedule && (
+            <button type="button" className={controls.button} onClick={onSetSchedule}>
+              {t('meetings.setSchedule')}
+            </button>
+          )}
+        </p>
+      )}
       <SlotForm
         idPrefix="prepare"
         slot={slot}
@@ -296,7 +356,31 @@ function PrepareMeeting({ teamId, proposed }: { teamId: string; proposed: Meetin
         error={openMeeting.error}
         submitLabel={openMeeting.isPending ? t('meetings.opening') : t('meetings.open')}
         pending={openMeeting.isPending}
-      />
+      >
+        <div className={teamStyles.field}>
+          <label className={teamStyles.label} htmlFor="prepare-host">
+            {t('meetings.hostLabel')}
+          </label>
+          <select
+            id="prepare-host"
+            className={styles.select}
+            value={hostId}
+            onChange={(event) => setHostId(event.target.value)}
+          >
+            <option value="">{t('meetings.noHost')}</option>
+            {members.map((member) => (
+              <option key={member.employee_id} value={member.employee_id}>
+                {member.email}
+              </option>
+            ))}
+          </select>
+          {hostError && (
+            <p role="alert" className={teamStyles.error}>
+              {hostError}
+            </p>
+          )}
+        </div>
+      </SlotForm>
     </section>
   );
 }
@@ -442,6 +526,7 @@ function MeetingRow({
 }) {
   const { t } = useTranslation();
   const format = useFormat();
+  const here = useHere('meetings');
   const changeMeeting = useChangeMeeting(teamId);
   const deleteMeeting = useDeleteMeeting(teamId);
   const [editing, setEditing] = useState(false);
@@ -490,9 +575,13 @@ function MeetingRow({
   return (
     <li className={teamStyles.item}>
       <span className={teamStyles.itemMain}>
-        <span className={teamStyles.itemName}>
+        <Link
+          className={teamStyles.itemName}
+          to={`/teams/${encodeURIComponent(teamId)}?meeting=${encodeURIComponent(meeting.id)}`}
+          state={here}
+        >
           {date}, {format.meetingTime(meeting.time)}
-        </span>
+        </Link>
         <span className={teamStyles.itemMeta}>
           {meeting.host ? t('meetings.host', { email: meeting.host.email }) : t('meetings.noHost')}
         </span>

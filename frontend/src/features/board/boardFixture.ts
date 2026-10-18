@@ -108,7 +108,8 @@ export function board(date: string, overrides: Partial<MeetingBoard> = {}): Meet
   return {
     meeting: meeting(date),
     editable: date === '2026-10-07' || date === '2026-10-14',
-    completeness: { recorded: 1, total: 1, missing: [] },
+    // Every metric is in; the team's two members still owe the pulse check (noPulse).
+    completeness: { recorded: 1, total: 1, missing: [], owing: 2 },
     metrics: [tile()],
     ...overrides,
   };

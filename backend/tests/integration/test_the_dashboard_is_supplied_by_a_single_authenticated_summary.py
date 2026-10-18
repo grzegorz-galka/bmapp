@@ -138,6 +138,6 @@ def test_the_dashboard_costs_a_fixed_number_of_statements(
     assert all(m["recorded"] is not None for m in three["meetings"])
     assert len(one_cost) == len(three_cost), (one_cost, three_cost)
     # The teams, their meetings from today on, their active metrics, the values
-    # at the listed meetings, the viewer's answers, the funnel and the assigned
-    # items. The token needs no statement at all.
-    assert len(three_cost) == 7, three_cost
+    # at the listed meetings, the pulse answers, who still owes data, the
+    # funnel and the assigned items. The token needs no statement at all.
+    assert len(three_cost) == 8, three_cost

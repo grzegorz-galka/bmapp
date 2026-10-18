@@ -175,18 +175,6 @@
   vertical-align: middle;
 }
 
-.check {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  font-size: var(--fs-sm);
-  color: var(--ink-2);
-}
-
-.check input {
-  accent-color: var(--accent-solid);
-}
-
 .empty {
   display: flex;
   flex-wrap: wrap;

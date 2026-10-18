@@ -17,6 +17,7 @@ export function MyMeetingsPage() {
   const { t } = useTranslation();
   const summary = useDashboardSummary();
   const teams = summary.data?.teams ?? [];
+  const viewerEmail = summary.data?.current_user.email ?? '';
   const meetings = useMyMeetings(teams);
   // Split at the moment the page was opened, as the meetings page does.
   const [now] = useState(() => Date.now());
@@ -43,12 +44,14 @@ export function MyMeetingsPage() {
             heading={t('meetings.upcomingHeading')}
             empty={t('meetings.upcomingEmpty')}
             meetings={upcoming}
+            viewerEmail={viewerEmail}
           />
           <Section
             id="my-past"
             heading={t('meetings.pastHeading')}
             empty={t('meetings.pastEmpty')}
             meetings={past}
+            viewerEmail={viewerEmail}
           />
         </>
       )}
@@ -61,11 +64,14 @@ function Section({
   heading,
   empty,
   meetings,
+  viewerEmail,
 }: {
   id: string;
   heading: string;
   empty: string;
   meetings: TeamMeeting[];
+  /** As the dashboard compares it: a row the viewer hosts reads "You host". */
+  viewerEmail: string;
 }) {
   const { t } = useTranslation();
   const here = useHere('myMeetings');
@@ -95,9 +101,11 @@ function Section({
                 </Link>
                 <span className={styles.itemMeta}>
                   {format.meetingTime(meeting.time)} ·{' '}
-                  {meeting.host
-                    ? t('meetings.host', { email: meeting.host.email })
-                    : t('meetings.noHost')}
+                  {meeting.host === null
+                    ? t('meetings.noHost')
+                    : meeting.host.email.toLowerCase() === viewerEmail.toLowerCase()
+                      ? t('meetings.youHost')
+                      : t('meetings.host', { email: meeting.host.email })}
                 </span>
               </span>
             </li>

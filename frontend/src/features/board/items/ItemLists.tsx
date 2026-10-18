@@ -34,6 +34,7 @@ export function ItemLists({
   members,
   metrics,
   mayChange,
+  hideNames = false,
 }: {
   teamId: string;
   meetingId: string | undefined;
@@ -41,6 +42,8 @@ export function ItemLists({
   metrics: ItemMetric[];
   /** Whether the viewer may raise and change the team's items. */
   mayChange: boolean;
+  /** Names hidden for screen sharing: no entry names who is responsible. */
+  hideNames?: boolean;
 }) {
   const { t } = useTranslation();
   const problems = useProblems(teamId, 'active');
@@ -156,6 +159,7 @@ export function ItemLists({
                 key={item.id}
                 item={item}
                 meetingId={meetingId}
+                hideNames={hideNames}
                 onOpen={
                   mayChange
                     ? () =>

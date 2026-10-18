@@ -10,7 +10,8 @@ values is `editable_meetings`', the date a schedule proposes is
 `propose_next`'s, and an overdue item is `is_overdue`'s, so this page and the
 board cannot disagree. The recording progress restates the board's
 completeness as two grouped counts, because `build_board` costs several
-statements per meeting; a test holds the two equal.
+statements per meeting; a test holds the two equal. Who still owes data is
+`owing_by_meeting`'s, the very function the board reports.
 """
 
 import datetime
@@ -61,7 +62,7 @@ from app.schemas.dashboard import (
 )
 from app.services.item_lifecycle import is_overdue
 from app.services.meetings import propose_next, to_instant, to_wall_clock
-from app.services.metric_values import editable_meetings
+from app.services.metric_values import editable_meetings, owing_by_meeting
 
 
 def _initials(words: Sequence[str], fallback: str) -> str:
@@ -160,6 +161,8 @@ class _Team:
     name: str
     role: TeamRole
     schedule: WeeklySchedule | None
+    #: How many members the team has now.
+    members: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -183,7 +186,14 @@ def _role(*, is_leader: bool, is_deputy: bool) -> TeamRole:
 
 
 def _teams(session: Session, email: str) -> list[_Team]:
-    """The teams `email` is a member of, with the role and the board's schedule. One statement."""
+    """The teams `email` is a member of, with role, schedule and member count. One statement."""
+    everyone = aliased(TeamMember)
+    members = (
+        select(func.count())
+        .select_from(everyone)
+        .where(everyone.team_id == Team.id)
+        .scalar_subquery()
+    )
     rows = session.execute(
         select(
             Team.id,
@@ -192,6 +202,7 @@ def _teams(session: Session, email: str) -> list[_Team]:
             TeamMember.is_deputy,
             BoardDefinition.schedule_weekday,
             BoardDefinition.schedule_time,
+            members.label("members"),
         )
         .select_from(TeamMember)
         .join(Employee, Employee.id == TeamMember.employee_id)
@@ -209,6 +220,7 @@ def _teams(session: Session, email: str) -> list[_Team]:
                 if row.schedule_weekday is not None and row.schedule_time is not None
                 else None
             ),
+            members=row.members,
         )
         for row in rows
     ]
@@ -280,15 +292,43 @@ def _recorded(session: Session, meeting_ids: Sequence[uuid.UUID]) -> dict[uuid.U
     return {meeting_id: count for meeting_id, count in rows.tuples()}
 
 
-def _answered(session: Session, email: str, meeting_ids: Sequence[uuid.UUID]) -> set[uuid.UUID]:
-    """The meetings among these at which `email` has answered the pulse check. One statement."""
-    return set(
-        session.scalars(
-            select(PulseAnswer.meeting_id)
-            .join(Employee, Employee.id == PulseAnswer.employee_id)
-            .where(Employee.email == email, PulseAnswer.meeting_id.in_(meeting_ids))
+@dataclass(frozen=True, slots=True)
+class _Pulse:
+    """A meeting's pulse check as its row states it."""
+
+    #: How many current members of the team have answered.
+    answers: int
+    #: Whether the viewer has.
+    by_viewer: bool
+
+
+def _pulse(
+    session: Session, email: str, meeting_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, _Pulse]:
+    """The pulse answers at each of these meetings that has any. One statement.
+
+    Counted as the members are: an answer left by someone no longer on the
+    team counts in neither, so the row never reads "7 of 6".
+    """
+    rows = session.execute(
+        select(
+            PulseAnswer.meeting_id,
+            func.count(TeamMember.employee_id),
+            func.bool_or(Employee.email == email),
         )
+        .join(Meeting, Meeting.id == PulseAnswer.meeting_id)
+        .join(Employee, Employee.id == PulseAnswer.employee_id)
+        .outerjoin(
+            TeamMember,
+            and_(
+                TeamMember.team_id == Meeting.team_id,
+                TeamMember.employee_id == PulseAnswer.employee_id,
+            ),
+        )
+        .where(PulseAnswer.meeting_id.in_(meeting_ids))
+        .group_by(PulseAnswer.meeting_id)
     )
+    return {meeting_id: _Pulse(answers, by_viewer) for meeting_id, answers, by_viewer in rows}
 
 
 @dataclass(frozen=True, slots=True)
@@ -329,7 +369,7 @@ def _team_order(team: DashboardTeam) -> tuple[bool, datetime.datetime, str]:
 def _teams_and_meetings(
     session: Session, email: str, today: datetime.date
 ) -> tuple[list[DashboardTeam], list[DashboardMeeting]]:
-    """The viewer's teams and their board meetings. Five statements."""
+    """The viewer's teams and their board meetings. Six statements."""
     teams = _teams(session, email)
     team_ids = [team.id for team in teams]
     opened = _opened(session, team_ids, today)
@@ -337,7 +377,8 @@ def _teams_and_meetings(
     plans = {team.id: upcoming(opened.get(team.id, []), team.schedule, today) for team in teams}
     meeting_ids = [meeting.id for plan in plans.values() for meeting in plan.opened]
     recorded = _recorded(session, meeting_ids)
-    answered = _answered(session, email, meeting_ids)
+    pulse = _pulse(session, email, meeting_ids)
+    owing = owing_by_meeting(session, meeting_ids)
 
     dashboard_teams: list[DashboardTeam] = []
     rows: list[DashboardMeeting] = []
@@ -360,6 +401,7 @@ def _teams_and_meetings(
         )
         for meeting in plan.opened:
             date, start_time = to_wall_clock(meeting.starts_at)
+            answers = pulse.get(meeting.id, _Pulse(answers=0, by_viewer=False))
             rows.append(
                 DashboardMeeting(
                     team_id=team.id,
@@ -372,7 +414,10 @@ def _teams_and_meetings(
                     host=meeting.host,
                     recorded=recorded.get(meeting.id, 0),
                     total=totals.get(team.id, 0),
-                    pulse_answered=meeting.id in answered,
+                    pulse_answered=answers.by_viewer,
+                    pulse_answers=answers.answers,
+                    members=team.members,
+                    owing=owing[meeting.id],
                 )
             )
         if plan.proposed:
@@ -390,6 +435,9 @@ def _teams_and_meetings(
                     recorded=None,
                     total=None,
                     pulse_answered=False,
+                    pulse_answers=None,
+                    members=None,
+                    owing=None,
                 )
             )
     dashboard_teams.sort(key=_team_order)
@@ -515,12 +563,13 @@ def _assigned_items(session: Session, email: str, today: datetime.date) -> list[
 def build_dashboard_summary(session: Session, today: datetime.date, email: str) -> DashboardSummary:
     """Assemble the dashboard summary for the person signed in, as of `today` in Europe/Warsaw.
 
-    Seven statements, whatever the viewer's teams, meetings and items: the
-    teams, their meetings from today on, their active metrics, the values at
-    the listed meetings, the viewer's pulse answers among them, the funnel,
-    and the assigned items. It writes nothing: a proposed meeting is returned,
-    not opened. A caller with no employee record has no teams and no items,
-    so gets empty lists and zeros without a special case.
+    Eight statements, whatever the viewer's teams, meetings and items: the
+    teams with their member counts, their meetings from today on, their
+    active metrics, the values at the listed meetings, the pulse answers at
+    them, who still owes data for them, the funnel, and the assigned items.
+    It writes nothing: a proposed meeting is returned, not opened. A caller
+    with no employee record has no teams and no items, so gets empty lists
+    and zeros without a special case.
     """
     teams, meetings = _teams_and_meetings(session, email, today)
     return DashboardSummary(
