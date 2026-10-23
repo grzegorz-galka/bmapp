@@ -36,7 +36,9 @@ type Copy = { state: 'idle' } | { state: 'copied'; count: number } | { state: 'f
  * What is still missing for a coming meeting and who owes it, for the host to
  * chase. Built from the board and the pulse results the page already loads,
  * so it follows a recorded value without a reload. With names hidden it
- * names no one and offers nothing to copy.
+ * names no one and offers nothing to copy. Collapsed unless the board was
+ * reached through its fragment, as "Check readiness" does; after that only
+ * the viewer opens or closes it, and the choice is not remembered.
  */
 export function ReadinessPanel({
   board,
@@ -53,6 +55,7 @@ export function ReadinessPanel({
   const scrolledTo = useRef<string | null>(null);
   const [copy, setCopy] = useState<Copy>({ state: 'idle' });
   const named = hash.slice(1);
+  const [open, setOpen] = useState(named === READINESS_ANCHOR);
 
   // Once per fragment, as ItemLists does, so a refetch does not pull the reader back.
   useEffect(() => {
@@ -62,6 +65,7 @@ export function ReadinessPanel({
     }
     if (scrolledTo.current === named) return;
     scrolledTo.current = named;
+    setOpen(true);
     panel.current?.scrollIntoView({ block: 'start' });
   }, [named]);
 
@@ -86,7 +90,8 @@ export function ReadinessPanel({
       ref={panel}
       id={READINESS_ANCHOR}
       className={styles.readiness}
-      open
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
       aria-labelledby="readiness-heading"
     >
       <summary className={styles.readinessSummary}>

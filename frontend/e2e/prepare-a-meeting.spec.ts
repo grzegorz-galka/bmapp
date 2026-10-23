@@ -236,9 +236,11 @@ test('the host checks readiness and chases who still owes data', async ({
   await expect(page).toHaveURL(/#readiness$/);
 
   // 4. The panel, scrolled into view, lists the remaining gaps and who owes them.
+  // Check readiness opens the panel expanded, though it is collapsed by default.
   const panel = page.getByRole('group', { name: en.readiness.heading });
   await expect(panel).toBeInViewport();
-  await expect(panel).toContainText(fill(en.readiness.owing_other, { count: '3' }));
+  await expect(panel).toHaveAttribute('open', '');
+  await expect(panel.getByText(fill(en.readiness.owing_other, { count: '3' }))).toBeVisible();
   const missing = panel.getByRole('region', { name: en.readiness.metricsHeading });
   await expect(missing.getByRole('listitem').filter({ hasText: 'Lead time' })).toContainText(other);
   await expect(missing.getByRole('listitem').filter({ hasText: 'Open bugs' })).toContainText(
@@ -269,8 +271,14 @@ test('the host checks readiness and chases who still owes data', async ({
   await expect(page.getByRole('region', { name: en.pulse.view, exact: true })).toBeVisible();
   await expect(main).not.toContainText('@');
 
+  // Back on the metrics view the address no longer names the panel, so it is
+  // collapsed again until the host opens it.
   await views.getByRole('button', { name: /^Metrics/ }).click();
   await expect(panel).toBeVisible();
+  await expect(panel).not.toHaveAttribute('open');
+  await panel.getByRole('heading', { name: en.readiness.heading }).click();
+  await expect(panel).toHaveAttribute('open', '');
+  await expect(panel.getByText(fill(en.readiness.unanswered_other, { count: '2' }))).toBeVisible();
   await expect(main).not.toContainText('@');
 
   // Last week's meeting: past, so no panel, and still no name.

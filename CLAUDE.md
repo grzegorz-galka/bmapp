@@ -310,8 +310,9 @@ across the board's views and meetings until the page is left, is never
 remembered or put in the address, and hides every person the board names.
 
 `meeting-readiness` is implemented: for a meeting that takes values and is
-dated today or later, the board's metrics view opens with a readiness panel
-(`#readiness`) listing the missing metrics with their owners and the members
+dated today or later, the board's metrics view shows a readiness panel,
+collapsed unless the board was opened at `#readiness` (as "Check readiness"
+does), listing the missing metrics with their owners and the members
 who have not answered, and copies the owing people's addresses joined by `; `.
 Who owes data is counted by one backend function, `owing_by_meeting`, used
 by both the board (`completeness.owing`) and the dashboard rows (`owing`,
