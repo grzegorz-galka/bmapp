@@ -6,7 +6,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { BoardPage } from './BoardPage';
 import { owingAddresses } from './ReadinessPanel';
@@ -112,9 +112,21 @@ function findPanel(heading: string = en.readiness.heading) {
   return screen.findByRole('group', { name: heading }, { timeout: 5000 });
 }
 
-/** The panel once the pulse results have reached it too. */
-async function loadedPanel() {
-  const panel = await findPanel();
+/**
+ * The panel expanded as a viewer does it, by its heading. jsdom keeps a closed
+ * panel's contents in the DOM, so reading them without this would prove
+ * nothing about what a viewer sees (design decision 3).
+ */
+async function expandedPanel(user: UserEvent, heading: string = en.readiness.heading) {
+  const panel = await findPanel(heading);
+  await user.click(within(panel).getByRole('heading', { name: heading }));
+  await waitFor(() => expect(panel).toHaveAttribute('open'));
+  return panel;
+}
+
+/** The expanded panel once the pulse results have reached it too. */
+async function loadedPanel(user: UserEvent) {
+  const panel = await expandedPanel(user);
   await waitFor(() => expect(panel).not.toHaveTextContent(en.readiness.pulseLoading));
   return panel;
 }
@@ -124,9 +136,26 @@ function section(panel: HTMLElement, name: string) {
 }
 
 describe('the readiness panel', () => {
-  it('The panel lists what is missing', async () => {
+  it('The panel is collapsed by default', async () => {
+    const user = userEvent.setup();
     await renderBoard();
-    const panel = await loadedPanel();
+    const panel = await findPanel();
+
+    expect(panel).not.toHaveAttribute('open');
+    await user.click(within(panel).getByRole('heading', { name: en.readiness.heading }));
+
+    await waitFor(() => expect(panel).toHaveAttribute('open'));
+    const metrics = within(section(panel, en.readiness.metricsHeading)).getAllByRole('listitem');
+    expect(metrics.map((item) => item.textContent)).toEqual([
+      `NPS – ${LEADER}`,
+      `OTIF – ${en.readiness.noOwner}`,
+    ]);
+  });
+
+  it('The panel lists what is missing', async () => {
+    const user = userEvent.setup();
+    await renderBoard();
+    const panel = await loadedPanel(user);
 
     expect(panel).toHaveAttribute('open');
     const metrics = within(section(panel, en.readiness.metricsHeading)).getAllByRole('listitem');
@@ -153,8 +182,9 @@ describe('the readiness panel', () => {
       missing: [],
       missing_count: 0,
     });
+    const user = userEvent.setup();
     await renderBoard();
-    const panel = await findPanel();
+    const panel = await expandedPanel(user);
 
     expect(await within(panel).findByText(en.readiness.complete)).toBeInTheDocument();
     expect(within(panel).queryByRole('button', { name: en.readiness.copy })).toBeNull();
@@ -191,7 +221,7 @@ describe('the readiness panel', () => {
     };
     const user = userEvent.setup();
     await renderBoard('?mode=record');
-    const panel = await loadedPanel();
+    const panel = await loadedPanel(user);
     expect(within(panel).getByText(/^NPS/)).toBeInTheDocument();
 
     const field = await screen.findByRole('textbox', { name: 'Value: NPS' });
@@ -203,8 +233,9 @@ describe('the readiness panel', () => {
   });
 
   it('reads in Polish, with Polish plural forms', async () => {
+    const user = userEvent.setup();
     await renderBoard('', { email: MEMBER }, 'pl');
-    const panel = await findPanel(pl.readiness.heading);
+    const panel = await expandedPanel(user, pl.readiness.heading);
 
     expect(panel).toHaveTextContent('3 osoby muszą jeszcze uzupełnić dane');
     expect(panel).toHaveTextContent(`OTIF – ${pl.readiness.noOwner}`);
@@ -237,6 +268,49 @@ describe('the readiness panel has its own address', () => {
     await waitFor(() => expect(scrolled).toEqual([panel]));
   });
 
+  it("Leaving the panel's address collapses it again", async () => {
+    // A second coming meeting that takes values, told apart by what it misses.
+    fixtures.boards['m-2026-10-21'] = board('2026-10-21', {
+      editable: true,
+      completeness: {
+        recorded: 4,
+        total: 5,
+        missing: [missingMetric('lead', 'Lead time', null)],
+        owing: 2,
+      },
+    });
+    const user = userEvent.setup();
+    const views = () => within(screen.getByRole('group', { name: en.pulse.viewSwitchLabel }));
+    await renderBoard('?meeting=m-2026-10-14#readiness');
+    expect(await findPanel()).toHaveAttribute('open');
+
+    // To the pulse check and back: the switch drops the fragment.
+    await user.click(views().getAllByRole('button')[1]!);
+    await screen.findByRole('region', { name: en.pulse.answersHeading });
+    expect(screen.queryByRole('group', { name: en.readiness.heading })).toBeNull();
+    await user.click(views().getAllByRole('button')[0]!);
+    expect(await findPanel()).not.toHaveAttribute('open');
+
+    // From the address again, then on to the next coming meeting.
+    cleanup();
+    await renderBoard('?meeting=m-2026-10-14#readiness');
+    expect(await findPanel()).toHaveAttribute('open');
+    const panel = () => screen.getByRole('group', { name: en.readiness.heading });
+    const meetings = screen.getByLabelText(en.board.meetingSelectLabel);
+    await user.selectOptions(meetings, 'm-2026-10-21');
+
+    await waitFor(() => expect(panel()).toHaveTextContent('Lead time'));
+    expect(panel()).not.toHaveAttribute('open');
+
+    // Back to the 14th, whose board is cached, so nothing unmounts the panel while
+    // loading: only its key keeps the hand-expanded 21st from carrying over.
+    await user.click(within(panel()).getByRole('heading', { name: en.readiness.heading }));
+    await waitFor(() => expect(panel()).toHaveAttribute('open'));
+    await user.selectOptions(meetings, 'm-2026-10-14');
+    await waitFor(() => expect(panel()).toHaveTextContent('NPS'));
+    expect(panel()).not.toHaveAttribute('open');
+  });
+
   it('is not scrolled to without the fragment', async () => {
     await renderBoard();
     await findPanel();
@@ -264,7 +338,7 @@ describe('the addresses of those who owe data are copied', () => {
     const writeText = vi.fn(() => Promise.resolve());
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     await renderBoard();
-    const panel = await loadedPanel();
+    const panel = await loadedPanel(user);
 
     await user.click(within(panel).getByRole('button', { name: en.readiness.copy }));
 
@@ -279,7 +353,7 @@ describe('the addresses of those who owe data are copied', () => {
     const writeText = vi.fn(() => Promise.reject(new DOMException('Denied', 'NotAllowedError')));
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     await renderBoard();
-    const panel = await loadedPanel();
+    const panel = await loadedPanel(user);
 
     await user.click(within(panel).getByRole('button', { name: en.readiness.copy }));
 
@@ -313,7 +387,7 @@ describe('the addresses of those who owe data are copied', () => {
     const writeText = vi.fn(() => Promise.resolve());
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     await renderBoard('', { email: 'stranger@example.com' });
-    const panel = await loadedPanel();
+    const panel = await loadedPanel(user);
 
     const pulse = section(panel, en.readiness.pulseHeading);
     expect(pulse).toHaveTextContent('2 members have not answered');

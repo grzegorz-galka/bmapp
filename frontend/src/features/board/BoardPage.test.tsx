@@ -676,7 +676,10 @@ describe('names can be hidden across the board', () => {
 
     // To the metrics: the readiness panel, the recording list and the problem.
     await user.click(within(viewSwitch()).getAllByRole('button')[0]!);
-    await screen.findByRole('group', { name: en.readiness.heading });
+    // Expanded, so the panel is read as a viewer sees it.
+    const panel = await screen.findByRole('group', { name: en.readiness.heading });
+    await user.click(within(panel).getByRole('heading', { name: en.readiness.heading }));
+    await waitFor(() => expect(panel).toHaveAttribute('open'));
     await screen.findByText('Builds are flaky');
     expect(hideNames()).toBeChecked();
     expect(namesShown()).toEqual([]);
@@ -704,6 +707,8 @@ describe('names can be hidden across the board', () => {
     const user = userEvent.setup();
     await renderBoard();
     const panel = await screen.findByRole('group', { name: en.readiness.heading });
+    await user.click(within(panel).getByRole('heading', { name: en.readiness.heading }));
+    await waitFor(() => expect(panel).toHaveAttribute('open'));
     await within(panel).findByText('hania@example.com');
     expect(within(panel).getByRole('button', { name: en.readiness.copy })).toBeInTheDocument();
 

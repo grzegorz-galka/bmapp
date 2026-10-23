@@ -330,7 +330,13 @@ export function BoardPage() {
                 ) : (
                   <>
                     {showsReadiness(board.data, today) && (
-                      <ReadinessPanel board={board.data} pulse={pulse.data} hideNames={hideNames} />
+                      // Keyed so another meeting starts collapsed, as a view switch does.
+                      <ReadinessPanel
+                        key={board.data.meeting.id}
+                        board={board.data}
+                        pulse={pulse.data}
+                        hideNames={hideNames}
+                      />
                     )}
                     <BoardBody
                       teamId={teamId}
