@@ -354,6 +354,17 @@ export const en = {
     target_higher_is_better: 'Target value {{target}} · green −{{green}}% · amber −{{amber}}%',
     target_lower_is_better: 'Target value {{target}} · green +{{green}}% · amber +{{amber}}%',
     target_within_band: 'Target value {{target}} · green ±{{green}}% · amber ±{{amber}}%',
+    // Amber equal to green leaves no amber zone: past green is red at once.
+    higher_is_better_noAmber: 'Green from {{green}}, red below',
+    lower_is_better_noAmber: 'Green up to {{green}}, red above',
+    within_band_noAmber: 'Green {{greenLo}} to {{greenHi}}, red outside',
+    target_higher_is_better_noAmber: 'Target value {{target}} · green −{{green}}% · red below',
+    target_lower_is_better_noAmber: 'Target value {{target}} · green +{{green}}% · red above',
+    target_within_band_noAmber: 'Target value {{target}} · green ±{{green}}% · red outside',
+    // Both tolerances 0: the target value itself is the line between green and red.
+    target_higher_is_better_exact: 'Target value {{target}} · red below it',
+    target_lower_is_better_exact: 'Target value {{target}} · red above it',
+    target_within_band_exact: 'Target value {{target}} · red off it',
     none: 'No threshold',
     effectiveFrom: 'Effective from {{date}}',
   },
