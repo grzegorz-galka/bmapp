@@ -31,6 +31,7 @@ const THRESHOLD: Threshold = {
   amber_hi: null,
   reason: 'Company SLA',
   recorded_by_email: ADMIN,
+  recorded_by_display_name: 'Admin',
   recorded_at: '2026-10-01T08:00:00Z',
 };
 
@@ -361,7 +362,8 @@ describe('the global metrics page', () => {
 
     await user.click(within(list).getByRole('button', { name: 'Threshold history: Availability' }));
 
-    expect(await within(list).findByText(/Company SLA/)).toHaveTextContent(ADMIN);
+    expect(await within(list).findByText(/Company SLA/)).toHaveTextContent('Admin');
+    expect(within(list).getByText(/Company SLA/)).not.toHaveTextContent(ADMIN);
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/global-metrics/gm-availability/thresholds',
       expect.anything(),

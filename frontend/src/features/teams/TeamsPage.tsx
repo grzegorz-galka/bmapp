@@ -61,7 +61,7 @@ export function TeamsPage() {
                     {team.name} — {t('teams.boardSuffix', { name: team.board.name })}
                   </span>
                   <span className={styles.itemMeta}>
-                    {t('teams.leaderSuffix', { email: team.leader.email })} ·{' '}
+                    {t('teams.leaderSuffix', { name: team.leader.display_name })} ·{' '}
                     {t('teams.memberCount', { count: team.member_count })} ·{' '}
                     {team.board.schedule
                       ? t('teams.schedule', {

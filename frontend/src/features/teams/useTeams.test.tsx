@@ -23,12 +23,14 @@ function detail(...members: Member[]): TeamDetail {
 const anna: Member = {
   employee_id: 'emp-anna',
   email: 'anna@example.com',
+  display_name: 'Anna',
   is_leader: true,
   is_deputy: false,
 };
 const bartek: Member = {
   employee_id: 'emp-bartek',
   email: 'bartek@example.com',
+  display_name: 'Bartek',
   is_leader: false,
   is_deputy: false,
 };
@@ -39,7 +41,7 @@ function listed(memberCount: number): Team[] {
       id: TEAM_ID,
       name: 'Platform',
       board: { id: 'board-1', name: 'Platform', schedule: null },
-      leader: { id: anna.employee_id, email: anna.email },
+      leader: { id: anna.employee_id, email: anna.email, display_name: anna.display_name },
       member_count: memberCount,
     },
   ];

@@ -35,7 +35,7 @@ export function PulseAnswers({
             {answers.map((answer, index) => (
               <tr key={answer.employee_id}>
                 <th scope="row" className={styles.person}>
-                  {hideNames ? t('pulse.person', { n: index + 1 }) : answer.email}
+                  {hideNames ? t('pulse.person', { n: index + 1 }) : answer.display_name}
                 </th>
                 <td className={styles.rating} data-status={answer.status}>
                   <RatingDot status={answer.status} /> {ratingCaption(t, answer.rating)}

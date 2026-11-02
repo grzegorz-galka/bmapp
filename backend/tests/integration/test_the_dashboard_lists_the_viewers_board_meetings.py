@@ -35,6 +35,7 @@ def _row(meeting: Any) -> tuple[Any, ...]:
         meeting["start_time"],
         meeting["today"],
         meeting["host"],
+        meeting["host_display_name"],
         meeting["recorded"],
         meeting["total"],
         meeting["pulse_answered"],
@@ -65,8 +66,8 @@ def test_todays_and_the_next_meeting_are_listed(client: TestClient, client_as: C
     # The leader has answered neither meeting's pulse check, and nobody owns
     # a metric, so today the leader owes data and next week both members do.
     assert [_row(meeting) for meeting in meetings] == [
-        ("Platform", "2026-10-12", "09:30", True, VIEWER, 1, 2, True, 1, 2, 1),
-        ("Platform", "2026-10-19", "09:30", False, None, 0, 2, False, 0, 2, 2),
+        ("Platform", "2026-10-12", "09:30", True, VIEWER, "Viewer", 1, 2, True, 1, 2, 1),
+        ("Platform", "2026-10-19", "09:30", False, None, None, 0, 2, False, 0, 2, 2),
     ]
 
 
@@ -104,6 +105,7 @@ def test_a_proposed_date_is_listed_as_not_yet_opened(
         "starts_at": "2026-10-14T11:00:00Z",
         "today": False,
         "host": None,
+        "host_display_name": None,
         "recorded": None,
         "total": None,
         "pulse_answered": False,

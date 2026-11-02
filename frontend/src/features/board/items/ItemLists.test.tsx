@@ -75,12 +75,32 @@ async function entriesOf(heading: string) {
 }
 
 describe('the board shows the active problems and tasks', () => {
+  it('The board names the responsible member', async () => {
+    // Requirement (team-membership): the interface names a person by display name.
+    fixtures.items!.tasks.active = [
+      task({
+        id: 't-jan',
+        summary: 'Split the test database',
+        responsible: {
+          employee_id: 'emp-jan',
+          email: 'jan.kowalski@example.com',
+          display_name: 'Jan Kowalski',
+        },
+      }),
+    ];
+    await renderBoard();
+
+    const [row] = await entriesOf(en.items.tasksHeading);
+    expect(row).toHaveTextContent('Jan Kowalski');
+    expect(row).not.toHaveTextContent('jan.kowalski@example.com');
+  });
+
   it('The lists are shown', async () => {
     fixtures.items!.problems.active = [
       problem({
         id: 'p-1',
         summary: 'Builds are flaky',
-        responsible: { employee_id: 'emp-anna', email: LEADER },
+        responsible: { employee_id: 'emp-anna', email: LEADER, display_name: 'Anna Nowak' },
         due_on: '2026-10-20',
         stage: 'plan',
       }),
@@ -90,7 +110,11 @@ describe('the board shows the active problems and tasks', () => {
       task({
         id: 't-1',
         summary: 'Split the test database',
-        responsible: { employee_id: 'emp-bartek', email: MEMBER },
+        responsible: {
+          employee_id: 'emp-bartek',
+          email: MEMBER,
+          display_name: 'Bartek Wiśniewski',
+        },
         due_on: '2026-10-15',
         stage: 'do',
       }),
@@ -105,7 +129,8 @@ describe('the board shows the active problems and tasks', () => {
     const problems = await entriesOf(en.items.problemsHeading);
     expect(problems).toHaveLength(2);
     expect(problems[0]).toHaveTextContent('Builds are flaky');
-    expect(problems[0]).toHaveTextContent(LEADER);
+    expect(problems[0]).toHaveTextContent('Anna Nowak');
+    expect(problems[0]).not.toHaveTextContent(LEADER);
     expect(problems[0]).toHaveTextContent('Due 20 Oct');
     expect(problems[0]).toHaveTextContent(en.pdca.plan);
     expect(problems[1]).toHaveTextContent(en.items.noResponsible);
@@ -119,7 +144,7 @@ describe('the board shows the active problems and tasks', () => {
       'Update the agenda',
       'Book the room',
     ]);
-    expect(tasks[0]).toHaveTextContent(MEMBER);
+    expect(tasks[0]).toHaveTextContent('Bartek Wiśniewski');
     expect(tasks[0]).toHaveTextContent('Due 15 Oct');
     expect(tasks[0]).toHaveTextContent(en.pdca.do);
     expect(tasks[2]).toHaveTextContent(en.pdca.check);

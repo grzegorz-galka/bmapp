@@ -23,12 +23,14 @@ const NOW = Date.parse('2026-10-12T08:00:00Z');
 const ANNA: Member = {
   employee_id: 'emp-anna',
   email: 'anna@example.com',
+  display_name: 'Anna Nowak',
   is_leader: true,
   is_deputy: false,
 };
 const BARTEK: Member = {
   employee_id: 'emp-bartek',
   email: 'bartek@example.com',
+  display_name: 'Bartek Wiśniewski',
   is_leader: false,
   is_deputy: false,
 };
@@ -47,7 +49,9 @@ function meeting(date: string, startsAt: string, host: Member | null = null): Me
     date,
     time: '13:00',
     starts_at: startsAt,
-    host: host ? { id: host.employee_id, email: host.email } : null,
+    host: host
+      ? { id: host.employee_id, email: host.email, display_name: host.display_name }
+      : null,
   };
 }
 
@@ -162,7 +166,7 @@ describe('Meetings are managed from the meetings page', () => {
       expect.stringContaining('7 Oct 2026'),
       expect.stringContaining('30 Sept 2026'),
     ]);
-    expect(past[0]).toHaveTextContent('Host: bartek@example.com');
+    expect(past[0]).toHaveTextContent('Host: Bartek Wiśniewski');
     expect(upcoming[0]).toHaveTextContent('No host');
   });
 
@@ -265,7 +269,7 @@ describe('Meetings are managed from the meetings page', () => {
       within(host)
         .getAllByRole('option')
         .map((option) => option.textContent),
-    ).toEqual([en.meetings.noHost, ANNA.email, BARTEK.email]);
+    ).toEqual([en.meetings.noHost, ANNA.display_name, BARTEK.display_name]);
     await userEvent.selectOptions(host, BARTEK.employee_id);
     await userEvent.click(screen.getByRole('button', { name: en.meetings.open }));
 
@@ -283,7 +287,7 @@ describe('Meetings are managed from the meetings page', () => {
       return items;
     });
     expect(upcoming[2]).toHaveTextContent('28 Oct 2026');
-    expect(upcoming[2]).toHaveTextContent('Host: bartek@example.com');
+    expect(upcoming[2]).toHaveTextContent('Host: Bartek Wiśniewski');
   });
 
   it('shows a host from outside the team next to the host field', async () => {
@@ -360,7 +364,7 @@ describe('Meetings are managed from the meetings page', () => {
     await renderPage('pl');
     expect(screen.getByText('środa, 13:00')).toBeInTheDocument();
     expect(rowOf('14 paź')).toHaveTextContent('śr., 14 paź 2026, 13:00');
-    expect(rowOf('7 paź')).toHaveTextContent('Prowadzący: bartek@example.com');
+    expect(rowOf('7 paź')).toHaveTextContent('Prowadzący: Bartek Wiśniewski');
   });
 });
 

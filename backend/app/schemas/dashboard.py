@@ -46,6 +46,9 @@ class CurrentUser(BaseModel):
     """Who the dashboard is being shown to: the person the token names."""
 
     email: str
+    #: The stored name and surname, else derived from the email.
+    display_name: str
+    #: From the display name, not the email.
     initials: str
 
 
@@ -123,6 +126,8 @@ class DashboardMeeting(BaseModel):
     today: bool
     #: The host's email, if one is named.
     host: str | None
+    #: The host's display name, if one is named.
+    host_display_name: str | None
     #: Active metrics with a value at this meeting, and how many there are.
     #: None for a proposed meeting: nothing can be recorded at it yet.
     recorded: int | None

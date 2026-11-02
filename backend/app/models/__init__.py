@@ -1,6 +1,12 @@
 """SQLAlchemy models."""
 
-from app.models.employee import EMAIL_MAX_LENGTH, Employee, TeamMember
+from app.models.employee import (
+    EMAIL_MAX_LENGTH,
+    PERSON_NAME_MAX_LENGTH,
+    DevCredential,
+    Employee,
+    TeamMember,
+)
 from app.models.item import ITEM_SUMMARY_MAX_LENGTH, ITEM_TEXT_MAX_LENGTH, Problem, Task
 from app.models.meeting import Meeting
 from app.models.metric import (
@@ -32,12 +38,14 @@ __all__ = [
     "METRIC_GROUP_MAX_LENGTH",
     "METRIC_NAME_MAX_LENGTH",
     "METRIC_UNIT_MAX_LENGTH",
+    "PERSON_NAME_MAX_LENGTH",
     "PULSE_RATING_MAX",
     "PULSE_RATING_MIN",
     "PULSE_TEXT_MAX_LENGTH",
     "TEAM_NAME_MAX_LENGTH",
     "BoardDefinition",
     "BoardMetric",
+    "DevCredential",
     "Employee",
     "Meeting",
     "Metric",

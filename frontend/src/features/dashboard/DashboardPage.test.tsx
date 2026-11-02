@@ -386,21 +386,48 @@ describe('the pictograms', () => {
 });
 
 describe('the identity', () => {
-  it('The identity is displayed', async () => {
+  /** The header and the page, for a viewer `/auth/me` and the summary both name. */
+  async function renderIdentity(email: string, displayName: string, initials: string) {
+    respondWith(dashboardSummary({ current_user: { email, display_name: displayName, initials } }));
     await renderWithLanguage(
       <>
         <AppHeader />
         <DashboardPage />
       </>,
       'en',
-      { auth: { email: 'g.galka@pse.pl' } },
+      { auth: { email, displayName, initials } },
     );
     await screen.findByRole('heading', { name: en.declarations.band });
+  }
 
-    expect(within(screen.getByRole('banner')).getByText('g.galka@pse.pl')).toBeInTheDocument();
+  const header = () => screen.getByRole('banner');
+  const account = (name: string) =>
+    within(header()).getByRole('button', { name: en.auth.accountLabel.replace('{{name}}', name) });
+
+  it('The identity is displayed', async () => {
+    await renderIdentity('jan.kowalski@example.com', 'Jan Kowalski', 'JK');
+
+    expect(within(header()).getByText('Jan Kowalski')).toBeInTheDocument();
+    expect(within(header()).getByText('JK')).toBeInTheDocument();
+    // The address is the menu's, not the header's.
+    expect(within(header()).queryByText('jan.kowalski@example.com')).not.toBeInTheDocument();
     expect(
-      screen.getByText(en.itemsTile.assignedTo.replace('{{email}}', 'g.galka@pse.pl')),
+      screen.getByText(en.itemsTile.assignedTo.replace('{{name}}', 'Jan Kowalski')),
     ).toBeInTheDocument();
+
+    await userEvent.click(account('Jan Kowalski'));
+
+    expect(account('Jan Kowalski')).toHaveAttribute('aria-expanded', 'true');
+    expect(within(header()).getByText('jan.kowalski@example.com')).toBeInTheDocument();
+    expect(within(header()).getByRole('button', { name: en.auth.signOut })).toBeInTheDocument();
+  });
+
+  it('Stored names give the initials', async () => {
+    await renderIdentity('grzegorz.galka@pse.pl', 'Grzegorz Gałka', 'GG');
+
+    expect(within(header()).getByText('Grzegorz Gałka')).toBeInTheDocument();
+    expect(within(header()).getByText('GG')).toBeInTheDocument();
+    expect(account('Grzegorz Gałka')).toBeInTheDocument();
   });
 });
 

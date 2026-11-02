@@ -96,7 +96,7 @@ function ArchiveTable({
                   <td>
                     {hideNames
                       ? t('board.nameHidden')
-                      : (item.responsible?.email ?? t('items.noResponsible'))}
+                      : (item.responsible?.display_name ?? t('items.noResponsible'))}
                   </td>
                   <td>{item.due_on ? format.date(item.due_on) : t('items.noDueDate')}</td>
                   <td>{when(item.raised_meeting, item.raised_at)}</td>

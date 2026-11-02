@@ -231,7 +231,11 @@ def shared_read(item: Problem | Task, today: datetime.date) -> dict[str, object]
         "team_id": item.team_id,
         "summary": item.summary,
         "responsible": (
-            ItemResponsible(employee_id=item.responsible.id, email=item.responsible.email)
+            ItemResponsible(
+                employee_id=item.responsible.id,
+                email=item.responsible.email,
+                display_name=item.responsible.display_name,
+            )
             if item.responsible
             else None
         ),

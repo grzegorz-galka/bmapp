@@ -190,7 +190,12 @@ def build_results(
         trend=trend,
         answers=reads,
         missing=(
-            [PulseMissingMember(employee_id=m.employee_id, email=m.email) for m in missing]
+            [
+                PulseMissingMember(
+                    employee_id=m.employee_id, email=m.email, display_name=m.display_name
+                )
+                for m in missing
+            ]
             if may_read_names
             else None
         ),
@@ -279,6 +284,7 @@ def _read(answer: PulseAnswer) -> PulseAnswerRead:
     return PulseAnswerRead(
         employee_id=answer.employee_id,
         email=answer.email,
+        display_name=answer.display_name,
         rating=answer.rating,
         status=mood_status(Decimal(answer.rating)),
         positive=answer.positive,

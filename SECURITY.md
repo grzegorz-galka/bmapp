@@ -112,17 +112,31 @@ The backend acts as a **stateless OAuth2 Resource Server**:
 # Test authentication
 For local development and testing, a `dev` mode replaces OIDC with a simple login endpoint:
 
-- **Endpoint:** `POST /api/auth/dev-login`
-- **Request body:** `{ "email": "user@company.com", "password": "uscoco" }`
-- **Behavior:** Mints a token for that email when the password is the one derived
-  from it and the email belongs to a recorded Employee or an administrator from
-  `BMAPP_ADMIN_EMAILS`. Otherwise it refuses with 401 and
-  `auth.password_incorrect` or `auth.employee_unknown`. The password is the first
-  two characters of each run of letters and digits in the email, in order
-  (`grzegorz.galka@pse.pl` → `grgapspl`). It is **not a
-  secret** and adds no protection beyond the mode toggle. It is a typing check
-  that keeps a developer deliberate about who they sign in as, behind a login
-  window in the web app. Signing in never creates an Employee record.
+- **Endpoints:** `POST /api/auth/dev-login` and `POST /api/auth/dev-password`
+- **Who:** only an email that belongs to a recorded Employee or an administrator
+  from `BMAPP_ADMIN_EMAILS`; anyone else is refused with 401 and
+  `auth.employee_unknown`. Signing in never creates an Employee record.
+- **First sign-in:** until a person has chosen a password, their password is the
+  one derived from the email: the first two characters of each run of letters
+  and digits, in order (`grzegorz.galka@pse.pl` → `grgapspl`). It is **not a
+  secret**, and so it issues **no token**: `dev-login` answers it with
+  `password_change_required` and a proposed name and surname, and the login
+  window asks for a password of the person's own (at least 8 characters, not the
+  derived one) together with their name and surname. `dev-password` stores the
+  password, and the name and surname on a recorded Employee, in one transaction
+  and returns the token.
+- **After that:** only the chosen password signs the person in; the derived one
+  is refused with `auth.password_incorrect`, as any wrong password is.
+- **Storage:** chosen passwords live in `dev_credentials`, keyed by email, so an
+  administrator with no Employee record has one too. Only a salted hash is kept,
+  made with the standard library's `hashlib.scrypt`; the password itself is never
+  stored or logged, and neither is a name.
+- **Reset:** there is no screen for a forgotten password. Deleting the person's
+  `dev_credentials` row brings the derived password back, and with it the first
+  sign-in.
+- **Not protection:** a chosen password makes a test account the tester's own,
+  not a real person's. It adds no security beyond the mode toggle, and dev mode
+  still holds test identities only.
 - **Response:** A JWT signed with a key generated per process, so none exists to leak or commit
 - **Activation:** environment variable `BMAPP_MODE=dev`
 - **Safety:** This endpoint does not exist when the mode is off, the server refuses
@@ -142,10 +156,14 @@ internal network and so cannot sign anyone in from a public cloud.
 
 What that instance is, and what it therefore must never become:
 
-- **Anyone with the URL is an administrator.** `POST /auth/dev-login` mints a
-  token for any email with no password, and the web app signs in as
-  `VITE_DEV_EMAIL`, which is in `BMAPP_ADMIN_EMAILS`. Treat everything on it as
-  public and writable by strangers.
+- **Anyone with the URL can become the administrator.** The window offers
+  `VITE_DEV_EMAIL`, which is in `BMAPP_ADMIN_EMAILS`, and that address's
+  derived password is no secret. Treat everything on it as public and writable
+  by strangers.
+- **The first visitor owns the administrator.** Whoever signs in as the demo
+  administrator first chooses its password, and everyone after them is locked
+  out of it. The remedy is the reset above: delete that email's row from
+  `dev_credentials` (or wipe the database), and the derived password works again.
 - **Invented data only.** No real team, employee, metric or board material is
   ever entered into it. It runs on a third-party public cloud, outside the
   on-premise deployment this application is designed for.

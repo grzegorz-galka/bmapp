@@ -318,7 +318,7 @@ export function OwnerSelect({
         <option value="">{t('metrics.noOwner')}</option>
         {members.map((member) => (
           <option key={member.employee_id} value={member.employee_id}>
-            {member.email}
+            {member.display_name}
           </option>
         ))}
       </select>

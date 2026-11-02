@@ -205,9 +205,14 @@
   height: 34px;
 }
 
-/* Retire and Bring back, Delete and Remove: one width each way round. */
-.steadyWidth {
-  min-width: 8.5rem;
+/*
+ * Retire and Bring back, Delete and Remove: one width each way round, and
+ * compact, so the arranging controls and these fit on the row's one line.
+ * Doubled to outrank the button's own padding whatever the stylesheet order.
+ */
+.steadyWidth.steadyWidth {
+  min-width: 6.5rem;
+  padding-inline: var(--sp-3);
 }
 
 /* On a phone the row wraps anyway: let the controls flow from the left at their own width. */
@@ -216,7 +221,7 @@
     margin-left: 0;
   }
 
-  .steadyWidth {
+  .steadyWidth.steadyWidth {
     min-width: 0;
   }
 }

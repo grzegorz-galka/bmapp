@@ -17,9 +17,12 @@ import type { BoardMetric } from '../../api/metrics';
 import {
   board,
   definition,
+  FOUR_MISSING,
   LEADER,
+  LEADER_NAME,
   MEETINGS,
   MEMBER,
+  MEMBER_NAME,
   MONDAY,
   noItems,
   problem,
@@ -966,8 +969,25 @@ describe("the board's back link", () => {
 describe('names can be hidden across the board', () => {
   const hideNames = () => screen.getByRole('checkbox', { name: en.pulse.hideNames });
   const viewSwitch = () => screen.getByRole('group', { name: en.pulse.viewSwitchLabel });
-  /** Every email the page shows, wherever it is: an answer, a member, an owner, a responsible. */
-  const namesShown = () => document.body.textContent?.match(/[\w.]+@example\.com/g) ?? [];
+  /** Everyone the fixtures name: the members, the respondents, those who have not answered. */
+  const PEOPLE = [
+    LEADER_NAME,
+    MEMBER_NAME,
+    ...SEVEN_ANSWERS.map((answer) => answer.display_name),
+    ...FOUR_MISSING.map((member) => member.display_name),
+  ];
+  /**
+   * Every person the page shows, by name or by email, wherever it is: an
+   * answer, a member, an owner, a responsible, a recorder.
+   */
+  const namesShown = () => {
+    const text = document.body.textContent ?? '';
+    return [
+      // Text nodes run together with no space between them, so no word boundary.
+      ...PEOPLE.filter((name) => text.includes(name)),
+      ...(text.match(/[\w.]+@example\.com/g) ?? []),
+    ];
+  };
   // The fixture's answers quote their author; what a member writes is not hidden, only who.
   const anonymousTexts = SEVEN_ANSWERS.map((answer) => ({
     ...answer,
@@ -990,7 +1010,7 @@ describe('names can be hidden across the board', () => {
           {
             metric_id: 'metric-revenue',
             name: 'Revenue',
-            owner: { id: 'emp-anna', email: LEADER },
+            owner: { id: 'emp-anna', email: LEADER, display_name: 'Anna Nowak' },
           },
         ],
         owing: 5,
@@ -998,7 +1018,9 @@ describe('names can be hidden across the board', () => {
     });
     fixtures.items = noItems();
     fixtures.items.problems.active = [
-      problem({ responsible: { employee_id: 'emp-anna', email: LEADER } }),
+      problem({
+        responsible: { employee_id: 'emp-anna', email: LEADER, display_name: 'Anna Nowak' },
+      }),
     ];
   });
 
@@ -1025,6 +1047,7 @@ describe('names can be hidden across the board', () => {
       'Answers missing: 4',
     );
     expect(screen.queryByText(/@example\.com$/)).not.toBeInTheDocument();
+    expect(namesShown()).toEqual([]);
   });
 
   it('Hidden names stay hidden across views', async () => {
@@ -1068,7 +1091,7 @@ describe('names can be hidden across the board', () => {
     const panel = await screen.findByRole('group', { name: en.readiness.heading });
     await user.click(within(panel).getByRole('heading', { name: en.readiness.heading }));
     await waitFor(() => expect(panel).toHaveAttribute('open'));
-    await within(panel).findByText('hania@example.com');
+    await within(panel).findByText('Hania');
     expect(within(panel).getByRole('button', { name: en.readiness.copy })).toBeInTheDocument();
 
     await user.click(hideNames());
@@ -1079,6 +1102,44 @@ describe('names can be hidden across the board', () => {
     const problems = screen.getByRole('region', { name: en.items.problemsHeading });
     expect(within(problems).getByText('Builds are flaky')).toBeInTheDocument();
     expect(problems).not.toHaveTextContent(LEADER);
+    expect(problems).not.toHaveTextContent(LEADER_NAME);
+    expect(namesShown()).toEqual([]);
+  });
+
+  it('The metric detail names no one', async () => {
+    const user = userEvent.setup();
+    fixtures.trend = {
+      ...TREND,
+      corrections: [
+        {
+          id: 'c-1',
+          meeting_id: 'm-2026-08-26',
+          old_value: '90',
+          old_manual_status: null,
+          old_comment: null,
+          new_value: '91',
+          new_manual_status: null,
+          new_comment: null,
+          reason: 'Late invoice booked',
+          corrected_by_email: MEMBER,
+          corrected_by_display_name: MEMBER_NAME,
+          corrected_at: '2026-09-10T09:00:00Z',
+        },
+      ],
+    };
+    await renderBoard();
+    await user.click(await screen.findByRole('button', { name: 'Details: Revenue' }));
+    const dialog = screen.getByRole('dialog', { name: 'Revenue' });
+    await within(dialog).findByText(/Late invoice booked/);
+    expect(dialog).toHaveTextContent(MEMBER_NAME);
+    expect(dialog).toHaveTextContent(LEADER_NAME);
+    await user.keyboard('{Escape}');
+
+    await user.click(hideNames());
+    await user.click(screen.getByRole('button', { name: 'Details: Revenue' }));
+
+    const hidden = screen.getByRole('dialog', { name: 'Revenue' });
+    await within(hidden).findByText(/Late invoice booked/);
     expect(namesShown()).toEqual([]);
   });
 
@@ -1104,6 +1165,6 @@ describe('names can be hidden across the board', () => {
 
     await screen.findByText('Builds are flaky');
     expect(hideNames()).not.toBeChecked();
-    await waitFor(() => expect(namesShown()).toContain(LEADER));
+    await waitFor(() => expect(namesShown()).toContain(LEADER_NAME));
   });
 });

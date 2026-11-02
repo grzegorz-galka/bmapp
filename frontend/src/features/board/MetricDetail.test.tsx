@@ -17,7 +17,7 @@ import type { MetricTrend } from '../../api/metrics';
 import {
   definition,
   jsonResponse,
-  LEADER,
+  LEADER_NAME,
   serveBoard,
   TEAM_ID,
   threshold,
@@ -222,6 +222,7 @@ describe('the metric detail', () => {
           new_comment: null,
           reason: 'Late invoice booked',
           corrected_by_email: 'admin@example.com',
+          corrected_by_display_name: 'Admin',
           corrected_at: '2026-09-10T09:00:00Z',
         },
       ],
@@ -229,12 +230,11 @@ describe('the metric detail', () => {
     fixtures.trend = trend;
     const dialog = await renderDetail();
 
-    expect(await within(dialog).findByText(/Late invoice booked/)).toHaveTextContent(
-      'admin@example.com',
-    );
+    expect(await within(dialog).findByText(/Late invoice booked/)).toHaveTextContent('Admin');
     expect(dialog).toHaveTextContent('Wed, 26 Aug 2026 12.0 % → 13.0 %');
     expect(await within(dialog).findByText(/Effective from Tue, 1 Sept 2026/)).toBeInTheDocument();
-    expect(dialog).toHaveTextContent(`Plan · ${LEADER}`);
+    expect(dialog).toHaveTextContent(`Plan · ${LEADER_NAME}`);
+    expect(dialog).not.toHaveTextContent('@');
   });
 
   it('marks a global metric as global, in words and by a symbol', async () => {

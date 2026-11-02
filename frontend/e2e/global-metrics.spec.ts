@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { en } from '../src/i18n/en';
 import { organizationToday } from '../src/features/board/organizationDate';
-import { ADMIN_EMAIL, signInAs } from './auth';
+import { ADMIN_EMAIL, displayName, signInAs } from './auth';
 import { addDays, apiAs, uniqueSuffix } from './api';
 
 /*
@@ -84,7 +84,7 @@ test('a global metric is defined, included in a board and recorded there', async
   await page.getByRole('button', { name: en.metrics.include }).click();
   const include = page.getByRole('dialog', { name: en.metrics.include });
   await include.getByLabel(en.metrics.includeSourceLabel).selectOption({ label: name });
-  await include.getByLabel(en.metrics.ownerLabel).selectOption({ label: member });
+  await include.getByLabel(en.metrics.ownerLabel).selectOption({ label: displayName(member) });
   await include.getByRole('button', { name: en.metrics.includeSubmit }).click();
   await expect(include).toBeHidden();
   const setting = page.getByRole('listitem').filter({ hasText: name });

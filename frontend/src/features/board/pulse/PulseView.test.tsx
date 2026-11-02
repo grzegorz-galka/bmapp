@@ -148,15 +148,35 @@ describe('the pulse check view', () => {
     ).toHaveAttribute('aria-pressed', 'true');
   });
 
+  it('The pulse answers name the respondent', async () => {
+    // Requirement (team-membership): the interface names a person by display name.
+    fixtures.pulse!['m-2026-10-14'] = pulseResults('m-2026-10-14', {
+      answers: [
+        pulseAnswer('anna.nowak@example.com', 4, {
+          display_name: 'Anna Nowak',
+          positive: 'Calm week',
+          negative: '',
+          better: '',
+        }),
+        ...SEVEN_ANSWERS.slice(1),
+      ],
+    });
+    await renderBoard();
+    await openPulse();
+
+    const answers = screen.getByRole('region', { name: en.pulse.answersHeading });
+    const first = within(answers).getAllByRole('row')[1]!;
+    expect(within(first).getByRole('rowheader')).toHaveTextContent('Anna Nowak');
+    expect(answers).not.toHaveTextContent('anna.nowak@example.com');
+  });
+
   it('The results are shown as cards, a trend and a table', async () => {
     await renderBoard();
     await openPulse();
 
     const answered = screen.getByRole('region', { name: en.pulse.answeredLabel });
     expect(answered).toHaveTextContent('7 of 11');
-    expect(answered).toHaveTextContent(
-      'Missing: hania@example.com, igor@example.com, jan@example.com, kasia@example.com',
-    );
+    expect(answered).toHaveTextContent('Missing: Hania, Igor, Jan, Kasia');
 
     const average = screen.getByRole('region', { name: en.pulse.questionRating });
     expect(within(average).getByRole('img', { name: 'Average rating: 3.6 of 5' })).toBeVisible();
@@ -183,7 +203,7 @@ describe('the pulse check view', () => {
     const rows = within(answers).getAllByRole('row').slice(1);
     expect(rows).toHaveLength(7);
     expect(rows.map((row) => within(row).getByRole('rowheader').textContent)).toEqual(
-      SEVEN_ANSWERS.map((answer) => answer.email),
+      SEVEN_ANSWERS.map((answer) => answer.display_name),
     );
     expect(rows[0]).toHaveTextContent('ala@example.com positive');
   });

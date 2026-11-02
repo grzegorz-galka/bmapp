@@ -157,7 +157,7 @@ describe('the pulse check view offers only what its viewer may do', () => {
     const user = userEvent.setup();
     const answered = await openPulse({ email: MEMBER });
 
-    expect(answered).toHaveTextContent('Missing: hania@example.com');
+    expect(answered).toHaveTextContent('Missing: Hania');
     expect(screen.getByRole('region', { name: en.pulse.answersHeading })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: en.pulse.yourAnswer }));
     expect(screen.getAllByRole('radio')).toHaveLength(5);
@@ -188,7 +188,7 @@ describe('the pulse check view offers only what its viewer may do', () => {
   it('An administrator sees the answers and no form', async () => {
     const answered = await openPulse({ email: ADMIN, isAdmin: true });
 
-    expect(answered).toHaveTextContent('Missing: hania@example.com');
+    expect(answered).toHaveTextContent('Missing: Hania');
     expect(screen.getByRole('region', { name: en.pulse.answersHeading })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: en.pulse.yourAnswer })).not.toBeInTheDocument();
     expect(screen.queryByRole('radio')).not.toBeInTheDocument();

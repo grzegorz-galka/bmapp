@@ -46,7 +46,11 @@ def test_a_task_is_raised(client_as: ClientAs, team: dict[str, Any]) -> None:
     )
 
     assert (task["summary"], task["details"]) == ("Update the agenda", "")
-    assert task["responsible"] == {"employee_id": responsible, "email": MEMBER}
+    assert task["responsible"] == {
+        "employee_id": responsible,
+        "email": MEMBER,
+        "display_name": "Member",
+    }
     assert task["due_on"] == "2026-10-14"
     assert (task["metric"], task["problem"], task["stage"]) == (None, None, "not_started")
     assert datetime.datetime.fromisoformat(task["raised_at"]) >= before

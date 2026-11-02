@@ -45,7 +45,7 @@ async function renderTile(
         funnel={summary.funnel}
         teams={summary.teams}
         items={items}
-        email={summary.current_user.email}
+        name={summary.current_user.display_name}
       />
       <AddressProbe />
     </>,
@@ -134,7 +134,7 @@ describe('the assigned items', () => {
     expect(undated).toHaveTextContent('Runbook missing');
     expect(undated).toHaveTextContent(en.items.noDueDate);
 
-    expect(screen.getByText('Assigned to g.galka@pse.pl')).toBeInTheDocument();
+    expect(screen.getByText('Assigned to Grzegorz Gałka')).toBeInTheDocument();
   });
 
   it('An overdue item is distinguished', async () => {

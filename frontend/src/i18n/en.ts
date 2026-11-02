@@ -88,7 +88,7 @@ export const en = {
     empty: 'No board meeting is coming up.',
     today: 'Today',
     notOpened: 'not yet opened',
-    host: 'Host: {{email}}',
+    host: 'Host: {{name}}',
     noHost: 'No host',
     youHost: 'You host',
     recorded: '{{recorded}} of {{total}} recorded',
@@ -122,7 +122,7 @@ export const en = {
     tasksLink: 'Tasks',
     archiveLink: 'Archive',
     assignedHeading: 'Assigned to me',
-    assignedTo: 'Assigned to {{email}}',
+    assignedTo: 'Assigned to {{name}}',
     empty: 'Nothing is assigned to you right now.',
   },
   items: {
@@ -253,7 +253,7 @@ export const en = {
     empty: 'No teams registered yet.',
     boardSuffix: 'board: {{name}}',
     leaderEmailLabel: 'Team leader’s email',
-    leaderSuffix: 'leader: {{email}}',
+    leaderSuffix: 'leader: {{name}}',
     // Colon form for the same reason as myTeams.count.
     memberCount: 'Members: {{count}}',
     membersLink: 'Members',
@@ -280,14 +280,14 @@ export const en = {
     // The visible captions repeat on every row; these name the member too,
     // so a screen reader listing the buttons can tell them apart. They start
     // with the caption, so a voice user can still say what they see.
-    removeLabel: 'Remove from team: {{email}}',
+    removeLabel: 'Remove from team: {{name}}',
     makeLeader: 'Make leader',
-    makeLeaderLabel: 'Make leader: {{email}}',
+    makeLeaderLabel: 'Make leader: {{name}}',
     deputy: 'Leader deputy',
     makeDeputy: 'Make deputy',
-    makeDeputyLabel: 'Make deputy: {{email}}',
+    makeDeputyLabel: 'Make deputy: {{name}}',
     revokeDeputy: 'Revoke deputy',
-    revokeDeputyLabel: 'Revoke deputy: {{email}}',
+    revokeDeputyLabel: 'Revoke deputy: {{name}}',
   },
   meetings: {
     heading: 'Meetings of {{name}}',
@@ -317,7 +317,7 @@ export const en = {
     pastHeading: 'Past',
     upcomingEmpty: 'No upcoming meetings.',
     pastEmpty: 'No past meetings.',
-    host: 'Host: {{email}}',
+    host: 'Host: {{name}}',
     noHost: 'No host',
     youHost: 'You host',
     // The captions repeat on every row; the labels name the meeting too, and
@@ -350,6 +350,17 @@ export const en = {
     target_higher_is_better: 'Target value {{target}} · green −{{green}}% · amber −{{amber}}%',
     target_lower_is_better: 'Target value {{target}} · green +{{green}}% · amber +{{amber}}%',
     target_within_band: 'Target value {{target}} · green ±{{green}}% · amber ±{{amber}}%',
+    // Amber equal to green leaves no amber zone: past green is red at once.
+    higher_is_better_noAmber: 'Green from {{green}}, red below',
+    lower_is_better_noAmber: 'Green up to {{green}}, red above',
+    within_band_noAmber: 'Green {{greenLo}} to {{greenHi}}, red outside',
+    target_higher_is_better_noAmber: 'Target value {{target}} · green −{{green}}% · red below',
+    target_lower_is_better_noAmber: 'Target value {{target}} · green +{{green}}% · red above',
+    target_within_band_noAmber: 'Target value {{target}} · green ±{{green}}% · red outside',
+    // Both tolerances 0: the target value itself is the line between green and red.
+    target_higher_is_better_exact: 'Target value {{target}} · red below it',
+    target_lower_is_better_exact: 'Target value {{target}} · red above it',
+    target_within_band_exact: 'Target value {{target}} · red off it',
     none: 'No threshold',
     effectiveFrom: 'Effective from {{date}}',
     // The green boundary alone, for a tile's badge: a version with no target value.
@@ -435,7 +446,7 @@ export const en = {
     completeness: 'Recorded: {{recorded}} of {{total}}',
     missing: 'Still missing',
     allRecorded: 'Every metric has a number.',
-    missingOwner: '{{name}} ({{email}})',
+    missingOwner: '{{name}} ({{owner}})',
     previous: 'Last meeting: {{value}}',
     metricColumn: 'Metric',
     // The column of each row's "Saving…"/"Saved"; its header is read, not shown.
@@ -481,7 +492,7 @@ export const en = {
     noValues: 'Nothing recorded yet.',
     thresholdsHeading: 'Threshold history',
     noThresholds: 'No threshold has been set.',
-    recordedBy: '{{email}}, {{date}}',
+    recordedBy: '{{name}}, {{date}}',
     correctionsHeading: 'Corrections',
     noCorrections: 'No corrections.',
     correction: '{{old}} → {{new}}',
@@ -515,7 +526,7 @@ export const en = {
     hidden: 'Hidden on board',
     hiddenLabel: 'Hidden on board: {{name}}',
     hiddenHint: 'It is still recorded and counted, but the board shows no tile for it.',
-    owner: 'Owner: {{email}}',
+    owner: 'Owner: {{name}}',
     decimals: 'Decimals: {{count}}',
     // The captions repeat on every row; the labels name the metric too, and
     // start with the caption so a voice user can still say what they see.
@@ -714,7 +725,7 @@ export const en = {
     signIn: 'Sign in',
     signOut: 'Sign out',
     account: 'Account',
-    accountLabel: 'Account: {{email}}',
+    accountLabel: 'Account: {{name}}',
     signedOut: 'You are not signed in.',
     signedIn: 'Signed in.',
     completing: 'Completing sign-in...',
@@ -730,6 +741,14 @@ export const en = {
     devLoginSubmit: 'Sign in',
     devLoginSubmitting: 'Signing in...',
     devLoginClose: 'Close',
+    devPasswordIntro: 'Choose your own password to finish signing in.',
+    devPasswordName: 'Name',
+    devPasswordSurname: 'Surname',
+    devPasswordNew: 'New password',
+    devPasswordRepeat: 'Repeat the new password',
+    devPasswordSubmit: 'Set password and sign in',
+    devPasswordSubmitting: 'Saving...',
+    passwordMismatch: 'The passwords do not match.',
   },
   errors: {
     // Keyed by the code the API reports. `generic` covers a code this
@@ -758,6 +777,9 @@ export const en = {
       'You do not belong to any team yet, so you can read but not change anything.',
     'auth.password_incorrect': 'This is not the password for this email.',
     'auth.employee_unknown': 'No employee has this email. Ask a team leader to add you to a team.',
+    'dev_password.too_short': 'A password must have at least 8 characters.',
+    'dev_password.unchanged': 'Choose a password other than the one you signed in with.',
+    'employee_name.too_long': 'A name or surname can be at most 100 characters.',
     'schedule_weekday.out_of_range': 'Choose a day of the week.',
     'meeting_date.taken': 'This team already has a meeting on that date.',
     'meeting.not_found': 'This meeting no longer exists.',

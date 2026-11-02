@@ -143,7 +143,7 @@ export function TeamMembersPage() {
             <li key={member.employee_id} className={styles.item}>
               <span className={styles.itemMain}>
                 <span className={styles.itemName}>
-                  {member.email}
+                  {member.display_name}
                   {/* The word is the marker; the badge styling only repeats it. */}
                   {(member.is_leader || member.is_deputy) && ' '}
                   {member.is_leader && (
@@ -153,6 +153,9 @@ export function TeamMembersPage() {
                     <span className={styles.deputyMark}>{t('members.deputy')}</span>
                   )}
                 </span>
+                {/* The one page that shows the address beside the name: it is
+                    where members are added and told apart by email. */}
+                <span className={styles.itemMeta}>{member.email}</span>
               </span>
               {/* The leader can be neither removed nor made leader again, nor
                   be a deputy: leadership has to be handed to someone else first. */}
@@ -167,7 +170,7 @@ export function TeamMembersPage() {
                       className={controls.button}
                       disabled={busy}
                       onClick={() => act(makeLeader, member)}
-                      aria-label={t('members.makeLeaderLabel', { email: member.email })}
+                      aria-label={t('members.makeLeaderLabel', { name: member.display_name })}
                     >
                       {t('members.makeLeader')}
                     </button>
@@ -178,7 +181,7 @@ export function TeamMembersPage() {
                       className={controls.button}
                       disabled={busy}
                       onClick={() => act(appointDeputy, member)}
-                      aria-label={t('members.makeDeputyLabel', { email: member.email })}
+                      aria-label={t('members.makeDeputyLabel', { name: member.display_name })}
                     >
                       {t('members.makeDeputy')}
                     </button>
@@ -189,7 +192,7 @@ export function TeamMembersPage() {
                       className={controls.button}
                       disabled={busy}
                       onClick={() => act(revokeDeputy, member)}
-                      aria-label={t('members.revokeDeputyLabel', { email: member.email })}
+                      aria-label={t('members.revokeDeputyLabel', { name: member.display_name })}
                     >
                       {t('members.revokeDeputy')}
                     </button>
@@ -200,7 +203,7 @@ export function TeamMembersPage() {
                       className={controls.button}
                       disabled={busy}
                       onClick={() => act(removeMember, member)}
-                      aria-label={t('members.removeLabel', { email: member.email })}
+                      aria-label={t('members.removeLabel', { name: member.display_name })}
                     >
                       {t('members.remove')}
                     </button>

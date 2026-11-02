@@ -79,6 +79,8 @@ class PulseAnswerRead(BaseModel):
 
     employee_id: uuid.UUID
     email: str
+    #: How the interface names the person; see `app.services.names`.
+    display_name: str
     rating: int
     status: Status
     positive: str
@@ -110,6 +112,8 @@ class PulseMissingMember(BaseModel):
 
     employee_id: uuid.UUID
     email: str
+    #: How the interface names the person; see `app.services.names`.
+    display_name: str
 
 
 class PulseElsewhereTeam(BaseModel):

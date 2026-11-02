@@ -241,7 +241,14 @@ login window opens again.
 they are assigned to a team; a team has members and exactly one leader, who is
 always one of them, set when the team is registered and handed over between
 members on the members page at `/teams/:teamId/members`. One employee may lead
-any number of teams. `meetings` is implemented: a board has an optional weekly
+any number of teams. An employee has an optional name and surname, filled from
+the broker's `given_name` and `family_name` claims when they read `/auth/me`,
+or from the dev first-login window. The interface names people by **display
+name** - the stored name and surname, else one derived from the email by
+`app/services/names.py`, never stored - and every response that names a person
+carries `display_name` beside the email. The email is shown only where the
+address is the point: the members page, the account menu, add-by-email fields
+and the readiness panel's copied addresses. `meetings` is implemented: a board has an optional weekly
 schedule set by its leader, and any member opens, moves, hosts and deletes the
 team's meetings on the meetings page at `/teams/:teamId/meetings`, one per date
 at most, with the next date proposed from the schedule. Dates and times are
@@ -516,12 +523,17 @@ A task is done when:
   its own change; nothing about it exists yet.
 - Until that lands, a **dev mode behind a toggle** (`BMAPP_MODE=dev`, plus
   `VITE_AUTH_MODE=dev` for the web app): `POST /auth/dev-login` takes an email and
-  the password derived from it (the first two characters of each run of letters
-  and digits: `admin@example.com` → `adexco`; not a secret), accepts only
-  a recorded employee or an administrator, and returns a JWT of the same shape;
-  the web app asks for both in a login window, so authorization is exercised
-  through the same code path production uses. It is off by default and cannot work
-  in a deployed environment: the route is not registered when the mode is off, the
+  its password, accepts only a recorded employee or an administrator, and returns
+  a JWT of the same shape, asked for in a login window, so authorization is
+  exercised through the same code path production uses. A first sign-in uses the
+  password derived from the email (the first two characters of each run of
+  letters and digits: `admin@example.com` → `adexco`; not a secret), which issues
+  no token: the window then asks for a password of the person's own with their
+  name and surname, set through `POST /auth/dev-password`. From then on only the
+  chosen password works. It is stored as a scrypt hash in `dev_credentials`, and
+  deleting the row is the reset; the e2e suite chooses `e2e-password` for
+  everyone. Dev mode is off by default and cannot work
+  in a deployed environment: the routes are not registered when the mode is off, the
   server refuses to start when the mode is on and `BMAPP_OIDC_ISSUER` is set, and
   the two modes sign and accept **disjoint algorithms** (dev `HS256` against a
   per-process secret, broker `RS256` against the published JWKS), so a dev token

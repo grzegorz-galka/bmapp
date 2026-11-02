@@ -21,10 +21,17 @@ const BARTEK = member('bartek@example.com');
 const CELINA = member('celina@example.com');
 const DORA = member('dora@example.com', false, true);
 
+/** Named as the API names someone with nothing stored: from the email. */
+function nameFrom(email: string): string {
+  const local = email.split('@')[0] ?? email;
+  return local.charAt(0).toUpperCase() + local.slice(1);
+}
+
 function member(email: string, isLeader = false, isDeputy = false): Member {
   return {
     employee_id: `emp-${email.split('@')[0]}`,
     email,
+    display_name: nameFrom(email),
     is_leader: isLeader,
     is_deputy: isDeputy,
   };
@@ -102,10 +109,11 @@ function rowOf(email: string) {
   return row;
 }
 
+/** The address each row shows beside the name, in the list's order. */
 function emails() {
   return within(memberList())
     .getAllByRole('listitem')
-    .map((item) => /\S+@example\.com/.exec(item.textContent ?? '')?.[0]);
+    .map((item) => within(item).getByText(/@example\.com$/).textContent);
 }
 
 const fetchMock = vi.fn();
@@ -129,10 +137,13 @@ describe('Members are managed from the team page', () => {
     await userEvent.type(screen.getByLabelText(en.members.emailLabel), 'bartek@example.com');
     await userEvent.click(screen.getByRole('button', { name: en.members.add }));
 
+    // By display name, the email beside it.
     const row = await screen.findByText('bartek@example.com');
+    expect(row).toBeInTheDocument();
+    expect(rowOf('bartek@example.com')).toHaveTextContent(/^Bartek/);
+    expect(within(rowOf('bartek@example.com')).getByText('Bartek')).toBeInTheDocument();
     expect(rowOf('bartek@example.com')).not.toHaveTextContent(en.members.leader);
     expect(rowOf('bartek@example.com')).not.toHaveTextContent(en.members.deputy);
-    expect(row).toBeInTheDocument();
     expect(screen.getByLabelText(en.members.emailLabel)).toHaveValue('');
     expect(onlyRequest('POST')).toEqual({
       url: `/api/teams/${TEAM_ID}/members`,
@@ -166,9 +177,7 @@ describe('Members are managed from the team page', () => {
     await renderPage();
     await screen.findByText('bartek@example.com');
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Remove from team: bartek@example.com' }),
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Remove from team: Bartek' }));
 
     expect(await screen.findByText('celina@example.com')).toBeInTheDocument();
     expect(screen.queryByText('bartek@example.com')).not.toBeInTheDocument();
@@ -186,20 +195,22 @@ describe('Members are managed from the team page', () => {
     expect(rowOf('anna@example.com')).not.toHaveTextContent(en.members.deputy);
     for (const email of ['bartek@example.com', 'celina@example.com', 'dora@example.com']) {
       const row = within(rowOf(email));
-      expect(row.getByRole('button', { name: `Remove from team: ${email}` })).toBeVisible();
-      expect(row.getByRole('button', { name: `Make leader: ${email}` })).toBeVisible();
+      expect(
+        row.getByRole('button', { name: `Remove from team: ${nameFrom(email)}` }),
+      ).toBeVisible();
+      expect(row.getByRole('button', { name: `Make leader: ${nameFrom(email)}` })).toBeVisible();
       expect(rowOf(email)).not.toHaveTextContent(en.members.leader);
     }
     // An ordinary member may be appointed; a deputy may be revoked.
     for (const email of ['bartek@example.com', 'celina@example.com']) {
       expect(
-        within(rowOf(email)).getByRole('button', { name: `Make deputy: ${email}` }),
+        within(rowOf(email)).getByRole('button', { name: `Make deputy: ${nameFrom(email)}` }),
       ).toBeVisible();
       expect(rowOf(email)).not.toHaveTextContent(en.members.deputy);
     }
     const dora = within(rowOf('dora@example.com'));
     expect(rowOf('dora@example.com')).toHaveTextContent(en.members.deputy);
-    expect(dora.getByRole('button', { name: 'Revoke deputy: dora@example.com' })).toBeVisible();
+    expect(dora.getByRole('button', { name: 'Revoke deputy: Dora' })).toBeVisible();
     expect(dora.queryByRole('button', { name: /^Make deputy/ })).not.toBeInTheDocument();
   });
 
@@ -210,12 +221,10 @@ describe('Members are managed from the team page', () => {
     await renderPage();
     await screen.findByText('bartek@example.com');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Make deputy: bartek@example.com' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Make deputy: Bartek' }));
 
     const bartek = within(rowOf('bartek@example.com'));
-    expect(
-      await bartek.findByRole('button', { name: 'Revoke deputy: bartek@example.com' }),
-    ).toBeVisible();
+    expect(await bartek.findByRole('button', { name: 'Revoke deputy: Bartek' })).toBeVisible();
     expect(rowOf('bartek@example.com')).toHaveTextContent(en.members.deputy);
     expect(bartek.queryByRole('button', { name: /^Make deputy/ })).not.toBeInTheDocument();
     expect(rowOf('anna@example.com')).toHaveTextContent(en.members.leader);
@@ -234,12 +243,10 @@ describe('Members are managed from the team page', () => {
     await renderPage();
     await screen.findByText('dora@example.com');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Revoke deputy: dora@example.com' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Revoke deputy: Dora' }));
 
     const dora = within(rowOf('dora@example.com'));
-    expect(
-      await dora.findByRole('button', { name: 'Make deputy: dora@example.com' }),
-    ).toBeVisible();
+    expect(await dora.findByRole('button', { name: 'Make deputy: Dora' })).toBeVisible();
     expect(rowOf('dora@example.com')).not.toHaveTextContent(en.members.deputy);
     expect(dora.queryByRole('button', { name: /^Revoke deputy/ })).not.toBeInTheDocument();
     // Revoked, not removed.
@@ -253,17 +260,15 @@ describe('Members are managed from the team page', () => {
     await renderPage();
     await screen.findByText('bartek@example.com');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Make leader: bartek@example.com' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Make leader: Bartek' }));
 
-    expect(
-      await screen.findByRole('button', { name: 'Remove from team: anna@example.com' }),
-    ).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Remove from team: Anna' })).toBeVisible();
     expect(rowOf('bartek@example.com')).toHaveTextContent(en.members.leader);
     expect(within(rowOf('bartek@example.com')).queryAllByRole('button')).toHaveLength(0);
     expect(rowOf('anna@example.com')).not.toHaveTextContent(en.members.leader);
     expect(
       within(rowOf('anna@example.com')).getByRole('button', {
-        name: 'Make leader: anna@example.com',
+        name: 'Make leader: Anna',
       }),
     ).toBeVisible();
     expect(onlyRequest('PUT')).toEqual({
@@ -296,19 +301,19 @@ describe('Members are managed from the team page', () => {
     expect(screen.getByRole('link', { name: pl.members.back })).toBeVisible();
     expect(screen.getByRole('list', { name: pl.members.listLabel })).toBeVisible();
     expect(screen.getByText(pl.members.leader)).toBeVisible();
-    expect(
-      screen.getByRole('button', { name: 'Usuń z zespołu: bartek@example.com' }),
-    ).toHaveTextContent(pl.members.remove);
-    expect(
-      screen.getByRole('button', { name: 'Ustaw jako lidera: bartek@example.com' }),
-    ).toHaveTextContent(pl.members.makeLeader);
+    expect(screen.getByRole('button', { name: 'Usuń z zespołu: Bartek' })).toHaveTextContent(
+      pl.members.remove,
+    );
+    expect(screen.getByRole('button', { name: 'Ustaw jako lidera: Bartek' })).toHaveTextContent(
+      pl.members.makeLeader,
+    );
     expect(screen.getByText(pl.members.deputy)).toBeVisible();
-    expect(
-      screen.getByRole('button', { name: 'Mianuj zastępcą: bartek@example.com' }),
-    ).toHaveTextContent(pl.members.makeDeputy);
-    expect(
-      screen.getByRole('button', { name: 'Odwołaj zastępcę: dora@example.com' }),
-    ).toHaveTextContent(pl.members.revokeDeputy);
+    expect(screen.getByRole('button', { name: 'Mianuj zastępcą: Bartek' })).toHaveTextContent(
+      pl.members.makeDeputy,
+    );
+    expect(screen.getByRole('button', { name: 'Odwołaj zastępcę: Dora' })).toHaveTextContent(
+      pl.members.revokeDeputy,
+    );
 
     await userEvent.type(screen.getByLabelText(pl.members.emailLabel), 'bartek@example.com');
     await userEvent.click(screen.getByRole('button', { name: pl.members.add }));
@@ -362,7 +367,7 @@ describe('the members page otherwise', () => {
     await renderPage();
     await screen.findByText('celina@example.com');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Make leader: celina@example.com' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Make leader: Celina' }));
 
     const alert = await within(rowOf('celina@example.com')).findByRole('alert');
     expect(alert).toHaveTextContent(en.errors['team_leader.not_member']);
@@ -376,9 +381,7 @@ describe('the members page otherwise', () => {
     await renderPage('pl');
     await screen.findByText('bartek@example.com');
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Mianuj zastępcą: bartek@example.com' }),
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Mianuj zastępcą: Bartek' }));
 
     const alert = await screen.findByRole('alert');
     expect(alert.closest('li')).toHaveTextContent('bartek@example.com');

@@ -21,6 +21,8 @@ export type PulseStatus = 'green' | 'amber' | 'red' | 'no_data';
 export interface PulseAnswerRead {
   employee_id: string;
   email: string;
+  /** How the interface names the person; computed by the server. */
+  display_name: string;
   rating: PulseRating;
   status: PulseStatus;
   positive: string;
@@ -54,6 +56,8 @@ export interface PulseTrendPoint {
 export interface PulseMissingMember {
   employee_id: string;
   email: string;
+  /** How the interface names the person; computed by the server. */
+  display_name: string;
 }
 
 /** The viewer's own answer at another team's meeting that week; never anyone else's. */

@@ -1,77 +1,84 @@
-/** What a tile's badge names as the target, in both languages. */
-import { describe, expect, it } from 'vitest';
-import { screen } from '@testing-library/react';
-import { useTranslation } from 'react-i18next';
-import type { Direction, Threshold } from '../../api/metrics';
+/**
+ * How a threshold reads when amber equals green: there is no amber zone, so
+ * past green is red at once, and the reading says so rather than naming an
+ * amber boundary nobody can be in.
+ */
+import { afterEach, describe, expect, it } from 'vitest';
+import { renderHook } from '@testing-library/react';
+import i18n from '../../i18n';
 import { useFormat } from '../../i18n/format';
-import type { Language } from '../../i18n/languages';
-import { renderWithLanguage } from '../../test/render';
-import { threshold } from '../board/boardFixture';
-import { describeTarget } from './display';
+import type { Direction } from '../../api/metrics';
+import { describeThreshold } from './display';
 
-function Target({
-  direction,
-  version,
-}: {
-  direction: Direction;
-  version: Partial<Threshold> | null;
-}) {
-  const { t } = useTranslation();
-  const format = useFormat();
-  const metric = { direction, unit: '%', decimals: 1 };
-  return <p>{describeTarget(t, format, metric, version && threshold(version))}</p>;
-}
+const NO_BOUNDS = { green_lo: null, green_hi: null, amber_lo: null, amber_hi: null };
 
-async function target(
-  language: Language,
+async function read(
+  language: 'en' | 'pl',
   direction: Direction,
-  version: Partial<Threshold> | null,
-): Promise<string> {
-  await renderWithLanguage(<Target direction={direction} version={version} />, language);
-  return screen.getByRole('paragraph').textContent!;
+  threshold: Parameters<typeof describeThreshold>[3],
+  unit = '',
+) {
+  await i18n.changeLanguage(language);
+  const format = renderHook(() => useFormat()).result.current;
+  return describeThreshold(i18n.t, format, { direction, decimals: 0, unit }, threshold);
 }
 
-describe('describeTarget', () => {
-  it.each([
-    ['en', 'Target: 72.3 %'],
-    ['pl', 'Cel: 72,3 %'],
-  ] as const)('names the target value (%s)', async (language, text) => {
-    const version = { target_value: '72.3', green_pct: '5', amber_pct: '10' };
+function target(value: string, green: string, amber: string) {
+  return { ...NO_BOUNDS, target_value: value, green_pct: green, amber_pct: amber };
+}
 
-    expect(await target(language, 'higher_is_better', version)).toBe(text);
+afterEach(async () => {
+  await i18n.changeLanguage('en');
+});
+
+describe('a threshold with no amber zone', () => {
+  it('reads a target value with both tolerances 0 as the line between green and red', async () => {
+    expect(await read('en', 'higher_is_better', target('395', '0', '0'))).toBe(
+      'Target value 395 · red below it',
+    );
+    expect(await read('en', 'lower_is_better', target('397', '0', '0'))).toBe(
+      'Target value 397 · red above it',
+    );
+    expect(await read('en', 'within_band', target('72.3', '0', '0'))).toBe(
+      'Target value 72.3 · red off it',
+    );
+    expect(await read('pl', 'higher_is_better', target('395', '0', '0'))).toBe(
+      'Wartość docelowa 395 · czerwony poniżej niej',
+    );
   });
 
-  it.each([
-    ['en', 'higher_is_better', 'Target: ≥ 95.0 %'],
-    ['en', 'lower_is_better', 'Target: ≤ 5.0 %'],
-    ['en', 'within_band', 'Target: 90.0–110.0 %'],
-    ['pl', 'higher_is_better', 'Cel: ≥ 95,0 %'],
-    ['pl', 'lower_is_better', 'Cel: ≤ 5,0 %'],
-    ['pl', 'within_band', 'Cel: 90,0–110,0 %'],
-  ] as const)(
-    'names the green boundary of a version with no target value (%s, %s)',
-    async (language, direction, text) => {
-      const version = {
-        green_lo:
-          direction === 'lower_is_better' ? null : direction === 'within_band' ? '90' : '95',
-        green_hi:
-          direction === 'higher_is_better' ? null : direction === 'within_band' ? '110' : '5',
-      };
-
-      expect(await target(language, direction, version)).toBe(text);
-    },
-  );
-
-  it('names the boundaries of a version whose target value is 0', async () => {
-    const version = { target_value: '0', green_lo: null, green_hi: '5' };
-
-    expect(await target('en', 'lower_is_better', version)).toBe('Target: ≤\u00a05.0\u00a0%');
+  it('reads equal non-zero tolerances as green and then red', async () => {
+    expect(await read('en', 'higher_is_better', target('100', '5', '5.000000'), '%')).toBe(
+      'Target value 100 % · green −5% · red below',
+    );
+    expect(await read('en', 'within_band', target('72.3', '2', '2'))).toBe(
+      'Target value 72.3 · green ±2% · red outside',
+    );
   });
 
-  it.each([
-    ['en', 'No threshold'],
-    ['pl', 'Brak progu'],
-  ] as const)('reads "No threshold" with no version (%s)', async (language, text) => {
-    expect(await target(language, 'higher_is_better', null)).toBe(text);
+  it('reads equal boundaries as green and then red', async () => {
+    expect(
+      await read('en', 'lower_is_better', { ...NO_BOUNDS, green_hi: '0', amber_hi: '0' }),
+    ).toBe('Green up to 0, red above');
+    expect(
+      await read('en', 'higher_is_better', { ...NO_BOUNDS, green_lo: '35', amber_lo: '35' }),
+    ).toBe('Green from 35, red below');
+    expect(
+      await read('pl', 'within_band', {
+        green_lo: '71',
+        green_hi: '72',
+        amber_lo: '71',
+        amber_hi: '72',
+      }),
+    ).toBe('Zielony od 71 do 72, czerwony poza');
+  });
+
+  it('keeps the amber zone where amber differs from green', async () => {
+    expect(await read('en', 'higher_is_better', target('100', '5', '10'))).toBe(
+      'Target value 100 · green −5% · amber −10%',
+    );
+    expect(
+      await read('en', 'lower_is_better', { ...NO_BOUNDS, green_hi: '5', amber_hi: '10' }),
+    ).toBe('Green up to 5, amber up to 10');
   });
 });

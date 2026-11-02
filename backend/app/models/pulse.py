@@ -79,3 +79,7 @@ class PulseAnswer(Base):
     @property
     def email(self) -> str:
         return self.employee.email
+
+    @property
+    def display_name(self) -> str:
+        return self.employee.display_name

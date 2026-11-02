@@ -465,6 +465,8 @@ class OwnerRead(BaseModel):
 
     id: uuid.UUID
     email: str
+    #: How the interface names the person; see `app.services.names`.
+    display_name: str
 
 
 class ThresholdRead(BaseModel):
@@ -492,6 +494,9 @@ class ThresholdRead(BaseModel):
     amber_hi: ExactDecimal | None
     reason: str
     recorded_by_email: str
+    #: The recorder's display name, derived from the email when they have no
+    #: employee record.
+    recorded_by_display_name: str
     recorded_at: datetime.datetime
 
 
@@ -618,6 +623,7 @@ class MetricValueRead(BaseModel):
     set_by_hand: bool
     #: None once a write has cleared all three properties: nothing is recorded.
     recorded_by_email: str | None
+    recorded_by_display_name: str | None
     recorded_at: datetime.datetime | None
 
 
@@ -707,6 +713,7 @@ class CorrectionRead(BaseModel):
     new_comment: str | None
     reason: str
     corrected_by_email: str
+    corrected_by_display_name: str
     corrected_at: datetime.datetime
 
 

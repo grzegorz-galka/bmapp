@@ -125,10 +125,12 @@ class TaskChange(_ItemFields):
 
 
 class ItemResponsible(BaseModel):
-    """The member responsible for an item, by email as everywhere in BMAPP."""
+    """The member responsible for an item, by email and by display name."""
 
     employee_id: uuid.UUID
     email: str
+    #: How the interface names the person; see `app.services.names`.
+    display_name: str
 
 
 class ItemMetric(BaseModel):

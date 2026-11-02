@@ -30,11 +30,16 @@ class CurrentUser:
     `employee` is None for someone who authenticated but has not been put on
     any team: employees are recorded on first assignment, not on first login.
     They may read everything and write nothing.
+
+    `given_name` and `family_name` are the broker's name claims, carried so
+    that reading who one is can keep them on the employee; none in dev mode.
     """
 
     email: str
     is_admin: bool
     employee: Employee | None
+    given_name: str | None = None
+    family_name: str | None = None
 
     def require_employee(self) -> Employee:
         """The employee record, or the refusal a write needs it to raise."""
@@ -73,6 +78,8 @@ def get_current_user(
         email=person.email,
         is_admin=person.email in settings.admin_emails,
         employee=employee,
+        given_name=person.given_name,
+        family_name=person.family_name,
     )
 
 

@@ -105,7 +105,7 @@ function Section({
                     ? t('meetings.noHost')
                     : meeting.host.email.toLowerCase() === viewerEmail.toLowerCase()
                       ? t('meetings.youHost')
-                      : t('meetings.host', { email: meeting.host.email })}
+                      : t('meetings.host', { name: meeting.host.display_name })}
                 </span>
               </span>
             </li>

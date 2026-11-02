@@ -44,7 +44,7 @@ The system SHALL return, with a meeting's board and to every viewer who may read
 
 ### Requirement: The readiness panel
 
-The system SHALL show, on a team's board, a readiness panel for the meeting shown when that meeting still takes values and is dated today or later. It SHALL be shown collapsed, its heading alone, unless the board was opened from the panel's own address; the viewer SHALL be able to expand and collapse it. Expanded, it SHALL list the metrics still without a number, each with its owner or "no owner", and the members who have not answered the pulse check, and state how many people owe data. Its text SHALL be in the active language.
+The system SHALL show, on a team's board, a readiness panel for the meeting shown when that meeting still takes values and is dated today or later. It SHALL be shown collapsed, its heading alone, unless the board was opened from the panel's own address; the viewer SHALL be able to expand and collapse it. Expanded, it SHALL list the metrics still without a number, each with its owner's display name or "no owner", and the members who have not answered the pulse check by display name, and state how many people owe data. Its text SHALL be in the active language.
 
 #### Scenario: The panel is collapsed by default
 
@@ -53,8 +53,8 @@ The system SHALL show, on a team's board, a readiness panel for the meeting show
 
 #### Scenario: The panel lists what is missing
 
-- **WHEN** a member expands the panel on the board of the coming meeting, at which 3 of 5 metrics have a number, one missing metric owned by anna@example.com and one with no owner, and 4 of 6 members have answered
-- **THEN** the panel lists both missing metrics, one with anna@example.com and one with "no owner", the two members who have not answered, and the number of people who owe data
+- **WHEN** a member expands the panel on the board of the coming meeting, at which 3 of 5 metrics have a number, one missing metric owned by anna.nowak@example.com and one with no owner, and 4 of 6 members have answered
+- **THEN** the panel lists both missing metrics, one with "Anna Nowak" and one with "no owner", the two members who have not answered by display name, and the number of people who owe data
 
 #### Scenario: A complete meeting says so
 

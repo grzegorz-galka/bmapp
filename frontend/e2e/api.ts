@@ -5,14 +5,10 @@
  * the same guards are crossed.
  */
 import { expect, type APIRequestContext } from '@playwright/test';
-import { devPassword } from './auth';
+import { devSignIn } from './auth';
 
 export async function apiAs(request: APIRequestContext, email: string) {
-  const login = await request.post('/api/auth/dev-login', {
-    data: { email, password: devPassword(email) },
-  });
-  expect(login.ok()).toBe(true);
-  const { access_token: token } = (await login.json()) as { access_token: string };
+  const token = await devSignIn(request, email);
   const headers = { Authorization: `Bearer ${token}` };
 
   async function call<T>(method: 'get' | 'post' | 'put', path: string, data?: unknown) {

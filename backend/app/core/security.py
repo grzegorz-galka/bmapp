@@ -35,9 +35,15 @@ DEV_TOKEN_LIFETIME = timedelta(hours=12)
 
 @dataclass(frozen=True, slots=True)
 class AuthenticatedPerson:
-    """Who a verified token says is calling, before any lookup in the database."""
+    """Who a verified token says is calling, before any lookup in the database.
+
+    `given_name` and `family_name` are the broker's optional name claims,
+    trimmed, with a blank one counting as absent. Dev tokens never carry them.
+    """
 
     email: str
+    given_name: str | None = None
+    family_name: str | None = None
 
 
 @lru_cache
@@ -107,7 +113,21 @@ def verify_token(token: str, settings: Settings | None = None) -> AuthenticatedP
     email = claims.get("email")
     if not isinstance(email, str) or not email.strip():
         raise UnauthenticatedError("The access token identifies nobody.")
-    return AuthenticatedPerson(email=email.strip().lower())
+    if settings.mode is not Mode.BROKER:
+        return AuthenticatedPerson(email=email.strip().lower())
+    return AuthenticatedPerson(
+        email=email.strip().lower(),
+        given_name=_name_claim(claims, "given_name"),
+        family_name=_name_claim(claims, "family_name"),
+    )
+
+
+def _name_claim(claims: dict[str, Any], name: str) -> str | None:
+    """An optional name claim, trimmed; absent, blank or not a string counts as none."""
+    value = claims.get(name)
+    if not isinstance(value, str):
+        return None
+    return value.strip() or None
 
 
 def issue_dev_token(email: str, settings: Settings | None = None) -> str:

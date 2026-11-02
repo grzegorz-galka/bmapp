@@ -151,7 +151,7 @@ function MeetingRow({ meeting, viewerEmail }: { meeting: DashboardMeeting; viewe
               ? t('meetingsTile.noHost')
               : meeting.host.toLowerCase() === viewerEmail.toLowerCase()
                 ? t('meetingsTile.youHost')
-                : t('meetingsTile.host', { email: meeting.host })}
+                : t('meetingsTile.host', { name: meeting.host_display_name ?? meeting.host })}
           </li>
         )}
         {meeting.recorded !== null && meeting.total !== null && (

@@ -24,9 +24,27 @@ const TEAM: TeamDetail = {
   name: 'Platform',
   board: { id: 'board-1', name: 'Platform', schedule: { weekday: 3, time: '13:00' } },
   members: [
-    { employee_id: 'emp-anna', email: LEADER_EMAIL, is_leader: true, is_deputy: false },
-    { employee_id: 'emp-bartek', email: MEMBER_EMAIL, is_leader: false, is_deputy: false },
-    { employee_id: 'emp-dora', email: DEPUTY_EMAIL, is_leader: false, is_deputy: true },
+    {
+      employee_id: 'emp-anna',
+      email: LEADER_EMAIL,
+      display_name: 'Anna',
+      is_leader: true,
+      is_deputy: false,
+    },
+    {
+      employee_id: 'emp-bartek',
+      email: MEMBER_EMAIL,
+      display_name: 'Bartek',
+      is_leader: false,
+      is_deputy: false,
+    },
+    {
+      employee_id: 'emp-dora',
+      email: DEPUTY_EMAIL,
+      display_name: 'Dora',
+      is_leader: false,
+      is_deputy: true,
+    },
   ],
 };
 
