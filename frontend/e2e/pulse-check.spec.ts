@@ -1,9 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
+import { en } from '../src/i18n/en';
 import { pl } from '../src/i18n/pl';
 import { LANGUAGE_STORAGE_KEY } from '../src/i18n/languages';
 import { organizationToday } from '../src/features/board/organizationDate';
 import { ADMIN_EMAIL, signInAs } from './auth';
-import { addDays, apiAs, uniqueSuffix } from './api';
+import { addDays, apiAs, isoWeekday, uniqueSuffix } from './api';
 
 /*
  * The pulse check at a meeting, in Polish: two of a team's three members
@@ -20,6 +21,11 @@ const caption = (rating: 1 | 2 | 3 | 4 | 5) =>
   pl.pulse.ratingOption
     .replace('{{rating}}', String(rating))
     .replace('{{word}}', pl.pulse[`rating${rating}`]);
+
+const enCaption = (rating: 1 | 2 | 3 | 4 | 5) =>
+  en.pulse.ratingOption
+    .replace('{{rating}}', String(rating))
+    .replace('{{word}}', en.pulse[`rating${rating}`]);
 
 function pulseSwitch(page: Page) {
   return page
@@ -141,4 +147,74 @@ test('members answer the pulse check in Polish and the team reads the results', 
   await expect(page.getByRole('button', { name: pl.pulse.yourAnswer })).toBeHidden();
   await expect(view.getByText(first)).toBeHidden();
   await expect(view.getByText(leader)).toBeHidden();
+});
+
+/*
+ * A member of two teams answers at one team's meeting, then copies that answer
+ * into the other team's form in the same ISO week, changes the rating and
+ * saves. Both meetings are in the current week and both take answers: the
+ * Monday one is the latest held (or today's), the Sunday one the next.
+ */
+test('a member copies this week’s answer from another team', async ({ page, request }) => {
+  const suffix = uniqueSuffix();
+  const member = `e2e.pulse.both.${suffix}@example.com`;
+  const today = organizationToday();
+  const monday = addDays(today, 1 - isoWeekday(today));
+
+  const admin = await apiAs(request, ADMIN_EMAIL);
+  const alpha = await admin.registerTeam(
+    `E2E Pulse Alpha ${suffix}`,
+    `e2e.pulse.la.${suffix}@example.com`,
+  );
+  const beta = await admin.registerTeam(
+    `E2E Pulse Beta ${suffix}`,
+    `e2e.pulse.lb.${suffix}@example.com`,
+  );
+  await admin.addMember(alpha.id, member);
+  await admin.addMember(beta.id, member);
+  const alphaMeeting = await admin.openMeeting(alpha.id, monday);
+  const betaMeeting = await admin.openMeeting(beta.id, addDays(monday, 6));
+
+  await (
+    await apiAs(request, member)
+  ).answerPulse(alpha.id, alphaMeeting.id, {
+    rating: 4,
+    positive: 'Good pairing',
+    negative: 'Late review',
+    better: 'Earlier demos',
+  });
+
+  await page.addInitScript(
+    ([key, value]) => window.localStorage.setItem(key!, value!),
+    [LANGUAGE_STORAGE_KEY, 'en'],
+  );
+  await signInAs(page, member);
+  await page.goto(`/teams/${beta.id}?meeting=${betaMeeting.id}&view=pulse&mode=answer`);
+
+  const offer = page.getByRole('region', { name: en.pulse.copyOfferLabel });
+  await expect(offer).toContainText(`E2E Pulse Alpha ${suffix}`);
+  await offer.getByRole('button', { name: en.pulse.copy }).click();
+  await expect(offer).toBeHidden();
+  await expect(page.getByRole('radio', { name: enCaption(4) })).toBeChecked();
+  await expect(page.getByLabel(en.pulse.questionPositive)).toHaveValue('Good pairing');
+
+  await page.getByRole('radio', { name: enCaption(3) }).check();
+  await page.getByRole('button', { name: en.pulse.save, exact: true }).click();
+
+  // Beta's answer is the copy with the changed rating; Alpha's is as it was.
+  const view = page.getByRole('region', { name: en.pulse.view });
+  const answerRow = () =>
+    view
+      .getByRole('region', { name: en.pulse.answersHeading, exact: true })
+      .getByRole('table')
+      .getByRole('row')
+      .filter({ hasText: member });
+  await expect(answerRow()).toContainText(enCaption(3));
+  await expect(answerRow()).toContainText('Good pairing');
+  await expect(answerRow()).toContainText('Late review');
+  await expect(answerRow()).toContainText('Earlier demos');
+
+  await page.goto(`/teams/${alpha.id}?meeting=${alphaMeeting.id}&view=pulse`);
+  await expect(answerRow()).toContainText(enCaption(4));
+  await expect(answerRow()).toContainText('Good pairing');
 });

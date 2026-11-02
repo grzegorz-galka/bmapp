@@ -1,6 +1,7 @@
 /**
  * The pulse check view on the board. One test per scenario of "The pulse check
- * view" and "The answer form" in specs/pulse-check/spec.md. Hiding names is
+ * view", "The answer form" and "The answer form offers to copy that week's
+ * answer" in specs/pulse-check/spec.md. Hiding names is
  * the board's switch now, tested in BoardPage.test.tsx.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -430,5 +431,130 @@ describe('the answer form', () => {
     fixtures.write = () => errorResponse(409, null, 'pulse_answer.meeting_frozen');
     await user.click(screen.getByRole('button', { name: en.pulse.save }));
     expect(await screen.findByText(en.errors['pulse_answer.meeting_frozen'])).toBeInTheDocument();
+  });
+});
+
+describe('the answer form offers to copy that week’s answer', () => {
+  const ALPHA_ANSWER = {
+    rating: 4,
+    positive: 'Pairing helped',
+    negative: 'Too many meetings',
+    better: 'Fewer interruptions',
+    team: { id: 'team-alpha', name: 'Alpha' },
+    meeting: { id: 'm-alpha-2026-10-12', date: '2026-10-12' },
+    updated_at: '2026-10-12T09:00:00Z',
+  } as const;
+
+  function offeredAlpha() {
+    fixtures.pulse!['m-2026-10-14'] = noPulse('m-2026-10-14', { elsewhere: ALPHA_ANSWER });
+  }
+
+  const offer = () => screen.queryByRole('region', { name: en.pulse.copyOfferLabel });
+
+  function expectEmptyForm() {
+    for (const radio of screen.getAllByRole('radio')) expect(radio).not.toBeChecked();
+    for (const question of [
+      en.pulse.questionPositive,
+      en.pulse.questionNegative,
+      en.pulse.questionBetter,
+    ]) {
+      expect(screen.getByRole('textbox', { name: question })).toHaveValue('');
+    }
+  }
+
+  it('Copying fills the form without saving', async () => {
+    offeredAlpha();
+    const user = userEvent.setup();
+    await renderBoard('?view=pulse&mode=answer');
+
+    expect(await screen.findByRole('region', { name: en.pulse.copyOfferLabel })).toHaveTextContent(
+      'You answered at the Alpha meeting on Mon, 12 Oct 2026.',
+    );
+    await user.click(screen.getByRole('button', { name: en.pulse.copy }));
+
+    expect(screen.getByRole('radio', { name: '4 – Good' })).toBeChecked();
+    expect(screen.getByRole('textbox', { name: en.pulse.questionPositive })).toHaveValue(
+      'Pairing helped',
+    );
+    expect(screen.getByRole('textbox', { name: en.pulse.questionNegative })).toHaveValue(
+      'Too many meetings',
+    );
+    expect(screen.getByRole('textbox', { name: en.pulse.questionBetter })).toHaveValue(
+      'Fewer interruptions',
+    );
+    expect(offer()).not.toBeInTheDocument();
+    expect(writesOf(fetchMock)).toEqual([]);
+  });
+
+  it('The copied answer can be changed before saving', async () => {
+    offeredAlpha();
+    fixtures.write = (_url, init) => {
+      const body = JSON.parse(String(init.body)) as PulseAnswerWrite;
+      return jsonResponse(pulseAnswer(MEMBER, body.rating, { ...body }));
+    };
+    const user = userEvent.setup();
+    await renderBoard('?view=pulse&mode=answer');
+
+    await user.click(await screen.findByRole('button', { name: en.pulse.copy }));
+    await user.click(screen.getByRole('radio', { name: '3 – Neutral' }));
+    await user.click(screen.getByRole('button', { name: en.pulse.save }));
+
+    // One write, to this meeting only: the Alpha answer is never sent.
+    const [[url, init]] = writesOf(fetchMock) as [[string, RequestInit]];
+    expect(url).toBe(`/api/teams/${TEAM_ID}/meetings/m-2026-10-14/pulse/me`);
+    expect(JSON.parse(String(init.body))).toEqual({
+      rating: 3,
+      positive: 'Pairing helped',
+      negative: 'Too many meetings',
+      better: 'Fewer interruptions',
+    });
+  });
+
+  it('Declining hides the offer', async () => {
+    offeredAlpha();
+    const user = userEvent.setup();
+    await renderBoard('?view=pulse&mode=answer');
+
+    await user.click(await screen.findByRole('button', { name: en.pulse.notNow }));
+
+    expect(offer()).not.toBeInTheDocument();
+    expectEmptyForm();
+    // Leaving the form and coming back keeps it declined while the page lives.
+    await user.click(screen.getByRole('button', { name: en.pulse.results }));
+    await user.click(screen.getByRole('button', { name: en.pulse.yourAnswer }));
+    expect(offer()).not.toBeInTheDocument();
+    // So does leaving the pulse check view for the metrics and coming back.
+    await user.click(screen.getByRole('button', { name: /^Metrics/ }));
+    await user.click(screen.getByRole('button', { name: /^Pulse check/ }));
+    await user.click(await screen.findByRole('button', { name: en.pulse.yourAnswer }));
+    expect(offer()).not.toBeInTheDocument();
+    expect(writesOf(fetchMock)).toEqual([]);
+
+    cleanup();
+    await renderBoard('?view=pulse&mode=answer');
+    expect(
+      await screen.findByRole('region', { name: en.pulse.copyOfferLabel }),
+    ).toBeInTheDocument();
+  });
+
+  it('No offer without an answer elsewhere', async () => {
+    fixtures.pulse!['m-2026-10-14'] = noPulse('m-2026-10-14');
+    await renderBoard('?view=pulse&mode=answer');
+
+    await screen.findByRole('heading', { name: /Your answer for the meeting on/ });
+    expect(offer()).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: en.pulse.copy })).not.toBeInTheDocument();
+  });
+
+  it('The offer is in the active language', async () => {
+    offeredAlpha();
+    await renderBoard('?view=pulse&mode=answer', 'pl');
+
+    const region = await screen.findByRole('region', { name: pl.pulse.copyOfferLabel });
+    expect(region).toHaveTextContent(
+      'Masz już odpowiedź na spotkanie zespołu Alpha pon., 12 paź 2026. Skopiować ją tutaj?',
+    );
+    expect(within(region).getByRole('button', { name: pl.pulse.copy })).toBeInTheDocument();
+    expect(within(region).getByRole('button', { name: pl.pulse.notNow })).toBeInTheDocument();
   });
 });

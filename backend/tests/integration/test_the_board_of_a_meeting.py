@@ -122,6 +122,75 @@ def test_no_number_at_the_previous_meeting(
     assert (entry["previous"], entry["change"], entry["improvement"]) == (None, None, None)
 
 
+def _held_on(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, weeks: list[int], values: list[str | None]
+) -> tuple[str, str, list[str]]:
+    """Meetings `weeks` after 1.7.2026, each recording its value; returns team, metric, meetings."""
+    team = register(client)
+    metric = add_metric(client, team["id"], direction="lower_is_better")
+    start = datetime.date(2026, 7, 1)
+    meetings = []
+    for week, value in zip(weeks, values, strict=True):
+        day = start + datetime.timedelta(weeks=week)
+        meeting = open_meeting(client, team["id"], day.isoformat())
+        if value is not None:
+            freeze_today(monkeypatch, day)
+            record(client, team["id"], meeting["id"], metric["id"], value=value)
+        meetings.append(meeting["id"])
+    return team["id"], metric["id"], meetings
+
+
+def test_the_change_since_four_meetings_earlier(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scenario: The change since four meetings earlier."""
+    team_id, metric_id, meetings = _held_on(
+        client, monkeypatch, [0, 1, 2, 3, 4], ["9", "8", "8", "7", "6"]
+    )
+
+    entry = tile(board_of(client, team_id, meetings[-1]), metric_id)
+
+    assert (entry["previous_4"], entry["change_4"], entry["improvement_4"]) == ("9", "-3", True)
+
+
+def test_four_meetings_earlier_counts_meetings_not_weeks(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scenario: Four meetings earlier counts meetings, not weeks."""
+    # Weeks 1 and 5 were skipped: four weeks before week 6 is week 2, but
+    # the fourth meeting before it is week 0.
+    team_id, metric_id, meetings = _held_on(
+        client, monkeypatch, [0, 2, 3, 4, 6], ["10", "20", "30", "40", "50"]
+    )
+
+    entry = tile(board_of(client, team_id, meetings[-1]), metric_id)
+
+    assert (entry["previous_4"], entry["change_4"]) == ("10", "40")
+
+
+@pytest.mark.parametrize(
+    ("weeks", "values"),
+    [
+        ([0, 1, 2, 3], ["9", "8", "7", "6"]),
+        ([0, 1, 2, 3, 4], [None, "8", "8", "7", "6"]),
+    ],
+    ids=["three earlier meetings", "no number four meetings earlier"],
+)
+def test_fewer_than_four_earlier_meetings(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    weeks: list[int],
+    values: list[str | None],
+) -> None:
+    """Scenario: Fewer than four earlier meetings."""
+    team_id, metric_id, meetings = _held_on(client, monkeypatch, weeks, values)
+
+    entry = tile(board_of(client, team_id, meetings[-1]), metric_id)
+
+    assert (entry["previous_4"], entry["change_4"], entry["improvement_4"]) == (None, None, None)
+    assert entry["change"] == "-1"
+
+
 def test_retired_metrics_are_left_off(
     client: TestClient, two_meetings: tuple[str, str, str]
 ) -> None:

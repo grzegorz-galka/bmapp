@@ -53,7 +53,7 @@ board. BMAPP provides that board online and lets a team:
 Glossary (use these exact terms in code, UI and tests):
 
 - **Dashboard** (*Pulpit*) — the landing page at `/`: the company declarations,
-  the viewer's teams and the countdown to their next meeting, their board
+  the viewer's teams and their next meetings, their board
   meetings with the actions to prepare data, fill the pulse check and start
   one, and their teams' problems and tasks with those assigned to them. Not a
   board; the way in to them. It was called the hub until
@@ -265,9 +265,8 @@ board's address opens the recording view (`?meeting=…&mode=record`), the pulse
 answer form (`?meeting=…&view=pulse&mode=answer`) and a list (`#problems`,
 `#tasks`) directly. The My teams and My board meetings tiles show at most three
 rows, soonest first, and a "More…" link to `/my-teams` or `/my-meetings` when
-there are more. On My teams a team's name leads to its members, its next
-meeting (or "No next meeting") to its meetings, and only the nearest row
-carries the countdown.
+there are more. On My teams a team's name leads to its members and its next
+meeting (or "No next meeting") to its meetings; no row carries a countdown.
 
 `authentication` and `authorization` are implemented too: every endpoint needs a
 verified token, the dashboard reports the caller rather than a placeholder, and writes
@@ -283,7 +282,11 @@ next meeting on the board at `/teams/:teamId`, which shows a meeting's tiles,
 sparklines and each metric's trend. Older meetings are frozen; an administrator
 corrects a frozen value with a reason, and the correction is logged. Numbers
 are exact decimals (`NUMERIC(21, 6)`) and travel as strings. A meeting with
-values can no longer be deleted or moved to another date.
+values can no longer be deleted or moved to another date. A tile carries a
+badge filled with its status colour (grey without a number or a threshold)
+naming the target, the threshold definition in a tooltip over it on hover and
+focus, and two change indicators: since the previous meeting and since four
+meetings earlier, counted in meetings, not weeks.
 
 Global metrics and copying are implemented too: administrators keep the
 catalogue of global metrics at `/global-metrics`, and a leader includes them in
@@ -322,9 +325,12 @@ meeting (`PUT …/meetings/:meetingId/pulse/me`, only ever one's own answer), an
 the board at `/teams/:teamId?view=pulse` shows the meeting's results laid out as
 in the legacy board - answers received, the average on a gauge, the
 distribution, the trend and the answers table. A meeting with answers can no
-longer be deleted. "Hide names" is board state, not the pulse view's: it holds
-across the board's views and meetings until the page is left, is never
-remembered or put in the address, and hides every person the board names.
+longer be deleted. A member with no answer yet who answered at another team's
+meeting in the same ISO week is offered to copy it (`elsewhere` on the
+results); copying fills the form and never saves. "Hide names" is board state,
+not the pulse view's: it holds across the board's views and meetings until the
+page is left, is never remembered or put in the address, and hides every
+person the board names. A declined copy offer is board state the same way.
 
 `meeting-readiness` is implemented: for a meeting that takes values and is
 dated today or later, the board's metrics view shows a readiness panel,

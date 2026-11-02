@@ -112,13 +112,44 @@ class PulseMissingMember(BaseModel):
     email: str
 
 
+class PulseElsewhereTeam(BaseModel):
+    """The team at whose meeting the viewer answered elsewhere that week."""
+
+    id: uuid.UUID
+    name: str
+
+
+class PulseElsewhereMeeting(BaseModel):
+    """That team's meeting, on the organization's clock."""
+
+    id: uuid.UUID
+    date: datetime.date
+
+
+class PulseElsewhere(BaseModel):
+    """The viewer's own answer at another team's meeting in the same ISO week.
+
+    Offered so a member of several teams can copy it into the form; never
+    anyone else's answer.
+    """
+
+    rating: int
+    positive: str
+    negative: str
+    better: str
+    team: PulseElsewhereTeam
+    meeting: PulseElsewhereMeeting
+    updated_at: datetime.datetime
+
+
 class PulseResults(BaseModel):
     """The pulse check of one meeting, computed when read.
 
     `answers`, `missing` and `own` are null - not empty - when the viewer may
     not read names, so a client can tell "you may not see this" from "nobody
     answered". `missing_count` is always present for the card shown without
-    names.
+    names. `elsewhere` is the viewer's own answer at another team's meeting
+    that ISO week, only for a member with no answer here.
     """
 
     meeting_id: uuid.UUID
@@ -137,3 +168,4 @@ class PulseResults(BaseModel):
     missing: list[PulseMissingMember] | None
     missing_count: int
     own: PulseAnswerRead | None
+    elsewhere: PulseElsewhere | None

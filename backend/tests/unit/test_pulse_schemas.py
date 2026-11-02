@@ -102,6 +102,7 @@ def test_results_write_averages_with_two_decimal_places() -> None:
         missing=None,
         missing_count=4,
         own=None,
+        elsewhere=None,
     )
 
     written = results.model_dump(mode="json")

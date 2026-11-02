@@ -1,6 +1,5 @@
 /**
- * The dashboard: the declarations, the viewer's teams and countdown, the
- * pictograms, and what it does when the summary does not arrive. The meeting
+ * The dashboard: the declarations, the viewer's teams, the pictograms, and what it does when the summary does not arrive. The meeting
  * rows and the problems and tasks tile have their own test files.
  * See specs/dashboard/spec.md.
  */
@@ -12,6 +11,7 @@ import { AddressProbe } from '../../test/AddressProbe';
 import { changeLanguage } from '../../i18n';
 import { en } from '../../i18n/en';
 import { pl } from '../../i18n/pl';
+import { formatDateTime } from '../../i18n/format';
 import { AppHeader } from '../../components/AppHeader';
 import { DashboardPage } from './DashboardPage';
 import { dashboardSummary, LATER_TEAMS, NOW, TODAYS_MEETING } from './dashboardFixture';
@@ -24,8 +24,8 @@ function respondWith(body: unknown) {
 }
 
 beforeEach(() => {
-  // shouldAdvanceTime keeps Testing Library's own waiting working while the
-  // countdown's interval stays under the test's control.
+  // A fixed clock decides "today" and the order of the meetings;
+  // shouldAdvanceTime keeps Testing Library's own waiting working.
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(NOW);
   vi.stubGlobal('fetch', fetchMock);
@@ -308,7 +308,6 @@ describe('the teams', () => {
 
     expect(infrastructure).toHaveTextContent('Infrastructure');
     expect(infrastructure).toHaveTextContent(en.myTeams.noSchedule);
-    expect(within(infrastructure).queryByRole('timer')).not.toBeInTheDocument();
 
     await userEvent.click(
       within(infrastructure).getByRole('link', { name: en.myTeams.noNextMeeting }),
@@ -325,55 +324,24 @@ describe('the teams', () => {
     const panel = screen.getByRole('region', { name: pl.myTeams.heading });
 
     expect(within(panel).getByText(pl.myTeams.noTeams)).toBeInTheDocument();
-    expect(screen.queryByRole('timer')).not.toBeInTheDocument();
 
     await changeLanguage('en');
   });
 });
 
-describe('the countdown', () => {
-  it('The countdown counts down to the nearest meeting', async () => {
+describe('the nearest meeting', () => {
+  it('The nearest meeting has no countdown', async () => {
     await renderDashboard();
-    const panel = within(teamsPanel());
-    const timer = panel.getByRole('timer', { name: en.myTeams.countdownLabel });
+    const nearest = teamRows()[0]!;
 
-    // 2026-09-17T12:00Z to 13:30Z is 0 days, 1 hour, 30 minutes. Asserted as
-    // 29: the clock has moved on a few milliseconds by the time it renders.
-    expect(timer).toHaveTextContent(/00.*01.*29/);
-    // On the nearest team's own row, beside its date and time, and only there.
-    expect(teamRows()[0]).toContainElement(timer);
-    expect(teamRows()[0]).toHaveTextContent('Platform Core');
-    expect(timer.parentElement).toHaveTextContent(/17 Sept?/);
-    expect(panel.getAllByRole('timer')).toHaveLength(1);
-  });
-
-  it('The countdown advances while the page is open', async () => {
-    await renderDashboard();
-    const timer = screen.getByRole('timer', { name: en.myTeams.countdownLabel });
-    const before = timer.textContent;
-
-    await vi.advanceTimersByTimeAsync(60_000);
-
-    expect(timer.textContent).not.toBe(before);
-  });
-
-  it('A meeting that has started reads zero', async () => {
-    respondWith(
-      dashboardSummary({
-        teams: [
-          {
-            ...summary.teams[0]!,
-            next_meeting_at: new Date(NOW.getTime() - 3_600_000).toISOString(),
-          },
-        ],
+    expect(nearest).toHaveTextContent('Platform Core');
+    // Its date and start time, as the row's link to its meetings, and nothing ticking.
+    expect(
+      within(nearest).getByRole('link', {
+        name: formatDateTime(summary.teams[0]!.next_meeting_at!, 'en', ''),
       }),
-    );
-
-    await renderDashboard();
-    const timer = screen.getByRole('timer', { name: en.myTeams.countdownLabel });
-
-    expect(timer).toHaveTextContent(/00.*00.*00/);
-    expect(timer.textContent).not.toContain('-');
+    ).toBeInTheDocument();
+    expect(within(teamsPanel()).queryByRole('timer')).not.toBeInTheDocument();
   });
 });
 

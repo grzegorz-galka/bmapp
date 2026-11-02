@@ -153,3 +153,7 @@ def test_the_results_take_a_fixed_number_of_statements(
     # The caller's employee lookup and membership, then the meeting, its
     # team's meeting dates, its answers, the team's members and the trend.
     assert one == sixteen == 7
+
+    # A member with no answer here costs one more: their answer elsewhere that week.
+    unanswered = open_meeting(client, big["id"], "2026-12-23")["id"]
+    assert _statements(session, lambda: results_of(viewer, big["id"], unanswered)) == 8

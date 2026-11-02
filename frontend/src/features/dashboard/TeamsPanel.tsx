@@ -5,21 +5,18 @@ import { useFormat } from '../../i18n/format';
 import { ArrowRightIcon, PeopleIcon } from '../../components/icons';
 import { useHere } from '../../components/origin';
 import controls from '../../styles/controls.module.css';
-import { Countdown } from './Countdown';
 import { TILE_LIMIT } from './tileLimit';
 import styles from './TeamsPanel.module.css';
 
 /**
- * The viewer's first few teams, soonest next meeting first, with a countdown
- * on the nearest one's row. The order is the server's; a team with no next
- * meeting comes last there, so the first row that has one is the nearest.
+ * The viewer's first few teams, soonest next meeting first. The order is the
+ * server's; a team with no next meeting comes last there.
  */
 export function TeamsPanel({ teams }: { teams: DashboardTeam[] }) {
   const { t } = useTranslation();
   const format = useFormat();
   const here = useHere('dashboard');
   const shown = teams.slice(0, TILE_LIMIT);
-  const nearest = shown.find((team) => team.next_meeting_at !== null);
 
   return (
     <section className={styles.panel} aria-labelledby="my-teams-heading">
@@ -67,9 +64,6 @@ export function TeamsPanel({ teams }: { teams: DashboardTeam[] }) {
                     ? format.dateTime(team.next_meeting_at)
                     : t('myTeams.noNextMeeting')}
                 </Link>
-                {team === nearest && team.next_meeting_at && (
-                  <Countdown until={team.next_meeting_at} />
-                )}
               </div>
             </li>
           ))}

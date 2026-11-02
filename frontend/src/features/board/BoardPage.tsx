@@ -11,7 +11,7 @@ import { useHere } from '../../components/origin';
 import { useAuth } from '../auth/AuthProvider';
 import { useIsAdmin } from '../auth/useCurrentUser';
 import { useMeetings } from '../meetings/useMeetings';
-import { describeThreshold, GlobalMark, StatusBadge } from '../metrics/display';
+import { GlobalMark } from '../metrics/display';
 import { useMetrics } from '../metrics/useMetrics';
 import { teamAuthority } from '../teams/teamAuthority';
 import { useTeam } from '../teams/useTeams';
@@ -20,6 +20,7 @@ import { organizationToday } from './organizationDate';
 import { ReadinessPanel, showsReadiness } from './ReadinessPanel';
 import { RecordingView, type RecordingMode } from './RecordingView';
 import { Sparkline } from './Sparkline';
+import { ChangeIndicator, TileBadge } from './TileMarks';
 import { useBoard } from './useBoard';
 import { PulseView } from './pulse/PulseView';
 import { usePulse } from './pulse/usePulse';
@@ -69,6 +70,13 @@ export function BoardPage() {
   // About the screen right now: kept while the board stays open, across its
   // views and meetings, and never in the address or in storage (D6).
   const [hideNames, setHideNames] = useState(false);
+  // The meetings whose pulse copy offer was declined: board state for the same
+  // reason, so leaving the pulse view or the meeting does not bring it back.
+  const [declined, setDeclined] = useState<ReadonlySet<string>>(() => new Set());
+  const decline = useCallback(
+    (meetingId: string) => setDeclined((before) => new Set(before).add(meetingId)),
+    [],
+  );
 
   const all = meetings.data?.meetings ?? [];
   const shown =
@@ -317,6 +325,8 @@ export function BoardPage() {
               answering={mode === 'answer'}
               onAnswering={(answering) => setMode(shown, answering ? 'answer' : null)}
               hideNames={hideNames}
+              declined={declined}
+              onDecline={decline}
             />
           ) : view === 'archived' ? (
             <ArchivedView teamId={teamId} hideNames={hideNames} />
@@ -501,26 +511,30 @@ function Tile({
   const { metric } = entry;
   const show = (value: string | null) => format.metricValue(value, metric.decimals, metric.unit);
 
-  let change = t('board.noChange');
-  if (entry.change !== null) {
-    const signed = entry.change.startsWith('-') ? show(entry.change) : `+${show(entry.change)}`;
-    const verdict =
-      entry.improvement === null
-        ? ''
-        : ` · ${t(entry.improvement ? 'board.better' : 'board.worse')}`;
-    change = `${t('board.change', { change: signed })}${verdict}`;
-  }
-
   return (
     <li className={styles.tile} data-status={entry.status}>
-      <h3 className={styles.tileName}>{metric.name}</h3>
-      {metric.scope === 'global' && <GlobalMark />}
+      <div className={styles.tileHead}>
+        <div className={styles.tileTitle}>
+          <h3 className={styles.tileName}>{metric.name}</h3>
+          {metric.scope === 'global' && <GlobalMark />}
+        </div>
+        <TileBadge entry={entry} />
+      </div>
       <p className={styles.tileValue}>{show(entry.value)}</p>
-      <StatusBadge status={entry.status} setByHand={entry.set_by_hand} />
-      <p className={styles.tileMeta} data-improvement={String(entry.improvement)}>
-        {change}
+      <p className={styles.indicators}>
+        <ChangeIndicator
+          change={entry.change}
+          improvement={entry.improvement}
+          since="previous"
+          metric={metric}
+        />
+        <ChangeIndicator
+          change={entry.change_4}
+          improvement={entry.improvement_4}
+          since="four"
+          metric={metric}
+        />
       </p>
-      <p className={styles.tileMeta}>{describeThreshold(t, format, metric, entry.threshold)}</p>
       {entry.comment && <p className={styles.tileComment}>{entry.comment}</p>}
       <Sparkline name={metric.name} points={entry.sparkline} />
       <button

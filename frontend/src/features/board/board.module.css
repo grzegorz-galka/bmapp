@@ -124,9 +124,116 @@
   letter-spacing: -0.02em;
 }
 
-.tileMeta {
+/* The name on the left, the status badge in the top-right corner. */
+.tileHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  align-self: stretch;
+}
+
+.tileTitle {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+/*
+ * The badge is filled with the status colour, grey with no number or no
+ * threshold, and names the target; the status itself is in its accessible
+ * name and its tooltip, never in the colour alone.
+ */
+.badgeWrap {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.badge {
+  padding: 2px var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--status-none);
+  color: var(--on-status);
+  font: 600 var(--fs-xs) var(--font-mono);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.badge[data-status='green'] {
+  background: var(--status-green);
+}
+
+.badge[data-status='amber'] {
+  background: var(--status-amber);
+}
+
+.badge[data-status='red'] {
+  background: var(--status-red);
+}
+
+.byHandMark {
+  color: var(--ink-2);
+}
+
+.tooltip {
+  position: absolute;
+  top: calc(100% + var(--sp-1));
+  right: 0;
+  z-index: 10;
+  width: max-content;
+  max-width: min(18rem, 80vw);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  box-shadow: var(--shadow);
+}
+
+.tooltip[hidden] {
+  display: none;
+}
+
+.tooltipStatus {
+  display: block;
+  font-weight: 600;
+}
+
+/* The change since the previous meeting and since four meetings earlier. */
+.indicators {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-4);
   margin: 0;
   font-size: var(--fs-sm);
+}
+
+.indicator {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  color: var(--ink-2);
+}
+
+.indicator[data-improvement='true'] {
+  color: var(--good);
+}
+
+.indicator[data-improvement='false'] {
+  color: var(--bad);
+}
+
+.indicatorValue {
+  font-family: var(--font-mono);
+}
+
+.indicatorCaption {
   color: var(--ink-2);
 }
 

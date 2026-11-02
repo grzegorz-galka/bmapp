@@ -38,7 +38,7 @@ export function TeamMeetingsPage() {
   const team = useTeam(teamId);
   const meetings = useMeetings(teamId);
   // Upcoming and past split at the moment the page was opened, by the
-  // instant each meeting starts - read once, as the dashboard's countdown does.
+  // instant each meeting starts - read once, not re-read while the page is open.
   const [now] = useState(() => Date.now());
   const here = useHere('meetings');
   // Lifted here so that the planning form can open the schedule's fields

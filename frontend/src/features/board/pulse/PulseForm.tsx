@@ -4,6 +4,7 @@ import {
   PULSE_RATINGS,
   type PulseAnswerRead,
   type PulseAnswerWrite,
+  type PulseElsewhere,
   type PulseRating,
 } from '../../../api/pulse';
 import { describeFieldFailure, describeOtherFailure } from '../../../i18n/apiErrors';
@@ -25,18 +26,29 @@ type Text = (typeof TEXTS)[number][0];
 /**
  * The viewer's own answer at one meeting: the rating as five labelled options
  * and three optional texts, filled with the answer they already gave.
+ *
+ * With no answer here but one at another team's meeting that week, the form
+ * offers to copy it. Copying only fills the fields; nothing is written until
+ * Save. "Not now" is reported up, so the view keeps the offer hidden while the
+ * page lives even when the form is left and opened again.
  */
 export function PulseForm({
   teamId,
   meetingId,
   meetingDate,
   own,
+  elsewhere,
+  offerDeclined,
+  onDeclineOffer,
   onSaved,
 }: {
   teamId: string;
   meetingId: string;
   meetingDate: string;
   own: PulseAnswerRead | null;
+  elsewhere: PulseElsewhere | null;
+  offerDeclined: boolean;
+  onDeclineOffer: () => void;
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
@@ -49,6 +61,15 @@ export function PulseForm({
     better: own?.better ?? '',
   });
   const [unrated, setUnrated] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const offer = own === null && !offerDeclined && !copied ? elsewhere : null;
+
+  function copyFrom(from: PulseElsewhere) {
+    setRating(from.rating);
+    setTexts({ positive: from.positive, negative: from.negative, better: from.better });
+    setUnrated(false);
+    setCopied(true);
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,6 +92,24 @@ export function PulseForm({
         {t('pulse.formHeading', { date: format.meetingDate(meetingDate) })}
       </h2>
       <form onSubmit={submit} noValidate className={styles.formFields}>
+        {offer && (
+          <section className={styles.offer} aria-label={t('pulse.copyOfferLabel')}>
+            <p className={styles.offerText}>
+              {t('pulse.copyOffer', {
+                team: offer.team.name,
+                date: format.meetingDate(offer.meeting.date),
+              })}
+            </p>
+            <p className={styles.actions}>
+              <button type="button" className={controls.button} onClick={() => copyFrom(offer)}>
+                {t('pulse.copy')}
+              </button>
+              <button type="button" className={controls.button} onClick={onDeclineOffer}>
+                {t('pulse.notNow')}
+              </button>
+            </p>
+          </section>
+        )}
         <fieldset
           className={styles.ratings}
           aria-describedby={ratingError ? 'pulse-rating-error' : undefined}

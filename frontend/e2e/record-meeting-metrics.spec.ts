@@ -7,15 +7,17 @@ import { addDays, apiAs, uniqueSuffix } from './api';
 
 /*
  * Recording at a meeting, in Polish: a member types values in the Polish
- * format, sees each one's colour and its change since the last meeting, and
- * sets a status by hand with a comment. A metric hidden on the board is
+ * format, sees each one's badge with its target and its two changes - since
+ * the previous meeting and since four meetings earlier - and sets a status by
+ * hand with a comment. A metric hidden on the board is
  * recorded and counted like any other, but has no tile. An older meeting is
  * read-only. Along
  * the way, the board's layout: the navigator on one line, the wider problems
  * and tasks column, and the metric detail clear of the sticky header.
  *
- * The meetings are placed around today, since the editing window is: two
- * weeks ago (frozen), last week (the latest held) and in three days (next).
+ * The meetings are placed around today, since the editing window is: four,
+ * three and two weeks ago (frozen), last week (the latest held) and in three
+ * days (next), so the next meeting has four meetings before it.
  */
 
 test('a member records values in Polish and sees them judged', async ({ page, request }) => {
@@ -27,6 +29,8 @@ test('a member records values in Polish and sees them judged', async ({ page, re
   const admin = await apiAs(request, ADMIN_EMAIL);
   const team = await admin.registerTeam(`E2E Recording ${suffix}`, leader);
   await admin.addMember(team.id, member);
+  const fourBack = await admin.openMeeting(team.id, addDays(today, -28));
+  await admin.openMeeting(team.id, addDays(today, -21));
   const older = await admin.openMeeting(team.id, addDays(today, -14));
   const held = await admin.openMeeting(team.id, addDays(today, -7));
   await admin.openMeeting(team.id, addDays(today, 3));
@@ -71,6 +75,7 @@ test('a member records values in Polish and sees them judged', async ({ page, re
   });
   await admin.recordValue(team.id, held.id, revenue.id, '85');
   await admin.recordValue(team.id, older.id, revenue.id, '80', 'History from the old tool');
+  await admin.recordValue(team.id, fourBack.id, revenue.id, '97', 'History from the old tool');
 
   await page.addInitScript(
     ([key, value]) => window.localStorage.setItem(key!, value!),
@@ -120,14 +125,31 @@ test('a member records values in Polish and sees them judged', async ({ page, re
   expect(overflow).toBeLessThanOrEqual(0);
   await page.setViewportSize({ width: 1280, height: 900 });
 
-  // Back on the board: the colours, the change, and the colour set by hand.
+  // Back on the board: the badges, the two changes, and the colour set by hand.
   await page.getByRole('button', { name: pl.board.showTiles }).click();
   const tile = (name: string) =>
     page.getByRole('listitem').filter({ has: page.getByRole('heading', { name }) });
+  const badge = (name: string) => tile(name).locator('[role="img"][tabindex="0"]');
   await expect(tile('Przychód')).toContainText('95,3 %');
-  await expect(tile('Przychód')).toContainText(pl.status.green);
-  await expect(tile('Przychód')).toContainText('+10,3 % od ostatniego spotkania · lepiej');
-  await expect(tile('Otwarte błędy')).toContainText(`${pl.status.red}${pl.status.setByHand}`);
+  await expect(badge('Przychód')).toHaveText('Cel: 100,0 %');
+  await expect(badge('Przychód')).toHaveAccessibleName(`${pl.status.green}. Cel: 100,0 %`);
+  // Since last week's 85: up 10,3, better. Since 97 four meetings back: down 1,7, worse.
+  await expect(
+    tile('Przychód').getByRole('img', {
+      name: 'Od poprzedniego spotkania: +10,3 %, lepiej',
+    }),
+  ).toBeVisible();
+  await expect(
+    tile('Przychód').getByRole('img', {
+      name: 'Od czwartego spotkania wstecz: −1,7 %, gorzej',
+    }),
+  ).toBeVisible();
+  // The threshold itself is shown over the badge, on hover.
+  await badge('Przychód').hover();
+  await expect(tile('Przychód').getByRole('tooltip')).toContainText('Wartość docelowa 100,0');
+  await expect(badge('Otwarte błędy')).toHaveAccessibleName(
+    `${pl.status.red}. Kolor ustawiony ręcznie. Cel: ≤\u00a05\u00a0szt.`,
+  );
   await expect(tile('Otwarte błędy')).toContainText('Krytyczny błąd');
 
   // The hidden metric has no tile, yet it was recorded.
@@ -264,5 +286,7 @@ test('a member derives a mean from two recorded values', async ({ page, request 
     .getByRole('listitem')
     .filter({ has: page.getByRole('heading', { name: 'OTIF E', exact: true }) });
   await expect(tile).toContainText('93,5 %');
-  await expect(tile).toContainText(pl.status.amber);
+  await expect(tile.locator('[role="img"][tabindex="0"]')).toHaveAccessibleName(
+    new RegExp(`^${pl.status.amber}\\. `),
+  );
 });

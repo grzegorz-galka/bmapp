@@ -51,6 +51,39 @@ export function describeThreshold(
   );
 }
 
+/**
+ * The short target a tile's badge names: "Target: 72.3 %" from a version's
+ * target value, or for a version without one its green boundary on the
+ * metric's side - "Target: ≤ 5", "Target: 90–110". No version reads
+ * "No threshold". The full definition is `describeThreshold`.
+ */
+export function describeTarget(
+  t: TFunction,
+  format: Format,
+  metric: Formatted,
+  threshold: Readable | null,
+): string {
+  if (!threshold) return t('threshold.none');
+  const number = (value: string | null) =>
+    value === null ? '—' : format.exactDecimal(value, metric.decimals);
+  const unit = metric.unit ? `\u00a0${metric.unit}` : '';
+  let target: string;
+  // A target value of 0 takes absolute boundaries, so those are its target.
+  if (threshold.target_value != null && Number(threshold.target_value) !== 0) {
+    target = number(threshold.target_value);
+  } else if (metric.direction === 'higher_is_better') {
+    target = t('threshold.atLeast', { value: number(threshold.green_lo) });
+  } else if (metric.direction === 'lower_is_better') {
+    target = t('threshold.atMost', { value: number(threshold.green_hi) });
+  } else {
+    target = t('threshold.band', {
+      lo: number(threshold.green_lo),
+      hi: number(threshold.green_hi),
+    });
+  }
+  return t('tile.target', { target: `${target}${unit}` });
+}
+
 /** Boundaries in the metric's terms, each number written by `show`. */
 export function describeBounds(
   t: TFunction,

@@ -206,6 +206,22 @@
   flex: none;
 }
 
+/* The offer to copy this week's answer from another team: a quiet panel
+   above the questions, not an alert. */
+.offer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+}
+
+.offerText {
+  margin: 0;
+}
+
 .ratings {
   display: flex;
   flex-direction: column;

@@ -645,6 +645,10 @@ class BoardMetric(BaseModel):
     change: ExactDecimal | None
     #: True or False for a one-sided metric; None for a band, or with no change.
     improvement: bool | None
+    #: The number at the team's meeting four meetings before this one, if it has one.
+    previous_4: ExactDecimal | None
+    change_4: ExactDecimal | None
+    improvement_4: bool | None
     sparkline: list[SparklinePoint]
 
 

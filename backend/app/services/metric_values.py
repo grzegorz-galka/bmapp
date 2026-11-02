@@ -75,6 +75,9 @@ logger = logging.getLogger(__name__)
 
 #: How many of the team's meetings, up to the one shown, a tile's sparkline spans.
 SPARKLINE_LENGTH = 12
+#: How many meetings back the tile's second change indicator compares to.
+#: It must stay inside the sparkline's window, whose values are already loaded.
+COMPARE_BACK = 4
 
 
 @dataclass(frozen=True, slots=True)
@@ -200,6 +203,9 @@ def build_board(
     position = next(i for i, m in enumerate(meetings) if m.id == meeting_id)
     window = meetings[max(0, position - SPARKLINE_LENGTH + 1) : position + 1]
     previous = meetings[position - 1] if position > 0 else None
+    # By position, like `previous`: the trend runs along the meetings held,
+    # so a skipped week does not shift the comparison onto a calendar date.
+    four_back = meetings[position - COMPARE_BACK] if position >= COMPARE_BACK else None
 
     placements = list(
         session.scalars(
@@ -229,9 +235,10 @@ def build_board(
         before = values.get((metric.id, previous.id)) if previous else None
         number = entry.value if entry else None
         previous_number = before.value if before else None
-        change = (
-            number - previous_number if number is not None and previous_number is not None else None
-        )
+        change = _change(number, previous_number)
+        earlier = values.get((metric.id, four_back.id)) if four_back else None
+        number_4 = earlier.value if earlier else None
+        change_4 = _change(number, number_4)
         if number is None:
             missing.append(
                 MissingMetric(metric_id=metric.id, name=metric.name, owner=_owner(placement))
@@ -248,6 +255,9 @@ def build_board(
                 previous=previous_number,
                 change=change,
                 improvement=_improvement(metric.direction, change),
+                previous_4=number_4,
+                change_4=change_4,
+                improvement_4=_improvement(metric.direction, change_4),
                 sparkline=[
                     _sparkline_point(metric, m, values.get((metric.id, m.id)), versions[metric.id])
                     for m in window
@@ -579,6 +589,11 @@ def _sparkline_point(
         value=entry.value if entry else None,
         status=_status(metric, entry, threshold_in_force(versions, meeting.date)),
     )
+
+
+def _change(number: Decimal | None, earlier: Decimal | None) -> Decimal | None:
+    """The difference since an earlier number, or None when either is missing."""
+    return number - earlier if number is not None and earlier is not None else None
 
 
 def _improvement(direction: Direction, change: Decimal | None) -> bool | None:
