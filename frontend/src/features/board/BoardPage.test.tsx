@@ -259,6 +259,71 @@ describe('the board page', () => {
     expect(screen.queryByRole('heading', { name: 'Delivery' })).not.toBeInTheDocument();
   });
 
+  it('a hidden metric has no tile', async () => {
+    // Scenario: A hidden metric has no tile.
+    const headcount = { id: 'g-headcount', name: 'Headcount', position: 0 };
+    fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
+      // The switch's count is the server's, and counts the hidden metric too.
+      completeness: { recorded: 2, total: 2, missing: [], owing: 0 },
+      metrics: [
+        tile({
+          metric: definition({
+            id: 'metric-zatrudnienie',
+            name: 'Zatrudnienie',
+            group: headcount,
+            position: 0,
+            hidden: true,
+          }),
+          value: '412',
+        }),
+        tile({
+          metric: definition({
+            id: 'metric-zatrudnienie-delta',
+            name: 'Zatrudnienie delta',
+            group: headcount,
+            position: 1,
+          }),
+          value: '3',
+        }),
+      ],
+    });
+    await renderBoard();
+
+    const section = await screen.findByRole('region', { name: 'Headcount' });
+    expect(
+      within(section)
+        .getAllByRole('heading', { level: 3 })
+        .map((heading) => heading.textContent),
+    ).toEqual(['Zatrudnienie delta']);
+    expect(screen.queryByRole('heading', { name: 'Zatrudnienie' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Metrics 2/2' })).toBeInTheDocument();
+  });
+
+  it('a group of hidden metrics is left out', async () => {
+    // Scenario: A group of hidden metrics is left out.
+    const base = { id: 'g-base', name: 'Base values', position: 1 };
+    fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
+      metrics: [
+        tile(),
+        tile({
+          metric: definition({
+            id: 'metric-base',
+            name: 'Headcount base',
+            group: base,
+            position: 0,
+            hidden: true,
+          }),
+        }),
+      ],
+    });
+    await renderBoard();
+
+    await screen.findByRole('region', { name: 'Finance' });
+    expect(screen.queryByRole('region', { name: 'Base values' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Base values' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Headcount base' })).not.toBeInTheDocument();
+  });
+
   it('moves between meetings and remembers which one in the address', async () => {
     const user = userEvent.setup();
     await renderBoard();

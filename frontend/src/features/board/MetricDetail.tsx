@@ -11,11 +11,15 @@ import { StatusDot } from './Sparkline';
 import controls from '../../styles/controls.module.css';
 import styles from './board.module.css';
 
-/** One meeting as the chart plots it: the number, and each boundary in force then. */
+/**
+ * One meeting as the chart plots it: the number, each boundary in force then,
+ * and the target value in force then, where that version has one.
+ */
 export interface TrendRow {
   date: string;
   value: number | null;
   status: Status;
+  target: number | null;
   greenLo: number | null;
   greenHi: number | null;
   amberLo: number | null;
@@ -34,6 +38,7 @@ export function trendRows(points: TrendPoint[]): TrendRow[] {
     date: point.date,
     value: plot(point.value),
     status: point.status,
+    target: plot(point.threshold?.target_value),
     greenLo: plot(point.threshold?.green_lo),
     greenHi: plot(point.threshold?.green_hi),
     amberLo: plot(point.threshold?.amber_lo),
@@ -50,7 +55,7 @@ const BOUND_LINES = [
 
 /**
  * A metric's trend over every meeting of its team, the threshold drawn as a
- * stepped line, and beneath it the recent values, the threshold history and
+ * stepped line and the target value as one of its own, and beneath it the recent values, the threshold history and
  * the corrections. Shown over the board.
  */
 export function MetricDetail({
@@ -224,6 +229,18 @@ function TrendChart({
             isAnimationActive={false}
           />
         ))}
+        {rows.some((row) => row.target !== null) && (
+          <Line
+            type="stepAfter"
+            dataKey="target"
+            stroke="var(--accent)"
+            strokeDasharray="8 4"
+            strokeWidth={1.5}
+            dot={false}
+            activeDot={false}
+            isAnimationActive={false}
+          />
+        )}
         <Line
           type="linear"
           dataKey="value"

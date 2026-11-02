@@ -13,7 +13,7 @@ from typing import Any
 from pytest_bdd import given, parsers, then, when
 
 from app.core.metric_enums import Colour, Direction, Status
-from app.services.metric_status import status_of, threshold_in_force
+from app.services.metric_status import bounds_of, status_of, threshold_in_force
 
 NUMBER = r"-?\d+(?:\.\d+)?"
 DATE = r"\d{4}-\d{2}-\d{2}"
@@ -28,6 +28,9 @@ class Version:
 
     effective_from: datetime.date
     recorded_at: datetime.datetime
+    target_value: Decimal | None = None
+    green_pct: Decimal | None = None
+    amber_pct: Decimal | None = None
     green_lo: Decimal | None = None
     green_hi: Decimal | None = None
     amber_lo: Decimal | None = None
@@ -52,7 +55,8 @@ class Board:
 
     def judge(self, value: Decimal | None, manual: Colour | None = None) -> Status:
         threshold = threshold_in_force(self.versions, self.meeting_date)
-        return status_of(self.direction, value, manual, threshold)
+        bounds = bounds_of(self.direction, threshold) if threshold else None
+        return status_of(self.direction, value, manual, bounds)
 
 
 def _one_sided(direction: Direction, green: str, amber: str) -> dict[str, Decimal]:
@@ -108,6 +112,24 @@ def band_metric(green_lo: str, green_hi: str, amber_lo: str, amber_hi: str) -> B
         green_hi=Decimal(green_hi),
         amber_lo=Decimal(amber_lo),
         amber_hi=Decimal(amber_hi),
+    )
+    return board
+
+
+@given(
+    parsers.re(
+        rf"a (?P<direction>higher_is_better|lower_is_better|within_band) metric with the target "
+        rf"value (?P<target>{NUMBER}) and tolerances (?P<green>{NUMBER}) and (?P<amber>{NUMBER})"
+    ),
+    target_fixture="board",
+)
+def target_value_metric(direction: str, target: str, green: str, amber: str) -> Board:
+    board = Board(Direction(direction))
+    board.add(
+        datetime.date(2000, 1, 1),
+        target_value=Decimal(target),
+        green_pct=Decimal(green),
+        amber_pct=Decimal(amber),
     )
     return board
 

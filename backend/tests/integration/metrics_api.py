@@ -1,10 +1,15 @@
-"""Calls the metrics tests share, made through the HTTP API."""
+"""Calls the metrics tests share, made through the HTTP API, and one seed through the model."""
 
 import datetime
+import uuid
+from decimal import Decimal
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
+
+from app.models import MetricThreshold
 
 #: A Monday. The week's meeting is on Wednesday the 14th, the last on the 7th.
 MONDAY = datetime.date(2026, 10, 12)
@@ -32,11 +37,35 @@ def add_threshold(
     reason: str = "Plan",
     **bounds: Any,
 ) -> Any:
-    """Add a threshold version and return it, failing the test if that is refused."""
-    body = {"effective_from": effective_from, "reason": reason, **bounds}
+    """Add a threshold version and return it, failing the test if that is refused.
+
+    Without a `target_value` the version is a range: the target value 0 and
+    the boundaries given.
+    """
+    body = {"effective_from": effective_from, "reason": reason, "target_value": "0", **bounds}
     response = client.post(f"/teams/{team_id}/metrics/{metric_id}/thresholds", json=body)
     assert response.status_code == 201, response.json()
     return response.json()
+
+
+def seed_version_before_target_values(
+    session: Session, metric_id: str, effective_from: str, **bounds: str
+) -> None:
+    """Record a version as one recorded before target values existed: boundaries only.
+
+    Through the model, since the API no longer accepts a version without a
+    target value; the row is what the migration left of an earlier version.
+    """
+    session.add(
+        MetricThreshold(
+            metric_id=uuid.UUID(metric_id),
+            effective_from=datetime.date.fromisoformat(effective_from),
+            reason="Before target values",
+            recorded_by_email="earlier@example.com",
+            **{key: Decimal(value) for key, value in bounds.items()},
+        )
+    )
+    session.commit()
 
 
 def thresholds_of(client: TestClient, team_id: str, metric_id: str) -> Any:

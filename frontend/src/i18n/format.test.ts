@@ -11,6 +11,7 @@ import {
   formatScheduleWeekday,
   formatWeekdayAndTime,
   editableDecimal,
+  formatExactDecimal,
   parseLocalizedDecimal,
 } from './format';
 
@@ -212,6 +213,19 @@ describe('formatMetricValue', () => {
 
   it('shows a dash when there is no number', () => {
     expect(formatMetricValue(null, 1, '%', 'en')).toBe('—');
+  });
+});
+
+describe('formatExactDecimal', () => {
+  it('shows every place a target value or tolerance has, and no trailing zeros', () => {
+    expect(formatExactDecimal('72.300000', 0, 'en')).toBe('72.3');
+    expect(formatExactDecimal('5.263158', 0, 'pl')).toBe('5,263158');
+    expect(formatExactDecimal('5', 0, 'en')).toBe('5');
+  });
+
+  it('keeps at least the decimals asked for', () => {
+    expect(formatExactDecimal('100', 1, 'en')).toBe('100.0');
+    expect(formatExactDecimal('68.685', 1, 'pl')).toBe('68,685');
   });
 });
 

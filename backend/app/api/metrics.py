@@ -31,6 +31,7 @@ from app.services.metrics import (
     include_global_metric,
     list_metrics,
     list_thresholds,
+    read_threshold,
     record_threshold,
     with_threshold,
 )
@@ -53,7 +54,9 @@ def _require_configurer(session: Session, current_user: CurrentUser, team_id: uu
 def _read(entry: MetricWithThreshold) -> MetricRead:
     return MetricRead(
         **dict(MetricDefinitionRead.model_validate(entry.placement)),
-        threshold=ThresholdRead.model_validate(entry.threshold) if entry.threshold else None,
+        threshold=(
+            read_threshold(entry.threshold, entry.placement.direction) if entry.threshold else None
+        ),
     )
 
 
@@ -115,7 +118,7 @@ def update_metric(
     session: SessionDependency,
     current_user: CurrentUserDependency,
 ) -> MetricRead:
-    """Change a metric, retire it or bring it back. A key left out is left alone."""
+    """Change a metric, hide it, retire it or bring it back. A key left out is left alone."""
     _require_configurer(session, current_user, team_id)
     placement = change_metric(session, team_id, metric_id, payload, current_user.email)
     return _read(with_threshold(session, placement, today()))
@@ -139,7 +142,7 @@ def get_thresholds(
     team_id: uuid.UUID, metric_id: uuid.UUID, session: SessionDependency, _: CurrentUserDependency
 ) -> list[ThresholdRead]:
     """Return every threshold version of the metric, the most recent first."""
-    return [ThresholdRead.model_validate(v) for v in list_thresholds(session, team_id, metric_id)]
+    return list_thresholds(session, team_id, metric_id)
 
 
 @router.post(
@@ -154,8 +157,7 @@ def create_threshold(
 ) -> ThresholdRead:
     """Add a threshold version to the metric, effective from a date that may be past."""
     _require_configurer(session, current_user, team_id)
-    version = record_threshold(session, team_id, metric_id, payload, current_user.email)
-    return ThresholdRead.model_validate(version)
+    return record_threshold(session, team_id, metric_id, payload, current_user.email)
 
 
 @router.get("/{metric_id}/trend", response_model=MetricTrend)

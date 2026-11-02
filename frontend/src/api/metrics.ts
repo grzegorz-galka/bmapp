@@ -31,10 +31,21 @@ export interface Bounds {
   amber_hi: string | null;
 }
 
+/**
+ * A threshold version as read. Its four boundaries are the resolved ones: for
+ * a version with tolerances, what they amount to around the target value,
+ * possibly with more than 6 decimal places. A version recorded before target
+ * values existed has none, and reads as its boundaries alone.
+ */
 export interface Threshold extends Bounds {
   id: string;
   metric_id: string;
   effective_from: string;
+  /** The number the metric aims at from this version on; null on an earlier version. */
+  target_value: string | null;
+  /** Per cent of the target value; set only when the target value is not 0. */
+  green_pct: string | null;
+  amber_pct: string | null;
   reason: string;
   recorded_by_email: string;
   recorded_at: string;
@@ -67,6 +78,38 @@ export interface MetricLayout {
   ungrouped: string[];
 }
 
+/**
+ * How a board's own metric is worked out from other metrics recorded in the
+ * same ISO week: their mean, their sum, or the change of one since its team's
+ * previous meeting. Deriving fills the number field; what is saved is an
+ * ordinary value.
+ */
+export type DerivationKind = 'mean' | 'sum' | 'delta';
+export const DERIVATION_KINDS: readonly DerivationKind[] = ['mean', 'sum', 'delta'];
+
+/** One source as sent: a metric on a named team's board. */
+export interface DerivationSourceWrite {
+  team_id: string;
+  metric_id: string;
+}
+
+/** A derivation as sent: `delta` takes exactly one source, the others one or more. */
+export interface DerivationWrite {
+  kind: DerivationKind;
+  sources: DerivationSourceWrite[];
+}
+
+/** One source as read, in order, with its team's and metric's names. */
+export interface DerivationSource {
+  team: { id: string; name: string };
+  metric: { id: string; name: string };
+}
+
+export interface Derivation {
+  kind: DerivationKind;
+  sources: DerivationSource[];
+}
+
 export interface MetricDefinition {
   id: string;
   /** The board being read, for a global metric as for an own one. */
@@ -84,6 +127,10 @@ export interface MetricDefinition {
   retired: boolean;
   /** Retired by an administrator; bringing it back on the board would not show it. */
   retired_in_catalogue: boolean;
+  /** Still active and recorded, but the board shows no tile for it. */
+  hidden: boolean;
+  /** How its number is derived; only ever on a board's own metric. */
+  derivation: Derivation | null;
 }
 
 /** A metric as the settings list it, with the threshold in force today. */
@@ -99,6 +146,13 @@ export interface MetricCreate {
   /** Placed last in this group, or last among the ungrouped when null. */
   group_id: string | null;
   owner_employee_id: string | null;
+  /** Hidden on the board as it arrives; shown when left out. */
+  hidden?: boolean;
+  /**
+   * None when left out. On a change: left out leaves it alone, null removes
+   * it, a derivation replaces it.
+   */
+  derivation?: DerivationWrite | null;
 }
 
 /** A global metric placed on a board. Its definition comes from the catalogue. */
@@ -106,6 +160,7 @@ export interface MetricInclusion {
   global_metric_id: string;
   group_id: string | null;
   owner_employee_id: string | null;
+  hidden?: boolean;
 }
 
 /**
@@ -117,6 +172,8 @@ export interface MetricCopy {
   name?: string;
   /** A group of the target board; the source's group is never taken. */
   group_id?: string | null;
+  /** The source's own setting is never taken. */
+  hidden?: boolean;
 }
 
 /**
@@ -126,12 +183,17 @@ export interface MetricCopy {
 export type MetricChange = Partial<Omit<MetricCreate, 'direction'>> & { retired?: boolean };
 
 /**
- * A threshold version. A one-sided metric takes `green` and `amber`; a band
- * takes the four `_lo` / `_hi` boundaries.
+ * A threshold version. A target value other than 0 takes `green_pct` and
+ * `amber_pct`, tolerances in per cent of it, and no boundary. A target value
+ * of 0 takes boundaries instead: `green` and `amber` for a one-sided metric,
+ * the four `_lo` / `_hi` for a band.
  */
 export interface ThresholdCreate {
   effective_from: string;
   reason: string;
+  target_value: string;
+  green_pct?: string;
+  amber_pct?: string;
   green?: string;
   amber?: string;
   green_lo?: string;
@@ -195,6 +257,27 @@ export interface MeetingBoard {
   /** `owing` counts the people still owing a value or a pulse answer, each once. */
   completeness: { recorded: number; total: number; missing: MissingMetric[]; owing: number };
   metrics: BoardMetric[];
+}
+
+/** A number at one meeting of a source's team. */
+export interface DerivedReading {
+  meeting_id: string;
+  date: string;
+  value: string;
+}
+
+/** A source as deriving read it: where, and the number found, and for a delta the one before. */
+export interface DerivedSource extends DerivedReading {
+  team: { id: string; name: string };
+  metric: { id: string; name: string };
+  previous: DerivedReading | null;
+}
+
+/** A derived number and the numbers it was worked out from. Nothing is recorded. */
+export interface DerivedValue {
+  value: string;
+  kind: DerivationKind;
+  sources: DerivedSource[];
 }
 
 export interface TrendPoint {
@@ -334,6 +417,21 @@ export function getTrend(teamId: string, metricId: string): Promise<MetricTrend>
 
 export function getBoard(teamId: string, meetingId: string): Promise<MeetingBoard> {
   return request<MeetingBoard>(`/teams/${enc(teamId)}/meetings/${enc(meetingId)}/board`);
+}
+
+/**
+ * Work a derived metric's number out for a meeting. Refused with 409 and one
+ * `derivation.source_missing` entry per missing source (`sources[i]`), or
+ * `derivation.previous_missing` for a delta's previous meeting.
+ */
+export function getDerivedValue(
+  teamId: string,
+  meetingId: string,
+  metricId: string,
+): Promise<DerivedValue> {
+  return request<DerivedValue>(
+    `/teams/${enc(teamId)}/meetings/${enc(meetingId)}/metrics/${enc(metricId)}/derivation`,
+  );
 }
 
 export function putValue(

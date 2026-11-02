@@ -7,7 +7,7 @@ green. A number is stored in the metric's unit, exactly as it is shown.
 
 import datetime
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from itertools import pairwise
 from typing import Annotated, Literal
@@ -22,8 +22,13 @@ from pydantic import (
 )
 from pydantic_core import PydanticCustomError
 
-from app.core.exceptions import GENERIC_ERROR_CODE, ThresholdOrderError, ThresholdShapeError
-from app.core.metric_enums import Colour, Direction, Scope, Status
+from app.core.exceptions import (
+    GENERIC_ERROR_CODE,
+    ThresholdOrderError,
+    ThresholdShapeError,
+    ThresholdToleranceNegativeError,
+)
+from app.core.metric_enums import Colour, DerivationKind, Direction, Scope, Status
 from app.models import (
     METRIC_DECIMALS_MAX,
     METRIC_GROUP_MAX_LENGTH,
@@ -117,6 +122,24 @@ class _MetricFields(BaseModel):
         return value
 
 
+class DerivationSourceWrite(BaseModel):
+    """One source of a derivation: a metric on the named team's board."""
+
+    team_id: uuid.UUID
+    metric_id: uuid.UUID
+
+
+class DerivationWrite(BaseModel):
+    """How a board's own metric is worked out: a kind over sources, in order.
+
+    How many sources the kind takes, and whether each is on its board, is
+    checked by the service, which knows the boards.
+    """
+
+    kind: DerivationKind
+    sources: list[DerivationSourceWrite]
+
+
 class MetricCreate(_MetricFields):
     """A request to add a metric to a board, last in its group or among the ungrouped."""
 
@@ -126,15 +149,21 @@ class MetricCreate(_MetricFields):
     direction: Direction
     group_id: uuid.UUID | None = None
     owner_employee_id: uuid.UUID | None = None
+    #: Hidden on the board from the start: recorded and counted, with no tile.
+    hidden: bool = False
+    #: How the number is worked out, or none: it is typed in.
+    derivation: DerivationWrite | None = None
 
 
 class MetricChange(_MetricFields):
     """A partial change to a metric. A key that is absent is left alone.
 
     `group_id: null` takes the metric out of every group and `owner_employee_id:
-    null` clears the owner; the other properties always have a value, so null
-    is refused for them. `direction` is accepted only so that changing it can
-    be refused by name. A metric's order changes through the board's layout.
+    null` clears the owner and `derivation: null` removes the derivation; a
+    derivation given replaces the one there. The other properties always have
+    a value, so null is refused for them. `direction` is accepted only so that
+    changing it can be refused by name. A metric's order changes through the
+    board's layout.
     """
 
     name: str | None = None
@@ -144,8 +173,10 @@ class MetricChange(_MetricFields):
     group_id: uuid.UUID | None = None
     owner_employee_id: uuid.UUID | None = None
     retired: bool | None = None
+    hidden: bool | None = None
+    derivation: DerivationWrite | None = None
 
-    @field_validator("name", "unit", "decimals", "direction", "retired")
+    @field_validator("name", "unit", "decimals", "direction", "retired", "hidden")
     @classmethod
     def not_null(cls, value: object) -> object:
         if value is None:
@@ -197,6 +228,8 @@ class MetricCopy(_MetricFields):
     source_metric_id: uuid.UUID
     name: str | None = None
     group_id: uuid.UUID | None = None
+    #: Only this request hides the copy: the source's hiding is its board's.
+    hidden: bool = False
 
 
 class GlobalMetricInclusion(_MetricFields):
@@ -205,6 +238,7 @@ class GlobalMetricInclusion(_MetricFields):
     global_metric_id: uuid.UUID
     group_id: uuid.UUID | None = None
     owner_employee_id: uuid.UUID | None = None
+    hidden: bool = False
 
 
 class _MetricGroupName(BaseModel):
@@ -264,12 +298,19 @@ class MetricLayout(BaseModel):
 
 @dataclass(frozen=True, slots=True)
 class ThresholdBounds:
-    """The four stored boundaries; which are set depends on the direction."""
+    """What a version stores: boundaries, or a non-zero target value's tolerances.
+
+    Which boundaries are set depends on the direction. A version with
+    tolerances stores no boundary; `bounds_of` works them out when read.
+    """
 
     green_lo: Decimal | None = None
     green_hi: Decimal | None = None
     amber_lo: Decimal | None = None
     amber_hi: Decimal | None = None
+    target_value: Decimal | None = None
+    green_pct: Decimal | None = None
+    amber_pct: Decimal | None = None
 
 
 BoundInput = Annotated[ExactDecimal | None, Field(default=None)]
@@ -278,13 +319,19 @@ BoundInput = Annotated[ExactDecimal | None, Field(default=None)]
 class ThresholdCreate(BaseModel):
     """A request to add a threshold version to a metric.
 
-    A one-sided metric takes `green` and `amber`, the boundary of each zone; a
-    band takes `green_lo`, `green_hi`, `amber_lo` and `amber_hi`. Which shape
-    is right depends on the metric, so it is checked by `bounds`, not here.
+    Every version has a target value. One other than 0 takes `green_pct` and
+    `amber_pct`, tolerances in per cent of it, and no boundary. The target
+    value 0 takes boundaries instead: a one-sided metric `green` and `amber`,
+    the boundary of each zone; a band `green_lo`, `green_hi`, `amber_lo` and
+    `amber_hi`. Which shape is right depends on the metric, so it is checked
+    by `bounds`, not here.
     """
 
     effective_from: datetime.date
     reason: str
+    target_value: ExactDecimal
+    green_pct: BoundInput
+    amber_pct: BoundInput
     green: BoundInput
     amber: BoundInput
     green_lo: BoundInput
@@ -300,19 +347,36 @@ class ThresholdCreate(BaseModel):
             raise PydanticCustomError("threshold_reason.blank", "A threshold needs a reason.")
         return trimmed
 
-    @field_validator("green", "amber", "green_lo", "green_hi", "amber_lo", "amber_hi")
+    @field_validator(
+        "target_value",
+        "green_pct",
+        "amber_pct",
+        "green",
+        "amber",
+        "green_lo",
+        "green_hi",
+        "amber_lo",
+        "amber_hi",
+    )
     @classmethod
     def bound_fits(cls, value: Decimal | None) -> Decimal | None:
         return _bound(value)
 
     def bounds(self, direction: Direction) -> ThresholdBounds:
-        """The stored boundaries for a metric of this direction, or the error why not.
+        """What to store for a metric of this direction, or the error why not.
 
-        Amber equal to green is accepted: it leaves an empty amber zone, which
-        is how a plain red-and-green metric is expressed.
+        Checked by the target value first, then, for the target value 0, by
+        direction. Amber equal to green - in tolerances or boundaries - is
+        accepted: it leaves an empty amber zone, which is how a plain
+        red-and-green metric is expressed.
         """
         band = ("green_lo", "green_hi", "amber_lo", "amber_hi")
         one_sided = ("green", "amber")
+        tolerances = ("green_pct", "amber_pct")
+        if self.target_value != 0:
+            self._require_shape(required=tolerances, refused=(*one_sided, *band))
+            return self._tolerances()
+        self._require_shape(required=(), refused=tolerances)
         if direction is Direction.WITHIN_BAND:
             self._require_shape(required=band, refused=one_sided)
             bounds = ThresholdBounds(self.green_lo, self.green_hi, self.amber_lo, self.amber_hi)
@@ -324,7 +388,18 @@ class ThresholdCreate(BaseModel):
                 bounds = ThresholdBounds(green_hi=self.green, amber_hi=self.amber)
         if not _ordered(bounds.amber_lo, bounds.green_lo, bounds.green_hi, bounds.amber_hi):
             raise ThresholdOrderError()
-        return bounds
+        return replace(bounds, target_value=self.target_value)
+
+    def _tolerances(self) -> ThresholdBounds:
+        """A non-zero target value's tolerances: never below 0, amber never tighter."""
+        green, amber = self.green_pct, self.amber_pct
+        assert green is not None and amber is not None  # _require_shape saw to it
+        for name, tolerance in (("green_pct", green), ("amber_pct", amber)):
+            if tolerance < 0:
+                raise ThresholdToleranceNegativeError(name)
+        if amber < green:
+            raise ThresholdOrderError()
+        return ThresholdBounds(target_value=self.target_value, green_pct=green, amber_pct=amber)
 
     def _require_shape(self, *, required: tuple[str, ...], refused: tuple[str, ...]) -> None:
         for name in refused:
@@ -393,13 +468,24 @@ class OwnerRead(BaseModel):
 
 
 class ThresholdRead(BaseModel):
-    """One threshold version, with who recorded it and why."""
+    """One threshold version, with who recorded it and why.
+
+    The four boundaries are the ones the version amounts to, worked out from
+    its target value and tolerances where it has them, so every reader draws
+    and prints boundaries alike. Worked out exactly, they may have more than
+    6 places. Built by `read_threshold`, which knows the metric's direction.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     metric_id: uuid.UUID
     effective_from: datetime.date
+    #: None only for a version recorded before target values existed.
+    target_value: ExactDecimal | None
+    #: Set exactly when the target value is set and not 0.
+    green_pct: ExactDecimal | None
+    amber_pct: ExactDecimal | None
     green_lo: ExactDecimal | None
     green_hi: ExactDecimal | None
     amber_lo: ExactDecimal | None
@@ -407,6 +493,33 @@ class ThresholdRead(BaseModel):
     reason: str
     recorded_by_email: str
     recorded_at: datetime.datetime
+
+
+class NamedRead(BaseModel):
+    """A team or a metric named in a derivation: its identifier and its name."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+
+
+class DerivationSourceRead(BaseModel):
+    """One source of a derivation as read: the team whose board it is on, and the metric."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    team: NamedRead
+    metric: NamedRead
+
+
+class DerivationRead(BaseModel):
+    """A metric's derivation: its kind and its sources in order."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    kind: DerivationKind
+    sources: list[DerivationSourceRead]
 
 
 class MetricDefinitionRead(BaseModel):
@@ -433,9 +546,14 @@ class MetricDefinitionRead(BaseModel):
     position: int
     owner: OwnerRead | None
     retired: bool
+    #: Hidden on this board: active and recorded, but shown as no tile.
+    hidden: bool
     #: Retired by an administrator in the catalogue; always false for a
     #: board's own metric. Bringing it back on the board would not show it.
     retired_in_catalogue: bool
+    #: How the number is worked out from other metrics, or none. Always none
+    #: for a global metric.
+    derivation: DerivationRead | None = None
 
 
 class MetricRead(MetricDefinitionRead):
@@ -458,6 +576,34 @@ class GlobalMetricRead(BaseModel):
     threshold: ThresholdRead | None
     #: How many boards include it.
     boards: int
+
+
+class DerivedReading(BaseModel):
+    """A source's number at one meeting of its team."""
+
+    meeting_id: uuid.UUID
+    date: datetime.date
+    value: ExactDecimal
+
+
+class DerivedSource(DerivedReading):
+    """One source as a derived number used it: where it was read, and its number."""
+
+    team: NamedRead
+    metric: NamedRead
+    #: For a delta, the number at the source team's previous meeting; else none.
+    previous: DerivedReading | None
+
+
+class DerivedValue(BaseModel):
+    """The number a derivation gives at a meeting, and the numbers it was worked out from.
+
+    Nothing is recorded: the member saves the number as any typed one.
+    """
+
+    value: ExactDecimal
+    kind: DerivationKind
+    sources: list[DerivedSource]
 
 
 class MetricValueRead(BaseModel):

@@ -21,9 +21,10 @@ from tests.integration.teams_api import register
 
 
 def _post(client: TestClient, team_id: str, metric_id: str, **body: object) -> Any:
+    """Post a version; the target value 0, which takes boundaries, unless one is given."""
     return client.post(
         f"/teams/{team_id}/metrics/{metric_id}/thresholds",
-        json={"effective_from": "2026-10-01", "reason": "Plan for Q4", **body},
+        json={"effective_from": "2026-10-01", "reason": "Plan for Q4", "target_value": "0", **body},
     )
 
 
@@ -33,16 +34,21 @@ def test_a_threshold_version_is_recorded(client: TestClient) -> None:
     metric = add_metric(client, team["id"], direction="higher_is_better")
     before = datetime.datetime.now(datetime.UTC)
 
-    response = _post(client, team["id"], metric["id"], green="95", amber="85")
+    response = _post(
+        client, team["id"], metric["id"], target_value="100", green_pct="5", amber_pct="10"
+    )
 
     assert response.status_code == 201
     version = response.json()
-    assert {k: version[k] for k in ("effective_from", "green_lo", "amber_lo", "reason")} == {
+    fields = ("effective_from", "target_value", "green_pct", "amber_pct", "reason")
+    assert {k: version[k] for k in fields} == {
         "effective_from": "2026-10-01",
-        "green_lo": "95",
-        "amber_lo": "85",
+        "target_value": "100",
+        "green_pct": "5",
+        "amber_pct": "10",
         "reason": "Plan for Q4",
     }
+    assert (version["green_lo"], version["amber_lo"]) == ("95", "90")
     assert (version["green_hi"], version["amber_hi"]) == (None, None)
     assert version["recorded_by_email"] == ADMIN_EMAIL
     assert datetime.datetime.fromisoformat(version["recorded_at"]) >= before - datetime.timedelta(

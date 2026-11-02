@@ -1,4 +1,4 @@
-"""The fixed vocabularies of metrics: direction, colour, status and scope.
+"""The fixed vocabularies of metrics: direction, colour, status, scope and derivation.
 
 Here rather than beside the models or the status rule because both use them,
 and the status rule must not import SQLAlchemy - through the models package
@@ -39,3 +39,14 @@ class Scope(StrEnum):
 
     BOARD = auto()
     GLOBAL = auto()
+
+
+class DerivationKind(StrEnum):
+    """How a derived metric's number is worked out from its sources."""
+
+    #: The arithmetic mean of one or more sources.
+    MEAN = auto()
+    #: The sum of one or more sources.
+    SUM = auto()
+    #: Exactly one source: its number minus its number at the team's previous meeting.
+    DELTA = auto()

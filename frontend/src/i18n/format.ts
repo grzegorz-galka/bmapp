@@ -232,6 +232,23 @@ export function formatMetricValue(
   return unit ? `${number}\u00a0${unit}` : number;
 }
 
+/**
+ * "72,3" - a decimal shown to every place it has, up to the 6 a number is
+ * stored with, and at least `minimumDecimals`. For a target value or a
+ * tolerance, which a person typed and should read back as typed, never
+ * rounded to the metric's decimals.
+ */
+export function formatExactDecimal(
+  value: string,
+  minimumDecimals: number,
+  language: Language,
+): string {
+  return new Intl.NumberFormat(LOCALES[language], {
+    minimumFractionDigits: Math.min(minimumDecimals, 6),
+    maximumFractionDigits: 6,
+  }).format(value as unknown as number);
+}
+
 /** The language i18next is currently on, as one this module can format for. */
 export function activeLanguage(language: string): Language {
   return isSupported(language) ? language : FALLBACK_LANGUAGE;
@@ -259,6 +276,8 @@ export function useFormat() {
       scheduleWeekday: (weekday: number) => formatScheduleWeekday(weekday, language, unavailable),
       metricValue: (value: string | null, decimals: number, unit: string) =>
         formatMetricValue(value, decimals, unit, language),
+      exactDecimal: (value: string, minimumDecimals = 0) =>
+        formatExactDecimal(value, minimumDecimals, language),
       parseDecimal: (text: string) => parseLocalizedDecimal(text, language),
       editableDecimal: (value: string | null) => editableDecimal(value, language),
     }),

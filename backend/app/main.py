@@ -79,24 +79,24 @@ app.include_router(problems_router)
 app.include_router(tasks_router)
 
 
-def _error_body(
-    field: str | None, code: str, message: str
-) -> dict[str, list[dict[str, str | None]]]:
-    """Build the single error shape every failure response uses.
+def _error_body(error: DomainError) -> dict[str, list[dict[str, str | None]]]:
+    """Build the single error shape every failure response uses, one entry per error.
 
     `code` is what a client keys its own wording on; `message` is English text
     for a developer reading logs or the OpenAPI docs, not for display.
     """
-    return {"errors": [{"field": field, "code": code, "message": message}]}
+    return {
+        "errors": [
+            {"field": entry.field, "code": entry.code, "message": entry.message}
+            for entry in error.entries()
+        ]
+    }
 
 
 @app.exception_handler(DomainError)
 def handle_domain_error(_: Request, error: DomainError) -> JSONResponse:
     """Map a domain exception to its status code and the shared error body."""
-    return JSONResponse(
-        status_code=error.status_code,
-        content=_error_body(error.field, error.code, error.message),
-    )
+    return JSONResponse(status_code=error.status_code, content=_error_body(error))
 
 
 def _validation_code(error_type: str) -> str:

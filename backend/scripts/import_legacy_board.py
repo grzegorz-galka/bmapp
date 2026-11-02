@@ -14,7 +14,8 @@ What is loaded, in one transaction:
 - one meeting per backup week, at the schedule's time, hosted by that week's
   leader;
 - one metric per KPI, and one per organizational unit of a by-unit KPI;
-- threshold versions derived from the tool's own colour rule (below);
+- threshold versions with target values, derived from the tool's own colour
+  rule (below);
 - every recorded number, its comment, and a colour set by hand where the tool
   had overridden its own rule.
 
@@ -33,9 +34,15 @@ as only members are responsible for items or answer the pulse check.
 The colour rule is the legacy `autoStatus`: for G the KPI's fixed `green`, or
 else the week's target, a higher-is-better value is green from G and amber
 from G - gap; lower-is-better mirrors it; a band is green within lo..hi and
-amber within gap of it. That is exactly a BMAPP threshold version, so a new
-version starts each week the boundaries change, and statuses come out as the
-legacy board showed them.
+amber within gap of it. A new version starts each week that rule changes, and
+it is written the way BMAPP records a version, with a target value: G with
+green 0% and amber gap / |G| as tolerances for a one-sided KPI, the centre of
+lo..hi with half the band's width (and that plus gap) for a band. Tolerances
+are quantised to the 6 places a version stores, so a value very near a
+boundary could fall on its other side; the colour the legacy board showed is
+then kept as a colour set by hand, and statuses come out as the legacy board
+showed them. A target of 0 - or a band centred on 0 - has no tolerance that
+is a share of it, and keeps the boundaries themselves.
 
 Run from `backend/` against the database in `BMAPP_DATABASE_URL`:
 
@@ -79,10 +86,11 @@ from app.models import (
     Team,
     TeamMember,
 )
-from app.services.metric_status import status_of
+from app.services.metric_status import bounds_of, status_of
 
 EMAIL_DOMAIN = "pse.pl"
 SIX_PLACES = Decimal("0.000001")
+HUNDRED = Decimal(100)
 REASON = "Import z poprzedniej tablicy Boardmeeting ({rule})."
 #: Comment for a value whose colour the legacy board set by hand without one;
 #: BMAPP requires a comment on a colour set by hand.
@@ -290,14 +298,75 @@ def bounds_for(kpi: Kpi, target: object) -> Bounds | None:
 
 
 @dataclass(frozen=True, slots=True)
+class Rule:
+    """A version as BMAPP records it: a target value with tolerances, or boundaries.
+
+    Tolerances when the target value is not 0; boundaries, already scaled,
+    when it is. `bounds_of` reads it like a stored version.
+    """
+
+    target_value: Decimal
+    green_pct: Decimal | None = None
+    amber_pct: Decimal | None = None
+    green_lo: Decimal | None = None
+    green_hi: Decimal | None = None
+    amber_lo: Decimal | None = None
+    amber_hi: Decimal | None = None
+
+
+def _pct(part: Decimal, whole: Decimal) -> Decimal:
+    """`part` as a share of |whole| in per cent, to the 6 places a version stores."""
+    return (part / abs(whole) * HUNDRED).quantize(SIX_PLACES, rounding=ROUND_HALF_EVEN)
+
+
+def _range(bounds: Bounds) -> Rule:
+    """The target value 0, which has no tolerance that is a share of it."""
+    return Rule(
+        target_value=Decimal(0),
+        green_lo=bounds.green_lo,
+        green_hi=bounds.green_hi,
+        amber_lo=bounds.amber_lo,
+        amber_hi=bounds.amber_hi,
+    )
+
+
+def rule_for(kpi: Kpi, target: object) -> Rule | None:
+    """The legacy `autoStatus` rule as a version with a target value, or None.
+
+    One-sided: the target value is G, green 0% and amber `gap / |G|`. A band:
+    its centre, green half its width and amber that plus `gap`, as shares of
+    the centre. A target value of 0 keeps the boundaries, a range.
+    """
+    bounds = bounds_for(kpi, target)
+    if bounds is None:
+        return None
+    if kpi.dir == "band":
+        assert kpi.lo is not None and kpi.hi is not None  # bounds_for saw to it
+        centre = (kpi.lo + kpi.hi) / 2
+        half = (kpi.hi - kpi.lo) / 2
+        if scaled(kpi, centre) == 0:
+            return _range(bounds)
+        return Rule(
+            target_value=scaled(kpi, centre),
+            green_pct=_pct(half, centre),
+            amber_pct=_pct(half + kpi.gap, centre),
+        )
+    g = kpi.green if kpi.green is not None else _decimal(target)
+    assert g is not None  # bounds_for saw to it
+    if scaled(kpi, g) == 0:
+        return _range(bounds)
+    return Rule(target_value=scaled(kpi, g), green_pct=Decimal(0), amber_pct=_pct(kpi.gap, g))
+
+
+@dataclass(frozen=True, slots=True)
 class Version:
     effective_from: datetime.date
-    bounds: Bounds
+    rule: Rule
     reason: str
 
 
 def threshold_versions(kpi: Kpi, targets: Sequence[tuple[datetime.date, object]]) -> list[Version]:
-    """A version each week the boundaries change, the target carried forward.
+    """A version each week the rule changes, the target carried forward.
 
     `targets` is every week in date order with that week's target or None;
     the legacy tool reads a missing target as the last one set.
@@ -306,15 +375,15 @@ def threshold_versions(kpi: Kpi, targets: Sequence[tuple[datetime.date, object]]
     last: object = None
     for date, target in targets:
         last = target if target is not None else last
-        bounds = bounds_for(kpi, last)
-        if bounds is not None and (not versions or versions[-1].bounds != bounds):
-            rule = (
+        rule = rule_for(kpi, last)
+        if rule is not None and (not versions or versions[-1].rule != rule):
+            text = (
                 f"zielony od {kpi.lo} do {kpi.hi}, tolerancja {kpi.gap}"
                 if kpi.dir == "band"
                 else f"zielony od {kpi.green if kpi.green is not None else last}, "
                 f"tolerancja {kpi.gap}"
             )
-            versions.append(Version(date, bounds, REASON.format(rule=rule)))
+            versions.append(Version(date, rule, REASON.format(rule=text)))
     return versions
 
 
@@ -353,11 +422,16 @@ def entry_of(kpi: Kpi, raw: dict[str, Any], colour_key: str) -> Entry | None:
     return entry
 
 
-def hand_colour(direction: Direction, entry: Entry, threshold: Bounds | None) -> Colour | None:
-    """The legacy colour, kept only where the rule would have given another."""
+def hand_colour(direction: Direction, entry: Entry, rule: Rule | None) -> Colour | None:
+    """The legacy colour, kept only where the version would have given another.
+
+    Judged against the boundaries the version amounts to, as the board will
+    judge it, so a quantised tolerance can never change what is shown.
+    """
     if entry.legacy_colour is None:
         return None
-    computed = status_of(direction, entry.value, None, threshold)
+    bounds = bounds_of(direction, rule) if rule is not None else None
+    computed = status_of(direction, entry.value, None, bounds)
     return None if computed == Status(entry.legacy_colour) else entry.legacy_colour
 
 
@@ -626,7 +700,7 @@ def load(
                     reason=version.reason,
                     recorded_by_email=actor_email,
                     recorded_at=base + datetime.timedelta(microseconds=i),
-                    **_columns(version.bounds),
+                    **_columns(version.rule),
                 )
             )
         summary.thresholds += len(versions)
@@ -773,18 +847,21 @@ def _load_pulse(
         summary.pulse_answers += 1
 
 
-def _columns(bounds: Bounds) -> dict[str, Decimal | None]:
+def _columns(rule: Rule) -> dict[str, Decimal | None]:
     return {
-        "green_lo": bounds.green_lo,
-        "green_hi": bounds.green_hi,
-        "amber_lo": bounds.amber_lo,
-        "amber_hi": bounds.amber_hi,
+        "target_value": rule.target_value,
+        "green_pct": rule.green_pct,
+        "amber_pct": rule.amber_pct,
+        "green_lo": rule.green_lo,
+        "green_hi": rule.green_hi,
+        "amber_lo": rule.amber_lo,
+        "amber_hi": rule.amber_hi,
     }
 
 
-def _in_force(versions: Sequence[Version], date: datetime.date) -> Bounds | None:
+def _in_force(versions: Sequence[Version], date: datetime.date) -> Rule | None:
     current = [v for v in versions if v.effective_from <= date]
-    return current[-1].bounds if current else None
+    return current[-1].rule if current else None
 
 
 # ---------------------------------------------------------------- command line

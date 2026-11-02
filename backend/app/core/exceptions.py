@@ -29,6 +29,10 @@ class DomainError(Exception):
         if field is not None:
             self.field = field
 
+    def entries(self) -> list[DomainError]:
+        """The errors the response lists: this one, unless it gathers several."""
+        return [self]
+
 
 class UnauthenticatedError(DomainError):
     """Raised when a request carries no token, or none that can be verified.
@@ -417,6 +421,130 @@ class MetricLayoutStaleError(DomainError):
         super().__init__("The board's groups or metrics changed since the layout was read.")
 
 
+class MetricDerivationSourceError(DomainError):
+    """Raised when a metric is deleted, or removed from a board, while a derivation reads it.
+
+    The derivation is changed or removed first: a source that vanished would
+    leave a derived metric that can never be derived.
+    """
+
+    status_code = 409
+    code = "metric.derivation_source"
+
+    def __init__(self, metric_id: object) -> None:
+        super().__init__(f"Metric {metric_id} is a source of a derivation on this board.")
+
+
+class DerivationSourceCountError(DomainError):
+    """Raised when a derivation has the wrong number of sources for its kind.
+
+    `mean` and `sum` take one or more, `delta` exactly one.
+    """
+
+    status_code = 422
+    field = "derivation.sources"
+    code = "derivation.source_count"
+
+    def __init__(self, kind: object, count: int) -> None:
+        super().__init__(f"A derivation of the kind {kind} cannot take {count} sources.")
+
+
+class DerivationSourceNotFoundError(DomainError):
+    """Raised when a source names a metric not placed on the named team's board.
+
+    A team that does not exist alike: either way there is nothing to read.
+    """
+
+    status_code = 422
+    code = "derivation_source.not_found"
+
+    def __init__(self, index: int, team_id: object, metric_id: object) -> None:
+        super().__init__(
+            f"Team {team_id}'s board has no metric {metric_id}.", f"derivation.sources[{index}]"
+        )
+
+
+class DerivationSourceSelfError(DomainError):
+    """Raised when a derivation names the metric itself on its own board."""
+
+    status_code = 422
+    code = "derivation_source.self"
+
+    def __init__(self, index: int) -> None:
+        super().__init__("A metric cannot be its own source.", f"derivation.sources[{index}]")
+
+
+class DerivationSourceDuplicateError(DomainError):
+    """Raised, against the second, when a derivation names the same source twice."""
+
+    status_code = 422
+    code = "derivation_source.duplicate"
+
+    def __init__(self, index: int) -> None:
+        super().__init__(
+            "This metric on this team is already a source.", f"derivation.sources[{index}]"
+        )
+
+
+class DerivationNoneError(DomainError):
+    """Raised when a value is derived for a metric that has no derivation."""
+
+    status_code = 404
+    code = "derivation.none"
+
+    def __init__(self, metric_id: object) -> None:
+        super().__init__(f"Metric {metric_id} has no derivation.")
+
+
+class DerivationSourceMissingError(DomainError):
+    """A source has no number in the week: no meeting, none recorded, or retired."""
+
+    status_code = 409
+    code = "derivation.source_missing"
+
+    def __init__(self, index: int, team_name: str, metric_name: str) -> None:
+        super().__init__(
+            f"{metric_name!r} of {team_name!r} has no number that week.", f"sources[{index}]"
+        )
+
+
+class DerivationPreviousMissingError(DomainError):
+    """A delta's source has no number at its team's previous meeting, or no such meeting."""
+
+    status_code = 409
+    code = "derivation.previous_missing"
+
+    def __init__(self, team_name: str, metric_name: str) -> None:
+        super().__init__(
+            f"{metric_name!r} of {team_name!r} has no number at the previous meeting.",
+            "sources[0]",
+        )
+
+
+class DerivationIncompleteError(DomainError):
+    """Raised when deriving a value finds pieces missing: one entry for each."""
+
+    status_code = 409
+    code = "derivation.source_missing"
+
+    def __init__(self, missing: list[DomainError]) -> None:
+        super().__init__("Some of the derivation's numbers are missing.")
+        self.missing = missing
+
+    def entries(self) -> list[DomainError]:
+        return list(self.missing)
+
+
+class DerivedValueOutOfRangeError(DomainError):
+    """Raised when a derived number does not fit a stored number, as a typed one would not."""
+
+    status_code = 409
+    code = "metric_value.out_of_range"
+
+    def __init__(self) -> None:
+        super().__init__("The derived number is not under 10^15 with at most 6 decimal places.")
+
+
 class ThresholdOrderError(DomainError):
     """Raised when a threshold's amber boundary is better than its green one."""
 
@@ -438,6 +566,20 @@ class ThresholdShapeError(DomainError):
 
     def __init__(self, field: str, message: str) -> None:
         super().__init__(message, field)
+
+
+class ThresholdToleranceNegativeError(DomainError):
+    """Raised when a tolerance in per cent of a target value is below 0.
+
+    Reported against the tolerance, `green_pct` or `amber_pct`: a negative
+    share of the target value would put green on the wrong side of it.
+    """
+
+    status_code = 422
+    code = "threshold_tolerance.negative"
+
+    def __init__(self, field: str) -> None:
+        super().__init__("A tolerance must not be below 0.", field)
 
 
 class MeetingFrozenError(DomainError):

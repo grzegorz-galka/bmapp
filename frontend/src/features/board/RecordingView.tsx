@@ -1,16 +1,21 @@
 import { useState } from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import {
   COLOURS,
   type BoardMetric,
   type Colour,
+  type DerivedValue,
   type MeetingBoard,
   type MetricValueWrite,
 } from '../../api/metrics';
-import { describeFailure } from '../../i18n/apiErrors';
+import { ApiError } from '../../api/client';
+import { describeFailure, translateErrorCode } from '../../i18n/apiErrors';
 import { useFormat } from '../../i18n/format';
 import { describeThreshold, StatusBadge } from '../metrics/display';
-import { useRecordValue } from './useBoard';
+import { sourceName } from '../metrics/DerivationEditor';
+import { useDeriveValue, useRecordValue } from './useBoard';
+import controls from '../../styles/controls.module.css';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
 import styles from './board.module.css';
@@ -123,7 +128,54 @@ const COLOUR_CLASS: Record<Colour | '', string | undefined> = {
   red: styles.statusRed,
 };
 
-type RowState = 'idle' | 'saving' | 'saved' | 'notANumber' | 'failed';
+/** `notDerived`: "Derive" was refused, and the field was left as it was. */
+type RowState = 'idle' | 'saving' | 'saved' | 'notANumber' | 'failed' | 'notDerived';
+
+type Format = ReturnType<typeof useFormat>;
+
+/** The numbers a derived value was worked out from, in one line. */
+function derivedNote(t: TFunction, format: Format, derived: DerivedValue): string {
+  if (derived.kind === 'delta') {
+    const [source] = derived.sources;
+    return t('recording.derivedNote_delta', {
+      value: format.exactDecimal(source?.value ?? derived.value),
+      date: source ? format.meetingDate(source.date) : '',
+      previous: source?.previous ? format.exactDecimal(source.previous.value) : '',
+      previousDate: source?.previous ? format.meetingDate(source.previous.date) : '',
+    });
+  }
+  return t(`recording.derivedNote_${derived.kind}`, {
+    n: derived.sources.length,
+    values: derived.sources.map((source) => format.exactDecimal(source.value)).join(' · '),
+  });
+}
+
+/**
+ * Why deriving was refused, one sentence per missing piece, each source named
+ * from the metric's own derivation by its place in the list.
+ */
+function notDerivedMessage(t: TFunction, entry: BoardMetric, error: Error | null): string {
+  if (!(error instanceof ApiError) || error.errors.length === 0) {
+    return describeFailure(t, error) ?? t('errors.generic');
+  }
+  const sources = entry.metric.derivation?.sources ?? [];
+  const nameAt = (field: string | null) => {
+    const index = Number(/^sources\[(\d+)\]$/.exec(field ?? '')?.[1] ?? 0);
+    const source = sources[index];
+    return source ? sourceName(t, source, entry.metric.team_id) : '';
+  };
+  return error.errors
+    .map((failure) => {
+      if (failure.code === 'derivation.source_missing') {
+        return t('recording.sourceMissing', { name: nameAt(failure.field) });
+      }
+      if (failure.code === 'derivation.previous_missing') {
+        return t('recording.previousMissing', { name: nameAt(failure.field) });
+      }
+      return translateErrorCode(t, failure);
+    })
+    .join(' ');
+}
 
 function RecordingRow({
   teamId,
@@ -141,7 +193,9 @@ function RecordingRow({
   const { t } = useTranslation();
   const format = useFormat();
   const record = useRecordValue(teamId, meetingId);
+  const derive = useDeriveValue(teamId, meetingId);
   const { metric } = entry;
+  const [note, setNote] = useState<string | null>(null);
   // Seeded once: what the member is typing is never overwritten by a refetch.
   const [value, setValue] = useState(() => format.editableDecimal(entry.value));
   const [comment, setComment] = useState(entry.comment ?? '');
@@ -150,9 +204,10 @@ function RecordingRow({
   const show = (number: string | null) => format.metricValue(number, metric.decimals, metric.unit);
   const id = (field: string) => `value-${metric.id}-${field}`;
 
-  function save() {
-    const number = value.trim() === '' ? null : format.parseDecimal(value);
-    if (number === null && value.trim() !== '') {
+  /** `text` is the field's content, passed when it was just set and not yet rendered. */
+  function save(text: string = value) {
+    const number = text.trim() === '' ? null : format.parseDecimal(text);
+    if (number === null && text.trim() !== '') {
       setState('notANumber');
       return;
     }
@@ -172,6 +227,27 @@ function RecordingRow({
       { metricId: metric.id, write },
       { onSuccess: () => setState('saved'), onError: () => setState('failed') },
     );
+  }
+
+  /**
+   * Fill the field with the derived number and save it as if typed: a number
+   * derived but never saved would be the worst outcome. A refusal leaves the
+   * field as it was.
+   */
+  function handleDerive() {
+    derive.mutate(metric.id, {
+      onSuccess: (derived) => {
+        const text = format.editableDecimal(derived.value);
+        setValue(text);
+        setNote(derivedNote(t, format, derived));
+        setState('idle');
+        save(text);
+      },
+      onError: () => {
+        setNote(null);
+        setState('notDerived');
+      },
+    });
   }
 
   const thresholdText = describeThreshold(t, format, metric, entry.threshold);
@@ -221,7 +297,9 @@ function RecordingRow({
       ? t('recording.notANumber', { example: format.metricValue('95.3', 1, '') })
       : state === 'failed'
         ? describeFailure(t, record.error)
-        : undefined;
+        : state === 'notDerived'
+          ? notDerivedMessage(t, entry, derive.error)
+          : undefined;
 
   return (
     <tr>
@@ -234,10 +312,26 @@ function RecordingRow({
           size={10}
           className={`${teamStyles.input} ${styles.valueInput}`}
           value={value}
-          onChange={(event) => setValue(event.target.value)}
-          onBlur={save}
+          onChange={(event) => {
+            setValue(event.target.value);
+            // Typed over, the number is no longer the one the note names.
+            setNote(null);
+          }}
+          onBlur={() => save()}
           aria-invalid={state === 'notANumber'}
         />
+        {metric.derivation && (
+          <button
+            type="button"
+            className={`${controls.button} ${styles.deriveButton}`}
+            aria-label={t('recording.deriveLabel', { name: metric.name })}
+            disabled={derive.isPending}
+            onClick={handleDerive}
+          >
+            {derive.isPending ? t('recording.deriving') : t('recording.derive')}
+          </button>
+        )}
+        {note && <p className={styles.derivedNote}>{note}</p>}
       </td>
       <td data-label={captions.status}>
         <div className={styles.statusField}>
@@ -247,7 +341,7 @@ function RecordingRow({
             className={`${teamStyles.input} ${styles.statusSelect} ${COLOUR_CLASS[colour] ?? ''}`}
             value={colour}
             onChange={(event) => setColour(event.target.value as Colour | '')}
-            onBlur={save}
+            onBlur={() => save()}
           >
             {(['', ...COLOURS] as const).map((option) => (
               <option key={option || 'automatic'} value={option} className={COLOUR_CLASS[option]}>
@@ -265,7 +359,7 @@ function RecordingRow({
           className={teamStyles.input}
           value={comment}
           onChange={(event) => setComment(event.target.value)}
-          onBlur={save}
+          onBlur={() => save()}
         />
       </td>
       <td data-label={captions.state} className={styles.rowState}>

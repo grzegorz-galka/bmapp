@@ -64,6 +64,8 @@ export function definition(overrides: Partial<MetricDefinition> = {}): MetricDef
     owner: null,
     retired: false,
     retired_in_catalogue: false,
+    hidden: false,
+    derivation: null,
     ...overrides,
   };
 }
@@ -73,6 +75,10 @@ export function threshold(overrides: Partial<Threshold> = {}): Threshold {
     id: 'th-1',
     metric_id: 'metric-revenue',
     effective_from: '2026-07-01',
+    // Recorded before target values: read as its boundaries alone.
+    target_value: null,
+    green_pct: null,
+    amber_pct: null,
     green_lo: '95',
     green_hi: null,
     amber_lo: '85',
@@ -310,6 +316,8 @@ export interface Fixtures {
   items?: ItemFixtures;
   /** The board's metrics as the settings list them; the one tile's metric when left out. */
   metrics?: Metric[];
+  /** What deriving a metric's number answers; refused as not derived when left out. */
+  derive?: (url: string) => Response;
   write: (url: string, init: RequestInit) => Response;
 }
 
@@ -326,6 +334,9 @@ export function serveBoard(fetchMock: ReturnType<typeof vi.fn>, fixtures: Fixtur
       return Promise.resolve(
         found ? jsonResponse(found) : errorResponse(404, null, 'meeting.not_found'),
       );
+    }
+    if (url.endsWith('/derivation')) {
+      return Promise.resolve(fixtures.derive?.(url) ?? errorResponse(404, null, 'derivation.none'));
     }
     const pulseMatch = /\/meetings\/([^/]+)\/pulse$/.exec(url);
     if (pulseMatch) {

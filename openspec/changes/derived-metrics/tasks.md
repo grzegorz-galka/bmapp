@@ -8,7 +8,7 @@ is merged.
 
 ## 1. Schema
 
-- [ ] 1.1 Add `Metric.derivation_kind` and the `MetricDerivationSource`
+- [x] 1.1 Add `Metric.derivation_kind` and the `MetricDerivationSource`
   model (`app/models/metric.py`), and the `DerivationKind` enum in
   `app/core/metric_enums.py`, per design decision 2. Write
   `alembic/versions/0011_add_metric_derivations.py`.
@@ -17,7 +17,7 @@ is merged.
 
 ## 2. Defining a derivation (API)
 
-- [ ] 2.1 Add `derivation` (kind and sources) to the metric create and change
+- [x] 2.1 Add `derivation` (kind and sources) to the metric create and change
   requests and to the metric read models, with source team and metric
   names. Validate in a new `app/services/derivations.py`:
   - the source count (`derivation.source_count`);
@@ -37,7 +37,7 @@ is merged.
     `test_only_whoever_configures_the_board_sets_a_derivation`.
   - Verify with `tests/integration/test_only_a_boards_own_metric_is_derived.py`:
     `test_a_global_metric_is_not_derived`, `test_a_global_metric_as_a_source`.
-- [ ] 2.2 Refuse deleting a source metric and removing an included global
+- [x] 2.2 Refuse deleting a source metric and removing an included global
   source with `metric.derivation_source` (HTTP 409). Leave the derivation
   out of a copy.
   - Verify with `tests/integration/test_a_source_cannot_be_taken_away.py`:
@@ -45,13 +45,13 @@ is merged.
     `test_removing_an_included_global_source_is_refused`,
     `test_a_copy_has_no_derivation`. The retired-source scenario is
     verified in 3.2.
-- [ ] 2.3 Mirror the request and read fields in `frontend/src/api/metrics.ts`,
+- [x] 2.3 Mirror the request and read fields in `frontend/src/api/metrics.ts`,
   and add every new error code to `en.ts` and `pl.ts`.
   - Verify `npm run typecheck`.
 
 ## 3. Deriving a value (API)
 
-- [ ] 3.1 Add the pure same-week and previous-meeting rule to
+- [x] 3.1 Add the pure same-week and previous-meeting rule to
   `derivations.py` (design decision 3), and the pure computation for each
   kind, with mean quantised to 6 places, half to even.
   - Verify with `tests/unit/test_the_meeting_a_source_is_read_at.py`:
@@ -60,7 +60,7 @@ is merged.
     `test_another_team_met_twice_that_week`,
     `test_a_source_on_the_same_team`,
     `test_the_previous_meeting_for_a_delta`.
-- [ ] 3.2 Add
+- [x] 3.2 Add
   `GET /teams/{team_id}/meetings/{meeting_id}/metrics/{metric_id}/derivation`
   (design decision 4), in three statements, refusing with one error entry
   per missing source.
@@ -78,7 +78,7 @@ is merged.
 
 ## 4. The settings page (frontend)
 
-- [ ] 4.1 Add the derivation editor to the create dialog and to an own
+- [x] 4.1 Add the derivation editor to the create dialog and to an own
   metric's change form, with the kind select, the ordered team-then-metric
   sources and the delta cap of one (design decision 8). Add the row's
   reading ("Mean of 6 metrics", "Metric (Team)"). All strings go in both
@@ -88,13 +88,13 @@ is merged.
     `a source from another team`,
     `a viewer who may not configure the board` (the derivation is shown
     with no controls).
-- [ ] 4.2 Extend `e2e/configure-metrics.spec.ts`: give a metric a `mean`
+- [x] 4.2 Extend `e2e/configure-metrics.spec.ts`: give a metric a `mean`
   of two sources, one of them from another team.
   - Verify `npm run test:e2e` passes for that spec.
 
 ## 5. The recording view (frontend)
 
-- [ ] 5.1 Add "Derive" to the rows of derived metrics where the number is
+- [x] 5.1 Add "Derive" to the rows of derived metrics where the number is
   editable. It fills the field, saves through the row's existing `save()`,
   and shows the numbers used. On a refusal it shows the `notDerived` state
   naming each missing source or previous meeting (design decision 5).
@@ -103,14 +103,14 @@ is merged.
     `a derived number can be changed`, `a missing source is named`,
     `no derive on a metric without a derivation`,
     `no derive on a frozen meeting`.
-- [ ] 5.2 Extend `e2e/record-meeting-metrics.spec.ts`: record two source
+- [x] 5.2 Extend `e2e/record-meeting-metrics.spec.ts`: record two source
   values, derive their mean on a third metric, and see the tile show it
   with its status.
   - Verify `npm run test:e2e` passes for that spec.
 
 ## 6. Documentation
 
-- [ ] 6.1 Update `CLAUDE.md`:
+- [x] 6.1 Update `CLAUDE.md`:
   - add *Derived metric* to the glossary (a metric whose number "Derive"
     works out as a mean, a sum or a change since the previous meeting of
     other metrics in the same ISO week, saved as an ordinary value);
@@ -121,14 +121,14 @@ is merged.
 
 ## 7. Integration
 
-- [ ] 7.1 Run the full gates:
+- [x] 7.1 Run the full gates:
   - `uv run ruff check . && uv run ruff format --check . && uv run mypy app`
   - `uv run pytest --cov=app` (coverage not below the current figure)
   - `npm run lint && npm run typecheck && npm run test`
   - `npm run test:e2e`
 
   Verify all are green.
-- [ ] 7.2 With `docker compose up`, configure on two teams:
+- [x] 7.2 With `docker compose up`, configure on two teams:
   - a `mean` across both teams;
   - a hidden base metric with a `delta` tile.
 

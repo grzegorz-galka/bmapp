@@ -269,6 +269,76 @@ writes to `BMAPP_DATABASE_URL`, or `--database-url`. The backup is real board
 material: load it on-premise only, never into the Railway demo
 (see `SECURITY.md`).
 
+The import writes each legacy week's rule as a threshold version with a
+target value: the week's target (or the KPI's fixed green) with green 0% and
+the gap as the amber tolerance, a band's centre with half its width, and a
+range where the target is 0. Where a tolerance quantised to 6 places would
+colour a value differently, the legacy colour is kept as a colour set by hand.
+
+## Converting thresholds to target values
+
+Threshold versions recorded before target values existed keep their
+boundaries and no target value; versions are append-only, so none is edited.
+`backend/scripts/convert_thresholds.py` proposes, for each such version, a
+**twin**: the same effective date, recorded now, with a target value, by the
+reason "Conversion to target value: …". Run it once per database, dry run
+first:
+
+```bash
+cd backend
+uv run python -m scripts.convert_thresholds --actor you@pse.pl
+uv run python -m scripts.convert_thresholds --mapping mapping.csv --actor you@pse.pl
+uv run python -m scripts.convert_thresholds --mapping mapping.csv --actor you@pse.pl --apply
+```
+
+It reads `BMAPP_DATABASE_URL`, or `--database-url`. Without a mapping row a
+version converts by default: a one-sided version becomes its green boundary
+as the target value, green 0% and amber `|green − amber| / |green|` in per
+cent; a green boundary of 0 becomes the target value 0 with the same range.
+A band, or an amber tolerance that does not fit 6 decimal places, needs a
+mapping row. A version superseded by one recorded later on the same date
+judges nothing and gets no twin, so running again after `--apply` proposes
+nothing.
+
+**The mapping file** is a comma-separated CSV with a header row naming these
+columns (decimals with a dot):
+
+| Column | Meaning |
+|---|---|
+| `team` | the team's name; empty for a global metric |
+| `metric` | the metric's name (case does not matter) |
+| `effective_from` | `YYYY-MM-DD` of the version it converts; empty for every version of the metric (a dated row wins) |
+| `target_value` | the twin's target value |
+| `green_pct`, `amber_pct` | tolerances in per cent, for a target value other than 0 |
+| `green_lo`, `green_hi`, `amber_lo`, `amber_hi` | the range, for the target value 0: `green_lo`/`amber_lo` higher-is-better, `green_hi`/`amber_hi` lower-is-better, all four for a band |
+| `accept_changes` | `yes` lets `--apply` write although the row changes colours; `no` or empty refuses |
+
+```csv
+team,metric,effective_from,target_value,green_pct,amber_pct,green_lo,green_hi,amber_lo,amber_hi,accept_changes
+Zarząd,OTIF projektów KPI,2026-10-19,100,5,10,,,,,no
+Zarząd,Aneksy,2026-10-19,0,,,,5,,10,no
+```
+
+A row is checked as the API checks a new version, and against the database:
+an unknown team, metric or date, or a row repeated, stops the run with each
+problem and its line, before anything is planned.
+
+**Reading the report.** *Proposed twin versions* lists every twin with the
+version it replaces (`was`) and its new reading (`now`, with the boundaries
+it amounts to), and where the reading came from (`default` or the mapping
+file's line). Check each `now` before applying: a default can be exact and
+still wrong, like a target value 5 where 0 was meant. *Needs a mapping row*
+lists what the default cannot convert. *Status changes* lists every recorded
+value, on any board, whose colour the twins would change, and whether its
+mapping row accepts it; colours set by hand are kept and not listed. Unused
+mapping rows are listed last.
+
+A dry run writes nothing and exits 0, saying whether `--apply` would be
+refused. `--apply` writes every twin in one transaction, only when nothing
+needs a mapping row and every status change is accepted; otherwise it writes
+nothing and exits 1. A bad mapping file exits 2. To undo an applied
+conversion, record newer versions: history is never rewritten.
+
 ## Configuration
 
 All configuration comes from environment variables — see `.env.example` for

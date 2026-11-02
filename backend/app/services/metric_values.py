@@ -7,25 +7,38 @@ Every status here comes from `status_of`; none is stored.
 import datetime
 import logging
 import uuid
+from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 
-from sqlalchemy import exists, func, select, union
+from sqlalchemy import exists, func, select, tuple_, union
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, contains_eager
 
-from app.core.exceptions import CorrectionReasonBlankError, MeetingFrozenError, MetricRetiredError
-from app.core.metric_enums import Direction, Status
+from app.core.exceptions import (
+    CorrectionReasonBlankError,
+    DerivationIncompleteError,
+    DerivationNoneError,
+    DerivationPreviousMissingError,
+    DerivationSourceMissingError,
+    DerivedValueOutOfRangeError,
+    DomainError,
+    MeetingFrozenError,
+    MetricRetiredError,
+)
+from app.core.metric_enums import DerivationKind, Direction, Status
 from app.core.time import ORGANIZATION_TZ
 from app.models import BoardMetric as Placement
 from app.models import (
     Meeting,
     Metric,
+    MetricDerivationSource,
     MetricThreshold,
     MetricValue,
     MetricValueCorrection,
     PulseAnswer,
+    Team,
     TeamMember,
 )
 from app.schemas.meeting import MeetingRead
@@ -33,20 +46,30 @@ from app.schemas.metric import (
     BoardMetric,
     Completeness,
     CorrectionRead,
+    DerivedReading,
+    DerivedSource,
+    DerivedValue,
     MeetingBoard,
     MetricDefinitionRead,
     MetricTrend,
     MetricValueRead,
     MetricValueWrite,
     MissingMetric,
+    NamedRead,
     OwnerRead,
     SparklinePoint,
-    ThresholdRead,
     TrendPoint,
+    fits_a_stored_number,
 )
+from app.services.derivations import derive, load_derivations, meeting_read_at, previous_meeting
 from app.services.meetings import get_meeting
-from app.services.metric_status import status_of, threshold_in_force
-from app.services.metrics import BOARD_ORDER, get_board_metric, versions_by_metric
+from app.services.metric_status import bounds_of, status_of, threshold_in_force
+from app.services.metrics import (
+    BOARD_ORDER,
+    get_board_metric,
+    read_threshold,
+    versions_by_metric,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -192,6 +215,7 @@ def build_board(
             .order_by(*BOARD_ORDER)
         )
     )
+    load_derivations(session, (placement.metric for placement in placements))
     metric_ids = [placement.metric_id for placement in placements]
     versions = versions_by_metric(session, metric_ids)
     values = _values(session, metric_ids, [m.id for m in window])
@@ -215,7 +239,7 @@ def build_board(
         tiles.append(
             BoardMetric(
                 metric=MetricDefinitionRead.model_validate(placement),
-                threshold=ThresholdRead.model_validate(threshold) if threshold else None,
+                threshold=read_threshold(threshold, metric.direction) if threshold else None,
                 value=number,
                 status=_status(metric, entry, threshold),
                 set_by_hand=bool(entry and entry.manual_status),
@@ -241,6 +265,155 @@ def build_board(
         ),
         metrics=tiles,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class _Source:
+    """One source of a derivation as deriving reads it."""
+
+    team: NamedRead
+    metric: NamedRead
+    #: Retired on its board or in the catalogue: it gives no number.
+    retired: bool
+
+
+def derive_value(
+    session: Session, team_id: uuid.UUID, meeting_id: uuid.UUID, metric_id: uuid.UUID
+) -> DerivedValue:
+    """The number a metric's derivation gives at a meeting, and what it was worked out from.
+
+    Records nothing. Refused, with one entry per missing piece, when a source
+    has no number at the meeting it is read at - no meeting that week, none
+    recorded, or retired - or a delta's previous meeting has none. A fixed
+    number of statements however many sources: the metric, the meeting, the
+    sources, their teams' meetings up to the meeting's week, and the values.
+    """
+    metric = get_board_metric(session, team_id, metric_id).metric
+    kind = metric.derivation_kind
+    if kind is None:
+        raise DerivationNoneError(metric_id)
+    meeting = get_meeting(session, team_id, meeting_id)
+    recorded = MeetingDate(meeting.id, meeting.date)
+    sources = _derivation_sources(session, metric_id)
+    meetings = _meetings_up_to_the_week_of(
+        session, {source.team.id for source in sources}, recorded.date
+    )
+
+    # Where each source is read, and for a delta the meeting before that.
+    plan: list[tuple[_Source, MeetingDate | None, MeetingDate | None]] = []
+    for source in sources:
+        team_meetings = meetings[source.team.id]
+        at = meeting_read_at(recorded, source.team.id == team_id, team_meetings)
+        prior = previous_meeting(at, team_meetings) if at and kind is DerivationKind.DELTA else None
+        plan.append((source, at, prior))
+    numbers = _numbers(
+        session,
+        [(source.metric.id, m.id) for source, *read in plan for m in read if m is not None],
+    )
+
+    missing: list[DomainError] = []
+    used: list[DerivedSource] = []
+    for index, (source, at, prior) in enumerate(plan):
+        number = numbers.get((source.metric.id, at.id)) if at and not source.retired else None
+        if number is None:
+            missing.append(
+                DerivationSourceMissingError(index, source.team.name, source.metric.name)
+            )
+        previous: DerivedReading | None = None
+        if kind is DerivationKind.DELTA and at is not None and not source.retired:
+            earlier = numbers.get((source.metric.id, prior.id)) if prior else None
+            if prior is None or earlier is None:
+                missing.append(DerivationPreviousMissingError(source.team.name, source.metric.name))
+            else:
+                previous = DerivedReading(meeting_id=prior.id, date=prior.date, value=earlier)
+        if at is not None and number is not None:
+            used.append(
+                DerivedSource(
+                    team=source.team,
+                    metric=source.metric,
+                    meeting_id=at.id,
+                    date=at.date,
+                    value=number,
+                    previous=previous,
+                )
+            )
+    if missing:
+        raise DerivationIncompleteError(missing)
+    value = derive(
+        kind, [entry.value for entry in used], used[0].previous.value if used[0].previous else None
+    )
+    if not fits_a_stored_number(value):
+        raise DerivedValueOutOfRangeError()
+    return DerivedValue(value=value, kind=kind, sources=used)
+
+
+def _derivation_sources(session: Session, metric_id: uuid.UUID) -> list[_Source]:
+    """A derived metric's sources in order, named, and whether each is retired. One statement."""
+    rows = session.execute(
+        select(
+            Team.id, Team.name, Metric.id, Metric.name, Metric.retired, Placement.retired_on_board
+        )
+        .select_from(MetricDerivationSource)
+        .join(Team, Team.id == MetricDerivationSource.source_team_id)
+        .join(Metric, Metric.id == MetricDerivationSource.source_metric_id)
+        # Outer: a placement is kept while it is a source, but a missing one
+        # must read as no number rather than lose the source from the list.
+        .outerjoin(
+            Placement,
+            (Placement.team_id == MetricDerivationSource.source_team_id)
+            & (Placement.metric_id == MetricDerivationSource.source_metric_id),
+        )
+        .where(MetricDerivationSource.metric_id == metric_id)
+        .order_by(MetricDerivationSource.position)
+    ).tuples()
+    return [
+        _Source(
+            team=NamedRead(id=team, name=team_name),
+            metric=NamedRead(id=metric, name=metric_name),
+            retired=in_catalogue or on_board is not False,
+        )
+        for team, team_name, metric, metric_name, in_catalogue, on_board in rows
+    ]
+
+
+def _meetings_up_to_the_week_of(
+    session: Session, team_ids: set[uuid.UUID], date: datetime.date
+) -> defaultdict[uuid.UUID, list[MeetingDate]]:
+    """These teams' meetings up to the end of `date`'s ISO week, by team. One statement.
+
+    Every earlier one too: a delta's previous meeting may lie any number of
+    weeks back.
+    """
+    next_monday = date + datetime.timedelta(days=8 - date.isoweekday())
+    end = datetime.datetime.combine(next_monday, datetime.time(0), tzinfo=ORGANIZATION_TZ)
+    grouped: defaultdict[uuid.UUID, list[MeetingDate]] = defaultdict(list)
+    rows = session.execute(
+        select(Meeting.team_id, Meeting.id, Meeting.starts_at)
+        .where(Meeting.team_id.in_(team_ids), Meeting.starts_at < end)
+        .order_by(Meeting.starts_at)
+    ).tuples()
+    for team_id, meeting_id, starts_at in rows:
+        grouped[team_id].append(
+            MeetingDate(meeting_id, starts_at.astimezone(ORGANIZATION_TZ).date())
+        )
+    return grouped
+
+
+def _numbers(
+    session: Session, pairs: Sequence[tuple[uuid.UUID, uuid.UUID]]
+) -> dict[tuple[uuid.UUID, uuid.UUID], Decimal]:
+    """The numbers recorded for these (metric, meeting) pairs, where there is one. One statement."""
+    if not pairs:
+        return {}
+    rows = session.execute(
+        select(MetricValue.metric_id, MetricValue.meeting_id, MetricValue.value).where(
+            tuple_(MetricValue.metric_id, MetricValue.meeting_id).in_(pairs),
+            MetricValue.value.is_not(None),
+        )
+    ).tuples()
+    return {
+        (metric_id, meeting_id): value for metric_id, meeting_id, value in rows if value is not None
+    }
 
 
 def owing_by_meeting(session: Session, meeting_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, int]:
@@ -321,7 +494,7 @@ def build_trend(session: Session, team_id: uuid.UUID, metric_id: uuid.UUID) -> M
                 set_by_hand=bool(entry and entry.manual_status),
                 manual_status=entry.manual_status if entry else None,
                 comment=entry.comment if entry else None,
-                threshold=ThresholdRead.model_validate(threshold) if threshold else None,
+                threshold=read_threshold(threshold, metric.direction) if threshold else None,
             )
         )
     return MetricTrend(
@@ -385,11 +558,12 @@ def _values(
 
 
 def _status(metric: Metric, entry: MetricValue | None, threshold: MetricThreshold | None) -> Status:
+    """Judged against the boundaries the version amounts to, never its raw columns."""
     return status_of(
         metric.direction,
         entry.value if entry else None,
         entry.manual_status if entry else None,
-        threshold,
+        bounds_of(metric.direction, threshold) if threshold else None,
     )
 
 

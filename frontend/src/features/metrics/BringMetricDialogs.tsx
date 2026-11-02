@@ -14,7 +14,7 @@ import { describeFieldFailure, describeOtherFailure } from '../../i18n/apiErrors
 import { useGlobalMetrics } from '../globalMetrics/useGlobalMetrics';
 import { useTeams } from '../teams/useTeams';
 import { Modal } from '../../components/Modal';
-import { GroupSelect, OwnerSelect } from './MetricForm';
+import { GroupSelect, HiddenSwitch, OwnerSelect } from './MetricForm';
 import { useCopyMetric, useIncludeGlobalMetric, useMetrics } from './useMetrics';
 import controls from '../../styles/controls.module.css';
 import teamStyles from '../teams/teams.module.css';
@@ -45,6 +45,7 @@ export function CopyMetricDialog({
   const [source, setSource] = useState('');
   const [name, setName] = useState('');
   const [group, setGroup] = useState<string | null>(null);
+  const [hidden, setHidden] = useState(false);
   const sourceMetrics = useMetrics(sourceTeam, sourceTeam !== '');
   const first = useRef<HTMLSelectElement>(null);
   const id = (field: string) => `copy-metric-${field}`;
@@ -63,6 +64,7 @@ export function CopyMetricDialog({
         source_metric_id: source,
         ...(name.trim() ? { name } : {}),
         ...(group ? { group_id: group } : {}),
+        hidden,
       },
       { onSuccess: onClose },
     );
@@ -160,6 +162,7 @@ export function CopyMetricDialog({
             groups={groups}
             error={describeFieldFailure(t, copy.error, 'group_id')}
           />
+          <HiddenSwitch id={id('hidden')} checked={hidden} onChange={setHidden} />
           <span className={`${teamStyles.actions} ${teamStyles.submit}`}>
             <button
               type="submit"
@@ -204,6 +207,7 @@ export function IncludeGlobalMetricDialog({
   const [chosen, setChosen] = useState('');
   const [group, setGroup] = useState<string | null>(null);
   const [owner, setOwner] = useState<string | null>(null);
+  const [hidden, setHidden] = useState(false);
   const first = useRef<HTMLSelectElement>(null);
   const id = (field: string) => `include-metric-${field}`;
 
@@ -221,6 +225,7 @@ export function IncludeGlobalMetricDialog({
         global_metric_id: chosen,
         group_id: group,
         owner_employee_id: owner,
+        hidden,
       },
       { onSuccess: onClose },
     );
@@ -286,6 +291,7 @@ export function IncludeGlobalMetricDialog({
           members={members}
           error={fieldError('owner_employee_id')}
         />
+        <HiddenSwitch id={id('hidden')} checked={hidden} onChange={setHidden} />
         <span className={`${teamStyles.actions} ${teamStyles.submit}`}>
           <button
             type="submit"

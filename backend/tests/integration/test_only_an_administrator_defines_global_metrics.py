@@ -10,7 +10,13 @@ from tests.integration.meetings_api import error_of
 from tests.integration.teams_api import register
 
 LEADER = "lead@pse.pl"
-THRESHOLD = {"effective_from": "2026-10-01", "reason": "Plan", "green": "99.5", "amber": "99"}
+THRESHOLD = {
+    "effective_from": "2026-10-01",
+    "reason": "Plan",
+    "target_value": "100",
+    "green_pct": "0.5",
+    "amber_pct": "1",
+}
 
 
 def test_an_administrator_defines_a_global_metric_and_its_threshold(client: TestClient) -> None:

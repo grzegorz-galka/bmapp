@@ -6,10 +6,26 @@ import type { Member } from '../../api/teams';
 import { describeFailure } from '../../i18n/apiErrors';
 import { useFormat } from '../../i18n/format';
 import { describeThreshold, GlobalMark } from './display';
-import { MetricForm } from './MetricForm';
+import { HiddenSwitch, MetricForm } from './MetricForm';
+import {
+  DerivationReading,
+  toDerivationDraft,
+  toDerivationWrite,
+  type DerivationDraft,
+} from './DerivationEditor';
 import { ThresholdDialog, ThresholdHistory } from './thresholds';
 import { useAddThreshold, useChangeMetric, useDeleteMetric, useThresholds } from './useMetrics';
+import {
+  ArchiveIcon,
+  EditIcon,
+  GaugeIcon,
+  HistoryIcon,
+  RestoreIcon,
+  TrashIcon,
+  UnlinkIcon,
+} from '../../components/icons';
 import controls from '../../styles/controls.module.css';
+import styles from './metrics.module.css';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
 
@@ -41,6 +57,9 @@ export function MetricRow({
   const deleteMetric = useDeleteMetric(teamId);
   const [panel, setPanel] = useState<Panel>('none');
   const [draft, setDraft] = useState<MetricCreate>(() => toDraft(metric));
+  const [derivation, setDerivation] = useState<DerivationDraft>(() =>
+    toDerivationDraft(metric.derivation),
+  );
   const name = metric.name;
   // A global metric's definition and thresholds are the catalogue's: the
   // board places it, retires it here or removes it, and nothing else.
@@ -49,7 +68,10 @@ export function MetricRow({
   function open(next: Panel) {
     changeMetric.reset();
     deleteMetric.reset();
-    if (next === 'edit') setDraft(toDraft(metric));
+    if (next === 'edit') {
+      setDraft(toDraft(metric));
+      setDerivation(toDerivationDraft(metric.derivation));
+    }
     setPanel(panel === next ? 'none' : next);
   }
 
@@ -58,9 +80,20 @@ export function MetricRow({
     // The direction is never sent: it cannot change, and the form cannot change it.
     // The group changes on the layout, by dragging or the move controls.
     const placement = { owner_employee_id: draft.owner_employee_id };
+    // The derivation is sent only when it changed: left out, it is left alone.
+    const derived = toDerivationWrite(derivation);
+    const unchanged =
+      JSON.stringify(derived) ===
+      JSON.stringify(toDerivationWrite(toDerivationDraft(metric.derivation)));
     const change = global
       ? placement
-      : { name: draft.name, unit: draft.unit, decimals: draft.decimals, ...placement };
+      : {
+          name: draft.name,
+          unit: draft.unit,
+          decimals: draft.decimals,
+          ...placement,
+          ...(unchanged ? {} : { derivation: derived }),
+        };
     changeMetric.mutate({ metricId: metric.id, change }, { onSuccess: () => setPanel('none') });
   }
 
@@ -75,70 +108,109 @@ export function MetricRow({
 
   return (
     <li {...rowProps} className={`${teamStyles.item} ${rowProps?.className ?? ''}`}>
-      <span className={teamStyles.itemMain}>
-        <span className={teamStyles.itemName}>
-          {name}
-          {global && (
-            <>
-              {' '}
-              <GlobalMark />
-            </>
-          )}
-          {metric.retired && <span className={teamStyles.leaderMark}>{t('metrics.retired')}</span>}
-        </span>
-        <span className={teamStyles.itemMeta}>{meta.join(' · ')}</span>
-        <span className={teamStyles.itemMeta}>
-          {describeThreshold(t, format, metric, metric.threshold)}
-          {metric.threshold &&
-            ` · ${t('threshold.effectiveFrom', {
-              date: format.meetingDate(metric.threshold.effective_from),
-            })}`}
-        </span>
-        {metric.retired_in_catalogue && (
-          <span className={teamStyles.itemMeta}>{t('metrics.retiredInCatalogue')}</span>
-        )}
-        {global && (
+      <div className={styles.rowHead}>
+        <span className={teamStyles.itemMain}>
+          <span className={teamStyles.itemName}>
+            {name}
+            {global && (
+              <>
+                {' '}
+                <GlobalMark />
+              </>
+            )}
+            {metric.retired && (
+              <span className={teamStyles.leaderMark}>{t('metrics.retired')}</span>
+            )}
+            {metric.hidden && (
+              <span className={teamStyles.leaderMark}>{t('metrics.hiddenMark')}</span>
+            )}
+          </span>
+          <span className={teamStyles.itemMeta}>{meta.join(' · ')}</span>
           <span className={teamStyles.itemMeta}>
-            {t('metrics.globalNote')} <Link to="/global-metrics">{t('nav.globalMetrics')}</Link>
+            {describeThreshold(t, format, metric, metric.threshold)}
+            {metric.threshold &&
+              ` · ${t('threshold.effectiveFrom', {
+                date: format.meetingDate(metric.threshold.effective_from),
+              })}`}
+          </span>
+          {metric.derivation && (
+            <DerivationReading
+              derivation={metric.derivation}
+              teamId={teamId}
+              idPrefix={`metric-${metric.id}`}
+            />
+          )}
+          {metric.retired_in_catalogue && (
+            <span className={teamStyles.itemMeta}>{t('metrics.retiredInCatalogue')}</span>
+          )}
+          {global && (
+            <span className={teamStyles.itemMeta}>
+              {t('metrics.globalNote')} <Link to="/global-metrics">{t('nav.globalMetrics')}</Link>
+            </span>
+          )}
+        </span>
+        {/* Where the board shows it is the board's, for a global metric too. */}
+        {mayConfigure && (
+          <span className={styles.rowCorner}>
+            <HiddenSwitch
+              id={`metric-${metric.id}-hidden`}
+              name={name}
+              checked={metric.hidden}
+              disabled={changeMetric.isPending}
+              onChange={(hidden) =>
+                changeMetric.mutate({ metricId: metric.id, change: { hidden } })
+              }
+            />
           </span>
         )}
-      </span>
-      <span className={teamStyles.actions}>
-        {arrange}
-        <button
-          type="button"
-          className={controls.button}
-          aria-expanded={panel === 'history'}
-          aria-label={t('metrics.historyLabel', { name })}
-          onClick={() => open('history')}
-        >
-          {t('metrics.history')}
-        </button>
-        {mayConfigure && (
-          <>
+      </div>
+      <div className={styles.rowActions}>
+        {/* Viewing and changing, always in this order from the left. */}
+        <span className={styles.actionsStart}>
+          <button
+            type="button"
+            className={controls.button}
+            aria-expanded={panel === 'history'}
+            aria-label={t('metrics.historyLabel', { name })}
+            onClick={() => open('history')}
+          >
+            <HistoryIcon />
+            {t('metrics.history')}
+          </button>
+          {mayConfigure && (
             <button
               type="button"
               className={controls.button}
               aria-label={t(global ? 'metrics.editPlacementLabel' : 'metrics.editLabel', { name })}
               onClick={() => open('edit')}
             >
+              <EditIcon />
               {global ? t('metrics.editPlacement') : t('metrics.edit')}
             </button>
-            {!global && (
-              <button
-                type="button"
-                className={controls.button}
-                aria-label={t('metrics.changeThresholdLabel', { name })}
-                onClick={() => open('threshold')}
-              >
-                {t('metrics.changeThreshold')}
-              </button>
-            )}
+          )}
+          {mayConfigure && !global && (
+            <button
+              type="button"
+              className={controls.button}
+              aria-label={t('metrics.changeThresholdLabel', { name })}
+              onClick={() => open('threshold')}
+            >
+              <GaugeIcon />
+              {t('metrics.changeThreshold')}
+            </button>
+          )}
+        </span>
+        {/* Arranging and ending, always in this order against the right edge. */}
+        {mayConfigure && (
+          <span className={styles.actionsEnd}>
+            {arrange}
             {/* The board's switch cannot undo the catalogue's retirement. */}
-            {!metric.retired_in_catalogue && (
+            {metric.retired_in_catalogue ? (
+              <span className={styles.steadyWidth} />
+            ) : (
               <button
                 type="button"
-                className={controls.button}
+                className={`${controls.button} ${styles.steadyWidth}`}
                 disabled={changeMetric.isPending}
                 aria-label={t(metric.retired ? 'metrics.bringBackLabel' : 'metrics.retireLabel', {
                   name,
@@ -147,21 +219,23 @@ export function MetricRow({
                   changeMetric.mutate({ metricId: metric.id, change: { retired: !metric.retired } })
                 }
               >
+                {metric.retired ? <RestoreIcon /> : <ArchiveIcon />}
                 {metric.retired ? t('metrics.bringBack') : t('metrics.retire')}
               </button>
             )}
             <button
               type="button"
-              className={controls.button}
+              className={`${controls.button} ${styles.steadyWidth}`}
               disabled={deleteMetric.isPending}
               aria-label={t(global ? 'metrics.removeLabel' : 'metrics.deleteLabel', { name })}
               onClick={() => deleteMetric.mutate(metric.id)}
             >
+              {global ? <UnlinkIcon /> : <TrashIcon />}
               {global ? t('metrics.remove') : t('metrics.delete')}
             </button>
-          </>
+          </span>
         )}
-      </span>
+      </div>
       {rowError && (
         <p role="alert" className={teamStyles.itemError}>
           {rowError}
@@ -181,6 +255,12 @@ export function MetricRow({
             pending={changeMetric.isPending}
             directionFixed
             definition={!global}
+            // A global metric is never derived: its definition is the catalogue's.
+            derivation={
+              global
+                ? undefined
+                : { teamId, metricId: metric.id, value: derivation, onChange: setDerivation }
+            }
           />
         </div>
       )}

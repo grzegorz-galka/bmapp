@@ -2,15 +2,21 @@
 
 import datetime
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
-from app.core.exceptions import ThresholdOrderError, ThresholdShapeError
-from app.core.metric_enums import Colour, Direction
+from app.core.exceptions import (
+    ThresholdOrderError,
+    ThresholdShapeError,
+    ThresholdToleranceNegativeError,
+)
+from app.core.metric_enums import Colour, DerivationKind, Direction
 from app.main import _validation_code
 from app.schemas import (
+    DerivedValue,
     GlobalMetricChange,
     GlobalMetricCreate,
     GlobalMetricInclusion,
@@ -26,6 +32,7 @@ from app.schemas import (
     ThresholdCreate,
     ThresholdRead,
 )
+from app.services.metrics import read_threshold
 
 
 def _published_code(model: type, **fields: object) -> tuple[tuple[object, ...], str]:
@@ -120,15 +127,105 @@ def test_a_change_validates_like_an_addition() -> None:
     assert _published_code(MetricChange, name=" ") == (("name",), "metric_name.blank")
 
 
-@pytest.mark.parametrize("field", ["name", "unit", "decimals", "direction", "retired"])
+@pytest.mark.parametrize("field", ["name", "unit", "decimals", "direction", "retired", "hidden"])
 def test_a_property_that_always_has_a_value_cannot_be_cleared(field: str) -> None:
     assert _published_code(MetricChange, **{field: None}) == ((field,), "request.invalid_field")
+
+
+def test_a_metric_is_added_shown_unless_asked_to_hide_it() -> None:
+    assert MetricCreate(**_metric()).hidden is False
+    assert MetricCreate(**_metric(hidden=True)).hidden is True
+    assert MetricCopy(source_metric_id=SOURCE).hidden is False  # type: ignore[arg-type]
+    assert GlobalMetricInclusion(global_metric_id=SOURCE).hidden is False  # type: ignore[arg-type]
 
 
 def test_group_and_owner_can_be_cleared() -> None:
     change = MetricChange(group_id=None, owner_employee_id=None)
 
     assert change.model_fields_set == {"group_id", "owner_employee_id"}
+
+
+# A metric's derivation
+
+TEAM = "00000000-0000-0000-0000-00000000000a"
+SOURCE_A = "00000000-0000-0000-0000-00000000000b"
+SOURCE_B = "00000000-0000-0000-0000-00000000000c"
+
+
+def _derivation(kind: str = "mean", *metric_ids: str) -> dict[str, Any]:
+    return {"kind": kind, "sources": [{"team_id": TEAM, "metric_id": m} for m in metric_ids]}
+
+
+def test_a_metric_is_added_typed_in_unless_given_a_derivation() -> None:
+    assert MetricCreate(**_metric()).derivation is None
+
+    derived = MetricCreate(**_metric(derivation=_derivation("mean", SOURCE_A, SOURCE_B)))
+
+    assert derived.derivation is not None
+    assert derived.derivation.kind is DerivationKind.MEAN
+    assert [str(s.metric_id) for s in derived.derivation.sources] == [SOURCE_A, SOURCE_B]
+
+
+@pytest.mark.parametrize("kind", ["mean", "sum", "delta"])
+def test_a_derivation_is_one_of_three_kinds(kind: str) -> None:
+    change = MetricChange(derivation=_derivation(kind, SOURCE_A))  # type: ignore[arg-type]
+
+    assert change.derivation is not None
+    assert change.derivation.kind == kind
+
+
+def test_a_kind_outside_the_three_is_malformed() -> None:
+    assert _published_code(MetricCreate, **_metric(derivation=_derivation("max", SOURCE_A))) == (
+        ("derivation", "kind"),
+        "request.invalid_field",
+    )
+
+
+def test_a_source_names_its_team_and_its_metric() -> None:
+    sources = [{"metric_id": SOURCE_A}]
+
+    assert _published_code(
+        MetricCreate, **_metric(derivation={"kind": "mean", "sources": sources})
+    ) == (("derivation", "sources", 0, "team_id"), "request.invalid_field")
+
+
+def test_a_change_leaves_the_derivation_removes_it_or_replaces_it() -> None:
+    assert "derivation" not in MetricChange(name="Renamed").model_fields_set
+    removed = MetricChange(derivation=None)
+    assert ("derivation" in removed.model_fields_set, removed.derivation) == (True, None)
+    replaced = MetricChange(derivation=_derivation("sum", SOURCE_A))  # type: ignore[arg-type]
+    assert replaced.derivation is not None
+    assert replaced.derivation.kind is DerivationKind.SUM
+
+
+def test_a_copy_and_an_inclusion_take_no_derivation() -> None:
+    assert "derivation" not in MetricCopy.model_fields
+    assert "derivation" not in GlobalMetricInclusion.model_fields
+    assert "derivation" not in GlobalMetricCreate.model_fields
+
+
+def test_a_derived_value_is_written_as_a_plain_decimal_string() -> None:
+    reading = {"meeting_id": SOURCE_A, "date": "2026-10-13", "value": Decimal("391.000000")}
+    named = {"id": TEAM, "name": "CKI-P"}
+    derived = DerivedValue.model_validate(
+        {
+            "value": Decimal("-4.000000"),
+            "kind": "delta",
+            "sources": [
+                {
+                    **reading,
+                    "team": named,
+                    "metric": named,
+                    "previous": {**reading, "value": Decimal("395")},
+                }
+            ],
+        }
+    )
+
+    body = derived.model_dump(mode="json")
+
+    assert (body["value"], body["kind"]) == ("-4", "delta")
+    assert (body["sources"][0]["value"], body["sources"][0]["previous"]["value"]) == ("391", "395")
 
 
 # The scope of a metric on a board
@@ -146,6 +243,7 @@ def _definition(**fields: Any) -> dict[str, Any]:
         "position": 0,
         "owner": None,
         "retired": False,
+        "hidden": False,
         "retired_in_catalogue": False,
         **fields,
     }
@@ -156,6 +254,23 @@ def test_a_metric_on_a_board_reads_its_scope(scope: str) -> None:
     read = MetricDefinitionRead.model_validate(_definition(scope=scope))
 
     assert read.model_dump(mode="json")["scope"] == scope
+
+
+def test_a_metric_reads_with_no_derivation_unless_it_has_one() -> None:
+    assert MetricDefinitionRead.model_validate(_definition(scope="board")).derivation is None
+
+    named = {"id": TEAM, "name": "OTIF-Etap"}
+    read = MetricDefinitionRead.model_validate(
+        _definition(
+            scope="board",
+            derivation={"kind": "mean", "sources": [{"team": named, "metric": named}]},
+        )
+    )
+
+    assert read.model_dump(mode="json")["derivation"] == {
+        "kind": "mean",
+        "sources": [{"team": named, "metric": named}],
+    }
 
 
 def test_a_scope_is_board_or_global_and_nothing_else() -> None:
@@ -255,21 +370,27 @@ def test_a_copy_name_is_validated_as_a_metric_name(name: str, code: str) -> None
 
 
 def _threshold(**fields: Any) -> ThresholdCreate:
+    """A version request; the target value 0, which takes boundaries, unless given."""
     return ThresholdCreate(
-        effective_from=datetime.date(2026, 10, 1), reason="Plan for Q4", **fields
+        **{"effective_from": datetime.date(2026, 10, 1), "reason": "Plan for Q4"},
+        **{"target_value": "0", **fields},
     )
 
 
 def test_a_higher_is_better_version_maps_onto_the_lower_bounds() -> None:
     bounds = _threshold(green="95", amber="85").bounds(Direction.HIGHER_IS_BETTER)
 
-    assert bounds == ThresholdBounds(green_lo=Decimal(95), amber_lo=Decimal(85))
+    assert bounds == ThresholdBounds(
+        green_lo=Decimal(95), amber_lo=Decimal(85), target_value=Decimal(0)
+    )
 
 
 def test_a_lower_is_better_version_maps_onto_the_upper_bounds() -> None:
     bounds = _threshold(green="5", amber="10").bounds(Direction.LOWER_IS_BETTER)
 
-    assert bounds == ThresholdBounds(green_hi=Decimal(5), amber_hi=Decimal(10))
+    assert bounds == ThresholdBounds(
+        green_hi=Decimal(5), amber_hi=Decimal(10), target_value=Decimal(0)
+    )
 
 
 def test_a_band_keeps_all_four_bounds() -> None:
@@ -277,7 +398,89 @@ def test_a_band_keeps_all_four_bounds() -> None:
         Direction.WITHIN_BAND
     )
 
-    assert bounds == ThresholdBounds(Decimal(71), Decimal(72), Decimal("70.5"), Decimal("72.5"))
+    assert bounds == ThresholdBounds(
+        Decimal(71), Decimal(72), Decimal("70.5"), Decimal("72.5"), target_value=Decimal(0)
+    )
+
+
+# A threshold version's target value
+
+
+@pytest.mark.parametrize("direction", list(Direction))
+def test_a_target_value_with_tolerances_stores_no_boundary(direction: Direction) -> None:
+    bounds = _threshold(target_value="72.3", green_pct="5", amber_pct="10").bounds(direction)
+
+    assert bounds == ThresholdBounds(
+        target_value=Decimal("72.3"), green_pct=Decimal(5), amber_pct=Decimal(10)
+    )
+
+
+def test_the_target_value_is_missing() -> None:
+    fields = {"effective_from": "2026-10-01", "reason": "x", "green": "1", "amber": "0"}
+
+    assert _published_code(ThresholdCreate, **fields) == (
+        ("target_value",),
+        "request.invalid_field",
+    )
+
+
+@pytest.mark.parametrize("field", ["target_value", "green_pct", "amber_pct"])
+def test_a_target_value_or_tolerance_too_large_to_store_is_malformed(field: str) -> None:
+    fields = {"effective_from": "2026-10-01", "reason": "x", "target_value": "1", field: "1e15"}
+
+    assert _published_code(ThresholdCreate, **fields) == ((field,), "request.invalid_field")
+
+
+@pytest.mark.parametrize(
+    ("fields", "offending"),
+    [
+        # The target value 0 refuses tolerances...
+        ({"target_value": "0", "green_pct": "5", "green": "5", "amber": "10"}, "green_pct"),
+        ({"target_value": "0", "amber_pct": "5", "green": "5", "amber": "10"}, "amber_pct"),
+        # ...and still needs the direction's boundaries.
+        ({"target_value": "0"}, "green"),
+        # Any other target value refuses every boundary...
+        ({"target_value": "95", "green": "95", "green_pct": "0", "amber_pct": "5"}, "green"),
+        ({"target_value": "95", "amber_hi": "99", "green_pct": "0", "amber_pct": "5"}, "amber_hi"),
+        # ...and needs both tolerances.
+        ({"target_value": "95", "green_pct": "5"}, "amber_pct"),
+        ({"target_value": "-20", "amber_pct": "5"}, "green_pct"),
+    ],
+)
+def test_a_version_is_shaped_by_its_target_value(fields: dict[str, str], offending: str) -> None:
+    with pytest.raises(ThresholdShapeError) as caught:
+        _threshold(**fields).bounds(Direction.LOWER_IS_BETTER)
+
+    assert (caught.value.field, caught.value.code) == (offending, "request.invalid_field")
+
+
+@pytest.mark.parametrize(
+    ("fields", "offending"),
+    [
+        ({"green_pct": "-1", "amber_pct": "5"}, "green_pct"),
+        ({"green_pct": "0", "amber_pct": "-0.000001"}, "amber_pct"),
+    ],
+)
+def test_a_negative_tolerance(fields: dict[str, str], offending: str) -> None:
+    with pytest.raises(ThresholdToleranceNegativeError) as caught:
+        _threshold(target_value="95", **fields).bounds(Direction.HIGHER_IS_BETTER)
+
+    assert (caught.value.field, caught.value.code) == (offending, "threshold_tolerance.negative")
+
+
+def test_amber_tighter_than_green() -> None:
+    with pytest.raises(ThresholdOrderError):
+        _threshold(target_value="95", green_pct="10", amber_pct="5").bounds(
+            Direction.HIGHER_IS_BETTER
+        )
+
+
+def test_equal_tolerances_are_accepted() -> None:
+    bounds = _threshold(target_value="100", green_pct="0", amber_pct="0").bounds(
+        Direction.HIGHER_IS_BETTER
+    )
+
+    assert (bounds.green_pct, bounds.amber_pct) == (Decimal(0), Decimal(0))
 
 
 @pytest.mark.parametrize(
@@ -310,7 +513,13 @@ def test_a_plain_red_and_green_metric(direction: Direction) -> None:
 
 
 def test_missing_reason() -> None:
-    fields = {"effective_from": "2026-10-01", "reason": "  ", "green": "1", "amber": "0"}
+    fields = {
+        "effective_from": "2026-10-01",
+        "reason": "  ",
+        "target_value": "0",
+        "green": "1",
+        "amber": "0",
+    }
 
     assert _published_code(ThresholdCreate, **fields) == (("reason",), "threshold_reason.blank")
 
@@ -338,7 +547,13 @@ def test_boundaries_that_do_not_fit_the_direction(
 
 
 def test_a_boundary_too_large_to_store_is_malformed() -> None:
-    fields = {"effective_from": "2026-10-01", "reason": "x", "green": "1e15", "amber": "0"}
+    fields = {
+        "effective_from": "2026-10-01",
+        "reason": "x",
+        "target_value": "0",
+        "green": "1e15",
+        "amber": "0",
+    }
 
     assert _published_code(ThresholdCreate, **fields) == (("green",), "request.invalid_field")
 
@@ -349,6 +564,9 @@ def test_bounds_are_written_as_plain_decimal_strings() -> None:
             "id": "00000000-0000-0000-0000-000000000001",
             "metric_id": "00000000-0000-0000-0000-000000000002",
             "effective_from": "2026-10-01",
+            "target_value": None,
+            "green_pct": None,
+            "amber_pct": None,
             "green_lo": Decimal("95.300000"),
             "green_hi": None,
             "amber_lo": Decimal("100.000000"),
@@ -362,6 +580,30 @@ def test_bounds_are_written_as_plain_decimal_strings() -> None:
     body = read.model_dump(mode="json")
 
     assert (body["green_lo"], body["amber_lo"], body["green_hi"]) == ("95.3", "100", None)
+
+
+def test_a_read_carries_the_boundaries_a_target_value_amounts_to() -> None:
+    row = SimpleNamespace(
+        id="00000000-0000-0000-0000-000000000001",
+        metric_id="00000000-0000-0000-0000-000000000002",
+        effective_from=datetime.date(2026, 10, 1),
+        target_value=Decimal("95.000000"),
+        green_pct=Decimal("0.000000"),
+        amber_pct=Decimal("5.263158"),
+        green_lo=None,
+        green_hi=None,
+        amber_lo=None,
+        amber_hi=None,
+        reason="x",
+        recorded_by_email="a@b.c",
+        recorded_at=datetime.datetime(2026, 10, 1, 10, tzinfo=datetime.UTC),
+    )
+
+    body = read_threshold(row, Direction.HIGHER_IS_BETTER).model_dump(mode="json")
+
+    assert (body["target_value"], body["green_pct"], body["amber_pct"]) == ("95", "0", "5.263158")
+    assert (body["green_lo"], body["amber_lo"]) == ("95", "89.9999999")
+    assert (body["green_hi"], body["amber_hi"]) == (None, None)
 
 
 # Record a metric value at a meeting

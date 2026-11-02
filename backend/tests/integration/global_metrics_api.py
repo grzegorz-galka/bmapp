@@ -36,8 +36,12 @@ def add_global_threshold(
     reason: str = "Plan",
     **bounds: Any,
 ) -> Any:
-    """Add a threshold version to a global metric, failing the test if that is refused."""
-    body = {"effective_from": effective_from, "reason": reason, **bounds}
+    """Add a threshold version to a global metric, failing the test if that is refused.
+
+    Without a `target_value` the version is a range: the target value 0 and
+    the boundaries given.
+    """
+    body = {"effective_from": effective_from, "reason": reason, "target_value": "0", **bounds}
     response = client.post(f"/global-metrics/{metric_id}/thresholds", json=body)
     assert response.status_code == 201, response.json()
     return response.json()

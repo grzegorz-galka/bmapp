@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import type { MetricCreate, MetricGroup } from '../../api/metrics';
@@ -11,7 +11,9 @@ import { useTeam } from '../teams/useTeams';
 import { ArrangedMetrics, GroupNameDialog } from './ArrangedMetrics';
 import { CopyMetricDialog, IncludeGlobalMetricDialog } from './BringMetricDialogs';
 import { MetricForm } from './MetricForm';
+import { NO_DERIVATION, toDerivationWrite, type DerivationDraft } from './DerivationEditor';
 import { Modal } from '../../components/Modal';
+import { CopyIcon, FolderIcon, GlobeIcon, PlusIcon } from '../../components/icons';
 import { BackLink } from '../../components/BackLink';
 import { useAddMetric, useMetricGroups, useMetrics } from './useMetrics';
 import controls from '../../styles/controls.module.css';
@@ -93,6 +95,7 @@ const BLANK_METRIC: MetricCreate = {
   direction: 'higher_is_better',
   group_id: null,
   owner_employee_id: null,
+  hidden: false,
 };
 
 type Adding = 'none' | 'create' | 'copy' | 'include' | 'group';
@@ -117,13 +120,14 @@ function AddMetric({
   const { t } = useTranslation();
   const [adding, setAdding] = useState<Adding>('none');
   const close = () => setAdding('none');
-  const opener = (what: Adding, caption: string) => (
+  const opener = (what: Adding, caption: string, icon: ReactNode) => (
     <button
       type="button"
       className={what === 'create' ? controls.default : controls.button}
       aria-haspopup="dialog"
       onClick={() => setAdding(what)}
     >
+      {icon}
       {caption}
     </button>
   );
@@ -131,10 +135,10 @@ function AddMetric({
   return (
     <>
       <div className={styles.addRow}>
-        {opener('create', t('metrics.create'))}
-        {opener('copy', t('metrics.copy'))}
-        {opener('include', t('metrics.include'))}
-        {opener('group', t('metrics.addGroup'))}
+        {opener('create', t('metrics.create'), <PlusIcon />)}
+        {opener('copy', t('metrics.copy'), <CopyIcon />)}
+        {opener('include', t('metrics.include'), <GlobeIcon />)}
+        {opener('group', t('metrics.addGroup'), <FolderIcon />)}
       </div>
       {adding === 'create' && (
         <CreateMetricDialog teamId={teamId} members={members} groups={groups} onClose={close} />
@@ -168,11 +172,14 @@ function CreateMetricDialog({
   const { t } = useTranslation();
   const addMetric = useAddMetric(teamId);
   const [draft, setDraft] = useState<MetricCreate>(BLANK_METRIC);
+  const [derivation, setDerivation] = useState<DerivationDraft>(NO_DERIVATION);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // Sent only when there is one: a metric is typed in unless it says otherwise.
+    const derived = toDerivationWrite(derivation);
     // A rejection keeps the dialog open with what was typed.
-    addMetric.mutate(draft, { onSuccess: onClose });
+    addMetric.mutate(derived ? { ...draft, derivation: derived } : draft, { onSuccess: onClose });
   }
 
   return (
@@ -195,6 +202,8 @@ function CreateMetricDialog({
           error={addMetric.error}
           submitLabel={addMetric.isPending ? t('metrics.adding') : t('metrics.add')}
           pending={addMetric.isPending}
+          offerHidden
+          derivation={{ teamId, value: derivation, onChange: setDerivation }}
         />
       </section>
     </Modal>

@@ -27,6 +27,7 @@ from app.services.global_metrics import (
     list_global_thresholds,
     record_global_threshold,
 )
+from app.services.metrics import read_threshold
 
 router = APIRouter(prefix="/global-metrics", tags=["global-metrics"])
 
@@ -47,7 +48,7 @@ def _read(entry: GlobalMetricEntry) -> GlobalMetricRead:
         decimals=metric.decimals,
         direction=metric.direction,
         retired=metric.retired,
-        threshold=ThresholdRead.model_validate(entry.threshold) if entry.threshold else None,
+        threshold=(read_threshold(entry.threshold, metric.direction) if entry.threshold else None),
         boards=entry.boards,
     )
 
@@ -98,7 +99,7 @@ def get_global_thresholds(
     metric_id: uuid.UUID, session: SessionDependency, _: CurrentUserDependency
 ) -> list[ThresholdRead]:
     """Return every threshold version of the global metric, the most recent first."""
-    return [ThresholdRead.model_validate(v) for v in list_global_thresholds(session, metric_id)]
+    return list_global_thresholds(session, metric_id)
 
 
 @router.post(
@@ -112,5 +113,4 @@ def create_global_threshold(
 ) -> ThresholdRead:
     """Add a threshold version to the global metric, effective from a date that may be past."""
     _require_definer(current_user)
-    version = record_global_threshold(session, metric_id, payload, current_user.email)
-    return ThresholdRead.model_validate(version)
+    return record_global_threshold(session, metric_id, payload, current_user.email)

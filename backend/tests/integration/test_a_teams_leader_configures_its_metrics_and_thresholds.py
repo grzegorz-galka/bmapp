@@ -18,7 +18,13 @@ from tests.integration.teams_api import add, member_id, register
 
 LEADER = "lead@pse.pl"
 MEMBER = "member@pse.pl"
-THRESHOLD = {"effective_from": "2026-10-01", "reason": "Plan", "green": "95", "amber": "85"}
+THRESHOLD = {
+    "effective_from": "2026-10-01",
+    "reason": "Plan",
+    "target_value": "100",
+    "green_pct": "5",
+    "amber_pct": "15",
+}
 
 
 def test_a_leader_adds_a_metric_and_its_threshold(

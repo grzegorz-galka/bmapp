@@ -192,6 +192,17 @@
   width: 12ch;
 }
 
+/* "Derive" beside a derived metric's number, and the numbers it used beneath. */
+.deriveButton {
+  margin-left: var(--sp-2);
+}
+
+.derivedNote {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
 /* The colour set by hand, as a list of four, with the computed status under it. */
 .statusField {
   display: flex;

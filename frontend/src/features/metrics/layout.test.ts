@@ -31,6 +31,8 @@ function metric(id: string, group: MetricGroup | null, position: number): Metric
     owner: null,
     retired: false,
     retired_in_catalogue: false,
+    hidden: false,
+    derivation: null,
     threshold: null,
   };
 }
