@@ -21,7 +21,7 @@ function team(name: string): Team {
     id: `id-${name}`,
     name,
     board: { id: `board-${name}`, name, schedule: null },
-    leader: { id: `leader-${name}`, email: 'lead@example.com' },
+    leader: { id: `leader-${name}`, email: 'lead@example.com', display_name: 'Lead' },
     member_count: 1,
   };
 }

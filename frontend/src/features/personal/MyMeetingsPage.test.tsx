@@ -44,9 +44,7 @@ describe('My meetings', () => {
       expect.stringMatching(/^Platform Core · .*7/),
       expect.stringMatching(/^Payments · .*5/),
     ]);
-    expect(
-      within(section(en.meetings.pastHeading)).getByText(/anna@example\.com/),
-    ).toBeInTheDocument();
+    expect(within(section(en.meetings.pastHeading)).getByText(/Host: Anna/)).toBeInTheDocument();
   });
 
   it('A meeting leads to its board', async () => {
@@ -115,12 +113,13 @@ describe("The viewer's own meetings to host are marked", () => {
   });
 
   it("Another member's meeting is not marked", async () => {
-    hostedBy('ewa@example.com');
+    hostedBy('anna.nowak@example.com');
     await renderWithLanguage(<MyMeetingsPage />, 'en');
     await screen.findByRole('region', { name: en.meetings.upcomingHeading });
 
     const row = upcomingRow();
-    expect(row).toHaveTextContent('Host: ewa@example.com');
+    expect(row).toHaveTextContent('Host: Anna Nowak');
+    expect(row).not.toHaveTextContent('anna.nowak@example.com');
     expect(row).not.toHaveTextContent(en.meetings.youHost);
   });
 });

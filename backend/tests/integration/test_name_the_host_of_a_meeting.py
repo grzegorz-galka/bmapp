@@ -22,7 +22,7 @@ def test_a_member_is_named_host(client: TestClient) -> None:
     response = _name_host(client, team["id"], meeting["id"], host)
 
     assert response.status_code == 200
-    assert response.json()["host"] == {"id": host, "email": MEMBER}
+    assert response.json()["host"] == {"id": host, "email": MEMBER, "display_name": "Member"}
 
 
 def test_someone_outside_the_team_is_named_host(client: TestClient) -> None:
@@ -73,4 +73,8 @@ def test_the_host_leaves_the_team(client: TestClient) -> None:
     removed = client.delete(f"/teams/{team['id']}/members/{host}")
 
     assert removed.status_code == 200
-    assert meetings_of(client, team["id"])["meetings"][0]["host"] == {"id": host, "email": MEMBER}
+    assert meetings_of(client, team["id"])["meetings"][0]["host"] == {
+        "id": host,
+        "email": MEMBER,
+        "display_name": "Member",
+    }

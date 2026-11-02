@@ -48,6 +48,8 @@ export interface Threshold extends Bounds {
   amber_pct: string | null;
   reason: string;
   recorded_by_email: string;
+  /** Derived from the email when the recorder has no employee record. */
+  recorded_by_display_name: string;
   recorded_at: string;
 }
 
@@ -220,6 +222,7 @@ export interface MetricValue {
   status: Status;
   set_by_hand: boolean;
   recorded_by_email: string | null;
+  recorded_by_display_name: string | null;
   recorded_at: string | null;
 }
 
@@ -302,6 +305,7 @@ export interface Correction {
   new_comment: string | null;
   reason: string;
   corrected_by_email: string;
+  corrected_by_display_name: string;
   corrected_at: string;
 }
 

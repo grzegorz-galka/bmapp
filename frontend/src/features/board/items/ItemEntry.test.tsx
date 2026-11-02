@@ -32,14 +32,19 @@ describe('an entry on the lists', () => {
         summary: 'Late one',
         due_on: '2026-10-09',
         overdue: true,
-        responsible: { employee_id: 'emp-bartek', email: MEMBER },
+        responsible: {
+          employee_id: 'emp-bartek',
+          email: MEMBER,
+          display_name: 'Bartek Wiśniewski',
+        },
       }),
       task({ id: 'doing', summary: 'Doing one', due_on: '2026-10-20', stage: 'do' }),
     ]);
 
     const [late, doing] = screen.getAllByRole('listitem');
     expect(late).toHaveTextContent('Overdue, due 9 Oct');
-    expect(late).toHaveTextContent(MEMBER);
+    expect(late).toHaveTextContent('Bartek Wiśniewski');
+    expect(late).not.toHaveTextContent(MEMBER);
     expect(doing).toHaveTextContent('Due 20 Oct');
     expect(doing).not.toHaveTextContent(/overdue/i);
     expect(within(doing!).getByText(en.pdca.do)).toBeInTheDocument();

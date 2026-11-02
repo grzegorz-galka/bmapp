@@ -97,6 +97,8 @@ class HostRead(BaseModel):
 
     id: uuid.UUID
     email: str
+    #: How the interface names the person; see `app.services.names`.
+    display_name: str
 
 
 class MeetingRead(BaseModel):

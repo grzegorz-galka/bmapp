@@ -182,6 +182,7 @@ def record_value(
         status=_status(placement.metric, stored, threshold),
         set_by_hand=bool(stored and stored.manual_status),
         recorded_by_email=stored.recorded_by_email if stored else None,
+        recorded_by_display_name=stored.recorded_by_display_name if stored else None,
         recorded_at=stored.recorded_at if stored else None,
     )
 

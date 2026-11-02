@@ -336,7 +336,7 @@ export function ItemDialog({
                 <option value="">{t('items.noResponsible')}</option>
                 {responsibleOptions.map((member) => (
                   <option key={member.employee_id} value={member.employee_id}>
-                    {member.email}
+                    {member.display_name}
                   </option>
                 ))}
               </select>

@@ -97,7 +97,10 @@ class NotAnEmployeeError(ForbiddenError):
 
 
 class IncorrectDevPasswordError(DomainError):
-    """Raised when a development login gives a password not derived from its email.
+    """Raised when a development login gives a password that is not the email's current one.
+
+    The current one is the password the person chose or, until they choose
+    one, the one derived from the email.
 
     401 like the token refusals, but not one of them: no token was presented,
     and the field at fault is named. The password is derivable by anyone, so
@@ -121,6 +124,42 @@ class UnknownEmployeeError(DomainError):
 
     def __init__(self, email: str) -> None:
         super().__init__(f"{email} is neither a recorded employee nor an administrator.")
+
+
+class DevPasswordTooShortError(DomainError):
+    """Raised when a chosen development password is shorter than the minimum."""
+
+    status_code = 422
+    field = "new_password"
+    code = "dev_password.too_short"
+
+    def __init__(self, min_length: int) -> None:
+        super().__init__(f"The new password must be at least {min_length} characters long.")
+
+
+class DevPasswordUnchangedError(DomainError):
+    """Raised when the chosen development password is the one derived from the email.
+
+    Anyone can derive that one, so keeping it would leave the account as open
+    as it was before a password was chosen.
+    """
+
+    status_code = 422
+    field = "new_password"
+    code = "dev_password.unchanged"
+
+    def __init__(self) -> None:
+        super().__init__("The new password must differ from the one derived from the email.")
+
+
+class EmployeeNameTooLongError(DomainError):
+    """Raised when a name or surname is longer than can be stored, once trimmed."""
+
+    status_code = 422
+    code = "employee_name.too_long"
+
+    def __init__(self, field: str, max_length: int) -> None:
+        super().__init__(f"The {field} must be at most {max_length} characters.", field)
 
 
 class DuplicateTeamNameError(DomainError):

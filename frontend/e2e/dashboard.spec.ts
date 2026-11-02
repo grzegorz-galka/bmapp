@@ -4,7 +4,7 @@ import { pl } from '../src/i18n/pl';
 import { LANGUAGE_STORAGE_KEY } from '../src/i18n/languages';
 import { THEME_STORAGE_KEY } from '../src/theme/themes';
 import { organizationToday } from '../src/features/board/organizationDate';
-import { ADMIN_EMAIL, signInAs } from './auth';
+import { ADMIN_EMAIL, displayName, signInAs } from './auth';
 import { addDays, apiAs, isoWeekday, uniqueSuffix } from './api';
 
 /**
@@ -92,7 +92,9 @@ test('the dashboard shows the declarations, the teams and the assigned items', a
   await expect(meetingRow(page, teamName)).toContainText(en.meetingsTile.notOpened);
   const items = page.getByRole('region', { name: en.itemsTile.heading });
   await expect(items.getByText(en.itemsTile.footRight)).toBeVisible();
-  await expect(items.getByText(en.itemsTile.assignedTo.replace('{{email}}', viewer))).toBeVisible();
+  await expect(
+    items.getByText(en.itemsTile.assignedTo.replace('{{name}}', displayName(viewer))),
+  ).toBeVisible();
   await expect(items.getByText(en.itemsTile.empty)).toBeVisible();
 });
 

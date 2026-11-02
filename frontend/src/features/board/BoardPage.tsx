@@ -357,7 +357,9 @@ export function BoardPage() {
           )}
         </>
       )}
-      {detail && <MetricDetail teamId={teamId} metric={detail} onClose={closeDetail} />}
+      {detail && (
+        <MetricDetail teamId={teamId} metric={detail} onClose={closeDetail} hideNames={hideNames} />
+      )}
     </main>
   );
 }

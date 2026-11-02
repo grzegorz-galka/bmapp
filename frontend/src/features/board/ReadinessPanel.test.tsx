@@ -18,8 +18,10 @@ import type { MissingMetric } from '../../api/metrics';
 import {
   board,
   definition,
+  derivedName,
   jsonResponse,
   LEADER,
+  LEADER_NAME,
   MEETINGS,
   MEMBER,
   MONDAY,
@@ -36,9 +38,21 @@ let fixtures: Fixtures;
 
 const JAN = 'jan@example.com';
 const KASIA = 'kasia@example.com';
+const JAN_NAME = 'Jan Kowalski';
+const KASIA_NAME = 'Kasia Lis';
 
 function missingMetric(id: string, name: string, owner: string | null): MissingMetric {
-  return { metric_id: id, name, owner: owner ? { id: `emp-${id}`, email: owner } : null };
+  return {
+    metric_id: id,
+    name,
+    owner: owner
+      ? {
+          id: `emp-${id}`,
+          email: owner,
+          display_name: owner === LEADER ? LEADER_NAME : derivedName(owner),
+        }
+      : null,
+  };
 }
 
 /** The spec's coming meeting: 3 of 5 recorded, NPS owned by Anna, OTIF by no one. */
@@ -59,8 +73,8 @@ function comingPulse(overrides: Parameters<typeof pulseResults>[1] = {}) {
     answered: 4,
     members: 6,
     missing: [
-      { employee_id: 'emp-jan', email: JAN },
-      { employee_id: 'emp-kasia', email: KASIA },
+      { employee_id: 'emp-jan', email: JAN, display_name: JAN_NAME },
+      { employee_id: 'emp-kasia', email: KASIA, display_name: KASIA_NAME },
     ],
     missing_count: 2,
     ...overrides,
@@ -147,7 +161,7 @@ describe('the readiness panel', () => {
     await waitFor(() => expect(panel).toHaveAttribute('open'));
     const metrics = within(section(panel, en.readiness.metricsHeading)).getAllByRole('listitem');
     expect(metrics.map((item) => item.textContent)).toEqual([
-      `NPS – ${LEADER}`,
+      `NPS – ${LEADER_NAME}`,
       `OTIF – ${en.readiness.noOwner}`,
     ]);
   });
@@ -160,11 +174,13 @@ describe('the readiness panel', () => {
     expect(panel).toHaveAttribute('open');
     const metrics = within(section(panel, en.readiness.metricsHeading)).getAllByRole('listitem');
     expect(metrics.map((item) => item.textContent)).toEqual([
-      `NPS – ${LEADER}`,
+      `NPS – ${LEADER_NAME}`,
       `OTIF – ${en.readiness.noOwner}`,
     ]);
     const members = within(section(panel, en.readiness.pulseHeading)).getAllByRole('listitem');
-    expect(members.map((item) => item.textContent)).toEqual([JAN, KASIA]);
+    expect(members.map((item) => item.textContent)).toEqual([JAN_NAME, KASIA_NAME]);
+    // Named, not addressed: the addresses are only what the copy button copies.
+    expect(panel).not.toHaveTextContent('@');
     expect(panel).toHaveTextContent('3 people still owe data');
     // Above the tiles, in the metrics view.
     expect(
@@ -331,7 +347,7 @@ describe('the addresses of those who owe data are copied', () => {
       },
     });
     fixtures.pulse!['m-2026-10-14'] = comingPulse({
-      missing: [{ employee_id: 'emp-jan', email: JAN }],
+      missing: [{ employee_id: 'emp-jan', email: JAN, display_name: JAN_NAME }],
       missing_count: 1,
     });
     const user = userEvent.setup();
@@ -418,8 +434,8 @@ describe('the addresses of those who owe data are copied', () => {
     });
     const pulse = comingPulse({
       missing: [
-        { employee_id: 'emp-anna', email: LEADER },
-        { employee_id: 'emp-jan', email: JAN },
+        { employee_id: 'emp-anna', email: LEADER, display_name: LEADER_NAME },
+        { employee_id: 'emp-jan', email: JAN, display_name: JAN_NAME },
       ],
     });
 

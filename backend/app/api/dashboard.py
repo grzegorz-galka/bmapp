@@ -31,4 +31,6 @@ def get_dashboard_summary(
     to their teams and items by the token's email, not through `CurrentUser`,
     which would cost a statement to look up an employee the queries join anyway.
     """
-    return build_dashboard_summary(session, today(), person.email)
+    return build_dashboard_summary(
+        session, today(), person.email, person.given_name, person.family_name
+    )

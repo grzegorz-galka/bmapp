@@ -6,8 +6,10 @@
  * could be signed in to where the broker is unreachable, which is every
  * developer's machine and the end-to-end suite.
  *
- * A person signs in through a login window with an email and the password
- * derived from it. Nothing is signed in on its own: the window opens when the
+ * A person signs in through a login window with an email and a password. The
+ * first sign-in, with the password derived from the email, issues no token: the
+ * window moves on to choosing a password, with the name and surname, and only
+ * that step signs the person in. Nothing is signed in on its own: the window opens when the
  * page loads with no session, after signing out, and whenever "Sign in" is
  * chosen.
  *
@@ -17,9 +19,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AuthContext, type AuthState, type SessionStatus } from './AuthProvider';
-import { ApiError, setAccessToken, setReauthenticate, type ApiFieldError } from '../../api/client';
+import { ApiError, setAccessToken, setReauthenticate } from '../../api/client';
+import { devLogin, isPasswordChangeRequired, setDevPassword } from '../../api/auth';
 import { DEV_EMAIL_KEY } from './devEmail';
-import { DevLoginDialog } from './DevLoginDialog';
+import { DevLoginDialog, type PendingChange } from './DevLoginDialog';
 
 export { DEV_EMAIL_KEY };
 
@@ -48,25 +51,13 @@ function remember(email: string): void {
 }
 
 /**
- * Ask the backend for a token, without going through the shared client.
- *
- * The shared client answers a 401 by reauthenticating, and reauthenticating
- * comes back here - a refusal would loop. Builds the same `ApiError` the
- * client would, so the window translates it like any other form.
+ * Sign in with what the window was given. Resolves to the token, or to the
+ * proposal of a first sign-in, which needs a password chosen before any token.
  */
-async function obtainToken({ email, password }: Credentials): Promise<string | ApiError> {
-  const base = import.meta.env.VITE_API_BASE_URL ?? '/api';
-  const response = await fetch(`${base}/auth/dev-login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  const body = (await response.json().catch(() => ({}))) as {
-    access_token?: string;
-    errors?: ApiFieldError[];
-  };
-  if (response.ok && body.access_token) return body.access_token;
-  return new ApiError(response.status, body.errors ?? []);
+async function obtainToken({ email, password }: Credentials): Promise<string | PendingChange> {
+  const response = await devLogin(email, password);
+  if (!isPasswordChangeRequired(response)) return response.access_token;
+  return { email: normalised(email), password, name: response.name, surname: response.surname };
 }
 
 /** The normalised email the token was issued for, as the backend normalised it. */
@@ -78,6 +69,9 @@ export function DevAuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<SessionStatus>('signedOut');
   const [email, setEmail] = useState<string | null>(null);
   const [windowOpen, setWindowOpen] = useState(true);
+  // The first sign-in waiting for its password. Page memory only: closing the
+  // window drops it, and nothing has been stored by then.
+  const [pending, setPending] = useState<PendingChange | null>(null);
   const queryClient = useQueryClient();
   // Held in page memory, never in storage, so that a backend restart - which
   // mints a new signing secret and refuses every token - is recovered without
@@ -101,38 +95,78 @@ export function DevAuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear();
   }, [queryClient]);
 
-  const submit = useCallback(
-    async (address: string, password: string): Promise<Error | null> => {
-      let result: string | ApiError;
-      try {
-        result = await obtainToken({ email: address, password });
-      } catch (failure) {
-        return failure instanceof Error ? failure : new Error(String(failure));
-      }
-      if (result instanceof ApiError) return result;
-
-      const signedInAs = normalised(address);
+  const finish = useCallback(
+    (signedInAs: string, password: string, token: string) => {
       credentials.current = { email: signedInAs, password };
-      setAccessToken(result);
+      setAccessToken(token);
       remember(signedInAs);
       setEmail(signedInAs);
+      setPending(null);
       setStatus('signedIn');
       setWindowOpen(false);
       // Whatever the page asked for while nobody was signed in was refused;
       // ask again as the person who now is.
       void queryClient.resetQueries();
-      return null;
     },
     [queryClient],
   );
 
+  const submit = useCallback(
+    async (address: string, password: string): Promise<Error | null> => {
+      let result: string | PendingChange;
+      try {
+        result = await obtainToken({ email: address, password });
+      } catch (failure) {
+        return failure instanceof Error ? failure : new Error(String(failure));
+      }
+      if (typeof result !== 'string') {
+        setPending(result);
+        return null;
+      }
+      finish(normalised(address), password, result);
+      return null;
+    },
+    [finish],
+  );
+
+  const choosePassword = useCallback(
+    async (newPassword: string, name: string | null, surname: string | null) => {
+      if (!pending) return null;
+      try {
+        const { access_token } = await setDevPassword({
+          email: pending.email,
+          current_password: pending.password,
+          new_password: newPassword,
+          name,
+          surname,
+        });
+        finish(pending.email, newPassword, access_token);
+        return null;
+      } catch (failure) {
+        return failure instanceof Error ? failure : new Error(String(failure));
+      }
+    },
+    [pending, finish],
+  );
+
+  const close = useCallback(() => {
+    setPending(null);
+    setWindowOpen(false);
+  }, []);
+
   useEffect(() => {
     setReauthenticate(async () => {
       if (!credentials.current) return null;
-      const result = await obtainToken(credentials.current);
-      if (result instanceof ApiError) return null;
-      setAccessToken(result);
-      return result;
+      try {
+        const result = await obtainToken(credentials.current);
+        if (typeof result !== 'string') return null;
+        setAccessToken(result);
+        return result;
+      } catch (failure) {
+        // A refusal ends the session; anything else fails the request as before.
+        if (failure instanceof ApiError) return null;
+        throw failure;
+      }
     });
     return () => setReauthenticate(null);
   }, []);
@@ -148,8 +182,10 @@ export function DevAuthProvider({ children }: { children: ReactNode }) {
       {windowOpen && status !== 'signedIn' && (
         <DevLoginDialog
           initialEmail={rememberedEmail()}
+          pending={pending}
           onSubmit={submit}
-          onClose={() => setWindowOpen(false)}
+          onSetPassword={choosePassword}
+          onClose={close}
         />
       )}
     </AuthContext.Provider>

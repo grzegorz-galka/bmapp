@@ -87,7 +87,7 @@ def test_owner_and_group_are_set_and_cleared(client: TestClient) -> None:
     owned = client.patch(url, json={"owner_employee_id": owner}).json()
     cleared = client.patch(url, json={"owner_employee_id": None, "group_id": None}).json()
 
-    assert owned["owner"] == {"id": owner, "email": MEMBER}
+    assert owned["owner"] == {"id": owner, "email": MEMBER, "display_name": "Member"}
     assert placement(owned) == ("Finance", 0)
     # Out of every group: last among the ungrouped metrics.
     assert (cleared["owner"], placement(cleared)) == (None, (None, 1))

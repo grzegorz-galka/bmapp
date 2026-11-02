@@ -26,6 +26,7 @@ function member(email: string, isLeader = false, isDeputy = false): Member {
   return {
     employee_id: `emp-${email.split('@')[0]}`,
     email,
+    display_name: email.split('@')[0] ?? email,
     is_leader: isLeader,
     is_deputy: isDeputy,
   };
@@ -70,9 +71,11 @@ async function renderMembers(auth: { email?: string | null; isAdmin?: boolean })
   await screen.findByRole('heading', { name: en.members.heading.replace('{{name}}', 'Platform') });
 }
 
-/** The row control `label` names for `email`, or null when it is not offered. */
+/** The row control `label` names for `email`'s member, or null when it is not offered. */
 function control(label: string, email: string) {
-  return screen.queryByRole('button', { name: label.replace('{{email}}', email) });
+  // The controls name the member as the row does, by display name.
+  const name = email.split('@')[0] ?? email;
+  return screen.queryByRole('button', { name: label.replace('{{name}}', name) });
 }
 
 /** Every membership control the page offers, by what it does. */

@@ -103,7 +103,7 @@ describe('the meeting rows', () => {
 
     const today = rowOf('Platform Core', /17 Sep/);
     expect(today).toHaveTextContent(en.meetingsTile.today);
-    expect(today).toHaveTextContent('Host: anna.nowak@pse.pl');
+    expect(today).toHaveTextContent('Host: Anna Nowak');
     expect(today).toHaveTextContent('12 of 14 recorded');
     expect(today).toHaveTextContent(en.meetingsTile.pulseNotAnswered);
 
@@ -156,8 +156,9 @@ describe('the meeting rows', () => {
 
     const row = rowOf('Platform Core', /17 Sep/);
     expect(row).toHaveTextContent('3 people still owe data');
-    // The host is the only person the row names.
-    expect(row.textContent!.match(/@/g)).toHaveLength(1);
+    // The host is the only person the row names, and by name, not address.
+    expect(row).toHaveTextContent('Host: Anna Nowak');
+    expect(row).not.toHaveTextContent('@');
   });
 
   it('counts one person owing data in the singular', async () => {
@@ -368,18 +369,24 @@ describe('Check readiness from a meeting row', () => {
 describe("The viewer's own meetings to host are marked", () => {
   it('The host sees their meeting marked', async () => {
     // Compared regardless of case, as the server lower-cases emails.
-    await renderTile([{ ...NEXT_WEEKS_MEETING, host: VIEWER }], 'en', VIEWER.toUpperCase());
+    await renderTile(
+      [{ ...NEXT_WEEKS_MEETING, host: VIEWER, host_display_name: 'Grzegorz Gałka' }],
+      'en',
+      VIEWER.toUpperCase(),
+    );
 
     const row = rowOf('Platform Core', /24 Sep/);
     expect(row).toHaveTextContent(en.meetingsTile.youHost);
     expect(row).not.toHaveTextContent(VIEWER);
+    expect(row).not.toHaveTextContent('Grzegorz Gałka');
   });
 
   it("Another member's meeting is not marked", async () => {
     await renderTile([TODAYS_MEETING]);
 
     const row = rowOf('Platform Core', /17 Sep/);
-    expect(row).toHaveTextContent('Host: anna.nowak@pse.pl');
+    expect(row).toHaveTextContent('Host: Anna Nowak');
+    expect(row).not.toHaveTextContent('anna.nowak@pse.pl');
     expect(row).not.toHaveTextContent(en.meetingsTile.youHost);
   });
 });
@@ -417,6 +424,7 @@ describe('An action on a proposed date', () => {
       ...PROPOSED_MEETING,
       meeting_id: 'meeting-by-someone-else',
       host: 'ewa.lis@pse.pl',
+      host_display_name: 'Ewa Lis',
       recorded: 0,
       total: 9,
     };
@@ -455,7 +463,7 @@ describe('An action on a proposed date', () => {
       pl.errors['meeting_date.taken'],
     );
     // The list is refetched and shows the opened meeting where the proposal was.
-    expect(await within(tile).findByText(/ewa\.lis@pse\.pl/)).toBeInTheDocument();
+    expect(await within(tile).findByText(/Ewa Lis/)).toBeInTheDocument();
     expect(within(tile).queryByText(pl.meetingsTile.notOpened)).not.toBeInTheDocument();
     expect(within(tile).getByRole('alert')).toBeInTheDocument();
     // No page is left.

@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { LanguageToggle } from './LanguageToggle';
 import { ThemeToggle } from './ThemeToggle';
 import { AccountControl } from './AccountControl';
-import { useDashboardSummary } from '../features/dashboard/useDashboardSummary';
 import styles from './AppHeader.module.css';
 
 /** The pages grouped under Configuration, in the order the group lists them. */
@@ -22,14 +21,11 @@ const CONFIGURATION = [
  * Configuration. That group is a disclosure rather than an ARIA menu: these
  * are links between pages, and a disclosure keeps ordinary Tab navigation.
  *
- * The identity comes from the dashboard summary rather than being written in
- * here. The query is the same one the dashboard uses, so this costs no second
- * request.
+ * The identity is the account control's own: it reads who is signed in from
+ * `/auth/me`, the same query that decides who is an administrator.
  */
 export function AppHeader() {
   const { t } = useTranslation();
-  const summary = useDashboardSummary();
-  const user = summary.data?.current_user;
   const { pathname } = useLocation();
   // Remembered as the address it was opened at, so a change of page - by a
   // choice in the group or by any other means - folds it away by itself.
@@ -121,7 +117,7 @@ export function AppHeader() {
       <div className={styles.controls}>
         <LanguageToggle />
         <ThemeToggle />
-        <AccountControl initials={user?.initials} />
+        <AccountControl />
       </div>
     </header>
   );

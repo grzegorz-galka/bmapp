@@ -30,7 +30,32 @@ interface Options {
    * would have given, seeded into the query cache so that a test about what
    * a viewer may see needs no network.
    */
-  auth?: { email?: string | null; isAdmin?: boolean; status?: AuthState['status'] };
+  auth?: {
+    email?: string | null;
+    isAdmin?: boolean;
+    status?: AuthState['status'];
+    /** As `/auth/me` would name them. Defaults to the name derived from the email. */
+    displayName?: string;
+    initials?: string;
+  };
+}
+
+/** The API's fallback for a person with no stored name, for tests that do not care. */
+function derivedName(email: string): string {
+  return (email.split('@')[0] ?? email)
+    .split(/[._]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function initialsOf(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join('');
 }
 
 export async function renderWithLanguage(
@@ -52,9 +77,16 @@ export async function renderWithLanguage(
     isAdmin = false,
     status = email ? 'signedIn' : 'signedOut',
   } = auth;
+  const displayName = auth.displayName ?? (email ? derivedName(email) : '');
+  const initials = auth.initials ?? initialsOf(displayName);
 
   if (email) {
-    queryClient.setQueryData(['currentUser'], { email, is_admin: isAdmin });
+    queryClient.setQueryData(['currentUser'], {
+      email,
+      is_admin: isAdmin,
+      display_name: displayName,
+      initials,
+    });
   }
 
   const session: AuthState = {

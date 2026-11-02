@@ -18,6 +18,18 @@ export const TEAM_ID = 'team-1';
 export const LEADER = 'anna@example.com';
 export const MEMBER = 'bartek@example.com';
 export const ADMIN = 'admin@example.com';
+/** Display names unlike their emails, so a test can tell which one is shown. */
+export const LEADER_NAME = 'Anna Nowak';
+export const MEMBER_NAME = 'Bartek Wiśniewski';
+
+/** The display name the API derives from an email when no name is stored. */
+export function derivedName(email: string): string {
+  return (email.split('@')[0] ?? email)
+    .split(/[._]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
 /** A Monday morning: the 7th has been, the 14th is coming. */
 export const MONDAY = new Date('2026-10-12T08:00:00Z');
 
@@ -26,8 +38,20 @@ export const TEAM: TeamDetail = {
   name: 'Platform',
   board: { id: 'board-1', name: 'Platform', schedule: { weekday: 3, time: '13:00' } },
   members: [
-    { employee_id: 'emp-anna', email: LEADER, is_leader: true, is_deputy: false },
-    { employee_id: 'emp-bartek', email: MEMBER, is_leader: false, is_deputy: false },
+    {
+      employee_id: 'emp-anna',
+      email: LEADER,
+      display_name: LEADER_NAME,
+      is_leader: true,
+      is_deputy: false,
+    },
+    {
+      employee_id: 'emp-bartek',
+      email: MEMBER,
+      display_name: MEMBER_NAME,
+      is_leader: false,
+      is_deputy: false,
+    },
   ],
 };
 
@@ -85,6 +109,7 @@ export function threshold(overrides: Partial<Threshold> = {}): Threshold {
     amber_hi: null,
     reason: 'Plan',
     recorded_by_email: LEADER,
+    recorded_by_display_name: LEADER_NAME,
     recorded_at: '2026-07-01T08:00:00Z',
     ...overrides,
   };
@@ -164,6 +189,7 @@ export function pulseAnswer(
   return {
     employee_id: `emp-${email.split('@')[0] ?? email}`,
     email,
+    display_name: derivedName(email),
     rating,
     status: RATING_STATUS[rating],
     positive: `${email} positive`,
@@ -190,6 +216,7 @@ export const SEVEN_ANSWERS: PulseAnswerRead[] = (
 export const FOUR_MISSING = ['hania', 'igor', 'jan', 'kasia'].map((name) => ({
   employee_id: `emp-${name}`,
   email: `${name}@example.com`,
+  display_name: derivedName(`${name}@example.com`),
 }));
 
 /** A meeting's pulse results as a member reads them: 7 of 11, averaging 3.57. */
@@ -237,7 +264,11 @@ export function noPulse(meetingId: string, overrides: Partial<PulseResults> = {}
     distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
     trend: [],
     answers: [],
-    missing: TEAM.members.map(({ employee_id, email }) => ({ employee_id, email })),
+    missing: TEAM.members.map(({ employee_id, email, display_name }) => ({
+      employee_id,
+      email,
+      display_name,
+    })),
     missing_count: 2,
     ...overrides,
   });

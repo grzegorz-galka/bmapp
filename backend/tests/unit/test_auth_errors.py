@@ -8,6 +8,8 @@ here is a change to what every client keys its wording on.
 import pytest
 
 from app.core.exceptions import (
+    DevPasswordTooShortError,
+    DevPasswordUnchangedError,
     DomainError,
     ExpiredTokenError,
     ForbiddenError,
@@ -29,6 +31,8 @@ from app.core.exceptions import (
         (NotAnEmployeeError("nobody@pse.pl"), 403, "auth.not_an_employee"),
         (IncorrectDevPasswordError(), 401, "auth.password_incorrect"),
         (UnknownEmployeeError("nobody@pse.pl"), 401, "auth.employee_unknown"),
+        (DevPasswordTooShortError(8), 422, "dev_password.too_short"),
+        (DevPasswordUnchangedError(), 422, "dev_password.unchanged"),
     ],
 )
 def test_each_refusal_carries_its_status_and_code(

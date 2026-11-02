@@ -62,21 +62,36 @@ mode** (`BMAPP_MODE=dev` for the API, `VITE_AUTH_MODE=dev` for the web app),
 which signs you in through a login window instead of the broker. The window
 opens when the page loads and asks for an email and a password.
 
-The password is not a secret. It is derived from the email: the first two
-characters of each run of letters and digits, in order - the parts between the
-dots, the at-sign and any other characters that are not letters or digits. A
-one-character part gives its one character.
+The first time you sign in as an email, the password is derived from it: the
+first two characters of each run of letters and digits, in order - the parts
+between the dots, the at-sign and any other characters that are not letters or
+digits. A one-character part gives its one character. That password is not a
+secret, so it does not sign you in by itself: the window then asks you to choose
+a password of your own (at least 8 characters), twice, with your name and
+surname proposed from the email for you to correct. From then on only the
+chosen password works.
 
-| Email                   | Password   |
-|-------------------------|------------|
-| `admin@example.com`     | `adexco`   |
-| `grzegorz.galka@pse.pl` | `grgapspl` |
-| `admin@company.com`     | `adcoco`   |
+| Email                   | First-time password |
+|-------------------------|---------------------|
+| `admin@example.com`     | `adexco`            |
+| `grzegorz.galka@pse.pl` | `grgapspl`          |
+| `admin@company.com`     | `adcoco`            |
 
 Only a recorded employee - someone who has been put on a team - or an
 administrator can sign in. The compose file makes `admin@example.com` the
 administrator, and it needs no employee record. Sign in as it first and
 register a team.
+
+Forgot a chosen password? There is no screen for that: delete the email's row
+from `dev_credentials` and the derived password works again.
+
+```bash
+docker compose exec db psql -U bmapp -d bmapp \
+  -c "DELETE FROM dev_credentials WHERE email = 'admin@example.com'"
+```
+
+The end-to-end suite gives everyone it signs in the password `e2e-password`, so
+after a run that is the administrator's password on your local stack.
 
 Tokens live only in the page, so a reload asks again. The window remembers the
 last email under `localStorage['bmapp.devEmail']` and never remembers the

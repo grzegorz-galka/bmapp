@@ -120,7 +120,7 @@ export function ReadinessPanel({
                         <>
                           {' – '}
                           <span className={styles.muted}>
-                            {metric.owner?.email ?? t('readiness.noOwner')}
+                            {metric.owner?.display_name ?? t('readiness.noOwner')}
                           </span>
                         </>
                       )}
@@ -142,7 +142,7 @@ export function ReadinessPanel({
               ) : (
                 <ul className={styles.readinessList}>
                   {pulse.missing.map((member) => (
-                    <li key={member.employee_id}>{member.email}</li>
+                    <li key={member.employee_id}>{member.display_name}</li>
                   ))}
                 </ul>
               )}

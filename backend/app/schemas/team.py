@@ -71,6 +71,8 @@ class LeaderRead(BaseModel):
 
     id: uuid.UUID
     email: str
+    #: How the interface names the person; see `app.services.names`.
+    display_name: str
 
 
 class TeamRead(BaseModel):
@@ -92,6 +94,8 @@ class MemberRead(BaseModel):
 
     employee_id: uuid.UUID
     email: str
+    #: How the interface names the person; see `app.services.names`.
+    display_name: str
     is_leader: bool
     is_deputy: bool
 

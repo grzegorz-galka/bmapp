@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { en, type Translations } from '../src/i18n/en';
 import { pl } from '../src/i18n/pl';
 import { LANGUAGE_STORAGE_KEY } from '../src/i18n/languages';
-import { ADMIN_EMAIL, signInAs } from './auth';
+import { ADMIN_EMAIL, displayName, signInAs } from './auth';
 import { apiAs } from './api';
 
 /*
@@ -79,24 +79,32 @@ async function handOverAndRemove(page: Page, catalogue: Translations) {
 
   // The leader offers no remove action until someone else leads.
   await expect(
-    page.getByRole('button', { name: fill(catalogue.members.removeLabel, { email: leader }) }),
+    page.getByRole('button', {
+      name: fill(catalogue.members.removeLabel, { name: displayName(leader) }),
+    }),
   ).toHaveCount(0);
 
   await page
-    .getByRole('button', { name: fill(catalogue.members.makeLeaderLabel, { email: first }) })
+    .getByRole('button', {
+      name: fill(catalogue.members.makeLeaderLabel, { name: displayName(first) }),
+    })
     .click();
   await expect(memberRow(page, catalogue, first)).toContainText(catalogue.members.leader);
   await expect(memberRow(page, catalogue, leader)).not.toContainText(catalogue.members.leader);
 
   await page
-    .getByRole('button', { name: fill(catalogue.members.removeLabel, { email: leader }) })
+    .getByRole('button', {
+      name: fill(catalogue.members.removeLabel, { name: displayName(leader) }),
+    })
     .click();
   await expect(memberRow(page, catalogue, leader)).toHaveCount(0);
 
   // The list's member count follows: the new leader and the second member.
   await page.getByRole('link', { name: catalogue.members.back }).click();
   const entry = page.getByRole('listitem').filter({ hasText: name });
-  await expect(entry).toContainText(fill(catalogue.teams.leaderSuffix, { email: first }));
+  await expect(entry).toContainText(
+    fill(catalogue.teams.leaderSuffix, { name: displayName(first) }),
+  );
   await expect(entry).toContainText(fill(catalogue.teams.memberCount, { count: '2' }));
 }
 
@@ -156,7 +164,7 @@ test('a leader appoints a deputy who configures the board, then revokes them', a
   await signInAs(page, leader);
   await page.goto(`/teams/${team.id}/members`);
   await page
-    .getByRole('button', { name: fill(en.members.makeDeputyLabel, { email: deputy }) })
+    .getByRole('button', { name: fill(en.members.makeDeputyLabel, { name: displayName(deputy) }) })
     .click();
   await expect(memberRow(page, en, deputy)).toContainText(en.members.deputy);
 
@@ -176,7 +184,9 @@ test('a leader appoints a deputy who configures the board, then revokes them', a
   await signInAs(page, leader);
   await page.goto(`/teams/${team.id}/members`);
   await page
-    .getByRole('button', { name: fill(en.members.revokeDeputyLabel, { email: deputy }) })
+    .getByRole('button', {
+      name: fill(en.members.revokeDeputyLabel, { name: displayName(deputy) }),
+    })
     .click();
   await expect(memberRow(page, en, deputy)).not.toContainText(en.members.deputy);
 

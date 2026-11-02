@@ -55,17 +55,21 @@ const BOUND_LINES = [
 
 /**
  * A metric's trend over every meeting of its team, the threshold drawn as a
- * stepped line and the target value as one of its own, and beneath it the recent values, the threshold history and
- * the corrections. Shown over the board.
+ * stepped line and the target value as one of its own, and beneath it the
+ * recent values, the threshold history and the corrections. Shown over the
+ * board, so the board's Hide names holds here too: who recorded a threshold or
+ * corrected a value is left out.
  */
 export function MetricDetail({
   teamId,
   metric,
   onClose,
+  hideNames = false,
 }: {
   teamId: string;
   metric: MetricDefinition;
   onClose: () => void;
+  hideNames?: boolean;
 }) {
   const { t } = useTranslation();
   const format = useFormat();
@@ -150,10 +154,12 @@ export function MetricDetail({
                       })}
                       <span className={styles.muted}>
                         {correction.reason} ·{' '}
-                        {t('detail.recordedBy', {
-                          email: correction.corrected_by_email,
-                          date: format.dateTime(correction.corrected_at),
-                        })}
+                        {hideNames
+                          ? format.dateTime(correction.corrected_at)
+                          : t('detail.recordedBy', {
+                              name: correction.corrected_by_display_name,
+                              date: format.dateTime(correction.corrected_at),
+                            })}
                       </span>
                     </li>
                   );
@@ -171,7 +177,12 @@ export function MetricDetail({
         ) : thresholds.data.length === 0 ? (
           <p>{t('detail.noThresholds')}</p>
         ) : (
-          <ThresholdList metric={metric} versions={thresholds.data} format={format} />
+          <ThresholdList
+            metric={metric}
+            versions={thresholds.data}
+            format={format}
+            hideNames={hideNames}
+          />
         )}
       </section>
     </Modal>

@@ -20,7 +20,9 @@ export function PulseCards({ results, hideNames }: { results: PulseResults; hide
   else if (hideNames || missing === null)
     missingText = t('pulse.missingCount', { count: missingCount });
   else
-    missingText = t('pulse.missing', { names: missing.map((member) => member.email).join(', ') });
+    missingText = t('pulse.missing', {
+      names: missing.map((member) => member.display_name).join(', '),
+    });
 
   const most = Math.max(1, ...PULSE_RATINGS.map((rating) => results.distribution[rating]));
 

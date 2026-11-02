@@ -27,6 +27,8 @@ export interface Board {
 export interface Employee {
   id: string;
   email: string;
+  /** How the interface names the person; computed by the server. */
+  display_name: string;
 }
 
 export interface Team {
@@ -40,6 +42,8 @@ export interface Team {
 export interface Member {
   employee_id: string;
   email: string;
+  /** How the interface names the person; computed by the server. */
+  display_name: string;
   is_leader: boolean;
   /** One of the team's leader deputies. Never true of the leader. */
   is_deputy: boolean;

@@ -101,7 +101,7 @@ export function MetricRow({
     t(`direction.${metric.direction}`),
     metric.unit,
     t('metrics.decimals', { count: metric.decimals }),
-    metric.owner ? t('metrics.owner', { email: metric.owner.email }) : null,
+    metric.owner ? t('metrics.owner', { name: metric.owner.display_name }) : null,
   ].filter(Boolean);
   const rowError =
     panel === 'edit' ? undefined : describeFailure(t, changeMetric.error ?? deleteMetric.error);

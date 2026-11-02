@@ -94,7 +94,7 @@ describe('the Archived view', () => {
         ...closed,
         id: 'p-late',
         summary: 'Closed last',
-        responsible: { employee_id: 'emp-anna', email: LEADER },
+        responsible: { employee_id: 'emp-anna', email: LEADER, display_name: 'Anna Nowak' },
         due_on: '2026-10-09',
         raised_meeting: { id: 'm-2026-09-30', date: '2026-09-30' },
         closed_at: '2026-10-12T07:00:00Z',
@@ -130,7 +130,8 @@ describe('the Archived view', () => {
       'Closed last',
       'Closed first',
     ]);
-    expect(rows[0]).toHaveTextContent(LEADER);
+    expect(rows[0]).toHaveTextContent('Anna Nowak');
+    expect(rows[0]).not.toHaveTextContent(LEADER);
     expect(rows[0]).toHaveTextContent('9 Oct');
     expect(rows[0]).toHaveTextContent('Wed, 30 Sept 2026');
     expect(rows[0]).toHaveTextContent('Wed, 14 Oct 2026');

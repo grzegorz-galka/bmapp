@@ -10,6 +10,7 @@ function member(email: string, flags: Partial<Pick<Member, 'is_leader' | 'is_dep
   return {
     employee_id: `emp-${email}`,
     email,
+    display_name: email,
     is_leader: flags.is_leader ?? false,
     is_deputy: flags.is_deputy ?? false,
   };

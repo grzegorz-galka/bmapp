@@ -370,7 +370,7 @@ function PrepareMeeting({
             <option value="">{t('meetings.noHost')}</option>
             {members.map((member) => (
               <option key={member.employee_id} value={member.employee_id}>
-                {member.email}
+                {member.display_name}
               </option>
             ))}
           </select>
@@ -564,6 +564,7 @@ function MeetingRow({
           {
             employee_id: meeting.host.id,
             email: meeting.host.email,
+            display_name: meeting.host.display_name,
             is_leader: false,
             is_deputy: false,
           },
@@ -583,7 +584,9 @@ function MeetingRow({
           {date}, {format.meetingTime(meeting.time)}
         </Link>
         <span className={teamStyles.itemMeta}>
-          {meeting.host ? t('meetings.host', { email: meeting.host.email }) : t('meetings.noHost')}
+          {meeting.host
+            ? t('meetings.host', { name: meeting.host.display_name })
+            : t('meetings.noHost')}
         </span>
       </span>
       {mayManage && !editing && (
@@ -637,7 +640,7 @@ function MeetingRow({
                 <option value="">{t('meetings.noHost')}</option>
                 {hostOptions.map((member) => (
                   <option key={member.employee_id} value={member.employee_id}>
-                    {member.email}
+                    {member.display_name}
                   </option>
                 ))}
               </select>
