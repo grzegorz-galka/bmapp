@@ -325,6 +325,17 @@ export const pl: Translations = {
       'Wartość docelowa {{target}} · zielony −{{green}}% · żółty −{{amber}}%',
     target_lower_is_better: 'Wartość docelowa {{target}} · zielony +{{green}}% · żółty +{{amber}}%',
     target_within_band: 'Wartość docelowa {{target}} · zielony ±{{green}}% · żółty ±{{amber}}%',
+    higher_is_better_noAmber: 'Zielony od {{green}}, czerwony poniżej',
+    lower_is_better_noAmber: 'Zielony do {{green}}, czerwony powyżej',
+    within_band_noAmber: 'Zielony od {{greenLo}} do {{greenHi}}, czerwony poza',
+    target_higher_is_better_noAmber:
+      'Wartość docelowa {{target}} · zielony −{{green}}% · czerwony poniżej',
+    target_lower_is_better_noAmber:
+      'Wartość docelowa {{target}} · zielony +{{green}}% · czerwony powyżej',
+    target_within_band_noAmber: 'Wartość docelowa {{target}} · zielony ±{{green}}% · czerwony poza',
+    target_higher_is_better_exact: 'Wartość docelowa {{target}} · czerwony poniżej niej',
+    target_lower_is_better_exact: 'Wartość docelowa {{target}} · czerwony powyżej niej',
+    target_within_band_exact: 'Wartość docelowa {{target}} · czerwony poza nią',
     none: 'Brak progu',
     effectiveFrom: 'Obowiązuje od {{date}}',
   },

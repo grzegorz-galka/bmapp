@@ -40,7 +40,9 @@ export function describeThreshold(
   const { target_value: target, green_pct: green, amber_pct: amber } = threshold;
   if (target != null && green != null && amber != null) {
     const unit = metric.unit ? `\u00a0${metric.unit}` : '';
-    return t(`threshold.target_${metric.direction}`, {
+    // Amber equal to green is no amber zone at all; both 0 is the target value itself.
+    const shape = !same(green, amber) ? '' : Number(green) === 0 ? '_exact' : '_noAmber';
+    return t(`threshold.target_${metric.direction}${shape}`, {
       target: `${format.exactDecimal(target, metric.decimals)}${unit}`,
       green: format.exactDecimal(green),
       amber: format.exactDecimal(amber),
@@ -58,25 +60,40 @@ export function describeBounds(
   bounds: Bounds,
   show: (value: string | null) => string,
 ): string {
+  // Amber equal to green leaves no amber zone, so the reading names red instead.
   switch (metric.direction) {
     case 'higher_is_better':
-      return t('threshold.higher_is_better', {
-        green: show(bounds.green_lo),
-        amber: show(bounds.amber_lo),
-      });
+      return t(
+        same(bounds.green_lo, bounds.amber_lo)
+          ? 'threshold.higher_is_better_noAmber'
+          : 'threshold.higher_is_better',
+        { green: show(bounds.green_lo), amber: show(bounds.amber_lo) },
+      );
     case 'lower_is_better':
-      return t('threshold.lower_is_better', {
-        green: show(bounds.green_hi),
-        amber: show(bounds.amber_hi),
-      });
+      return t(
+        same(bounds.green_hi, bounds.amber_hi)
+          ? 'threshold.lower_is_better_noAmber'
+          : 'threshold.lower_is_better',
+        { green: show(bounds.green_hi), amber: show(bounds.amber_hi) },
+      );
     case 'within_band':
-      return t('threshold.within_band', {
-        greenLo: show(bounds.green_lo),
-        greenHi: show(bounds.green_hi),
-        amberLo: show(bounds.amber_lo),
-        amberHi: show(bounds.amber_hi),
-      });
+      return t(
+        same(bounds.green_lo, bounds.amber_lo) && same(bounds.green_hi, bounds.amber_hi)
+          ? 'threshold.within_band_noAmber'
+          : 'threshold.within_band',
+        {
+          greenLo: show(bounds.green_lo),
+          greenHi: show(bounds.green_hi),
+          amberLo: show(bounds.amber_lo),
+          amberHi: show(bounds.amber_hi),
+        },
+      );
   }
+}
+
+/** Two decimals from the API as numbers: "5" and "5.000000" are the same boundary. */
+function same(a: string | null, b: string | null): boolean {
+  return a !== null && b !== null && Number(a) === Number(b);
 }
 
 /** A status as a coloured dot and the word for it, and whether it was set by hand. */
