@@ -6,7 +6,9 @@
  * API, and the status comes from the server; the interface never works one
  * out. `answers`, `missing` and `own` are null - not empty - when the viewer
  * may not read names, so "you may not see this" stays distinct from "nobody
- * answered".
+ * answered". `elsewhere` is the viewer's own answer at another team's meeting
+ * in the same ISO week, sent only to a member who has not answered here, so the
+ * form can offer to copy it.
  */
 import { request } from './client';
 
@@ -58,6 +60,17 @@ export interface PulseMissingMember {
   display_name: string;
 }
 
+/** The viewer's own answer at another team's meeting that week; never anyone else's. */
+export interface PulseElsewhere {
+  rating: PulseRating;
+  positive: string;
+  negative: string;
+  better: string;
+  team: { id: string; name: string };
+  meeting: { id: string; date: string };
+  updated_at: string;
+}
+
 export type PulseDistribution = Record<'1' | '2' | '3' | '4' | '5', number>;
 
 export interface PulseResults {
@@ -77,6 +90,7 @@ export interface PulseResults {
   /** Always present, for the card shown with names hidden or withheld. */
   missing_count: number;
   own: PulseAnswerRead | null;
+  elsewhere: PulseElsewhere | null;
 }
 
 const enc = encodeURIComponent;

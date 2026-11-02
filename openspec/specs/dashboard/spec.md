@@ -63,7 +63,7 @@ The system SHALL show a pictogram beside the mission, the vision, the strategic 
 
 ### Requirement: The dashboard shows the viewer's teams
 
-The system SHALL list, in a tile "My teams", at most three of the teams the viewer is a member of, ordered by next meeting, soonest first, those without one last by name. The next meeting is the team's first opened meeting dated today or later, otherwise the date its schedule proposes, otherwise none. Each row SHALL show the team's name as a link to its members page, the viewer's role on it — team leader, leader deputy or member — its board's schedule or that it has none, and its next meeting's date and start time as a link to its meetings page. The number of teams SHALL be shown. With more than three, a "More…" link SHALL lead to My teams.
+The system SHALL list, in a tile "My teams", at most three of the teams the viewer is a member of, ordered by next meeting, soonest first, those without one last by name. The next meeting is the team's first opened meeting dated today or later, otherwise the date its schedule proposes, otherwise none. Each row SHALL show the team's name as a link to its members page, the viewer's role on it — team leader, leader deputy or member — its board's schedule or that it has none, and its next meeting's date and start time as a link to its meetings page. No row SHALL show a countdown to its meeting. The number of teams SHALL be shown. With more than three, a "More…" link SHALL lead to My teams.
 
 #### Scenario: Teams are listed in order of their next meeting
 
@@ -108,26 +108,12 @@ The system SHALL list, in a tile "My teams", at most three of the teams the view
 #### Scenario: A viewer on no team
 
 - **WHEN** the dashboard is displayed to a person who is a member of no team
-- **THEN** it says in the active language that they belong to no team yet, and no countdown is shown
+- **THEN** it says in the active language that they belong to no team yet
 
-### Requirement: The countdown to the nearest meeting
+#### Scenario: The nearest meeting has no countdown
 
-The system SHALL single out the viewer's team whose next meeting is soonest and display the time until its start as a countdown in whole days, hours and minutes on that team's row of "My teams", advancing while the page stays open. When that meeting has started or is past, the countdown SHALL read zero rather than a negative value. Dates, times and units SHALL be in the active language.
-
-#### Scenario: The countdown counts down to the nearest meeting
-
-- **WHEN** the dashboard is displayed and the nearest next meeting is in the future
-- **THEN** the days, hours and minutes remaining until it starts are displayed on the row of the team holding it, beside its date and time
-
-#### Scenario: The countdown advances while the page is open
-
-- **WHEN** the dashboard has been displayed and time passes without the page being reloaded
-- **THEN** the countdown is updated to the time now remaining
-
-#### Scenario: A meeting that has started reads zero
-
-- **WHEN** the nearest next meeting is dated today and its start time has passed
-- **THEN** the countdown reads zero days, zero hours and zero minutes rather than a negative value
+- **WHEN** the dashboard is displayed and the viewer's nearest next meeting is in the future
+- **THEN** its row shows the meeting's date and start time and no countdown or timer
 
 ### Requirement: The dashboard lists the viewer's board meetings
 

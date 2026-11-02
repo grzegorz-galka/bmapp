@@ -82,10 +82,6 @@ export const en = {
     noSchedule: 'No schedule',
     noNextMeeting: 'No next meeting',
     noTeams: 'You do not belong to any team yet.',
-    days: 'days',
-    hours: 'hrs',
-    minutes: 'min',
-    countdownLabel: 'Time until the next board meeting',
   },
   meetingsTile: {
     heading: 'My board meetings',
@@ -367,6 +363,10 @@ export const en = {
     target_within_band_exact: 'Target value {{target}} · red off it',
     none: 'No threshold',
     effectiveFrom: 'Effective from {{date}}',
+    // The green boundary alone, for a tile's badge: a version with no target value.
+    atMost: '≤\u00a0{{value}}',
+    atLeast: '≥\u00a0{{value}}',
+    band: '{{lo}}–{{hi}}',
   },
   board: {
     heading: 'Board of {{name}}',
@@ -391,15 +391,27 @@ export const en = {
     correct: 'Correct values',
     list: 'List values',
     showTiles: 'Back to the board',
-    change: '{{change}} since the last meeting',
-    better: 'better',
-    worse: 'worse',
-    noChange: 'No change to show',
     details: 'Details',
     detailsLabel: 'Details: {{name}}',
     sparklineLabel: '{{name}} over the last meetings: {{count}}',
     // Where a person would be named while names are hidden for screen sharing.
     nameHidden: 'Name hidden',
+  },
+  tile: {
+    // A tile's badge: the target of the threshold in force, its status in words.
+    target: 'Target: {{target}}',
+    badgeLabel: '{{status}}. {{target}}',
+    badgeLabelByHand: '{{status}}. Colour set by hand. {{target}}',
+    // The two change indicators: a short caption, and what is announced.
+    sincePrevious: 'week',
+    sinceFour: '4 mtgs',
+    previousLabel: 'Since the previous meeting: {{change}}, {{verdict}}',
+    fourLabel: 'Since four meetings earlier: {{change}}, {{verdict}}',
+    previousNone: 'Since the previous meeting: nothing to compare',
+    fourNone: 'Since four meetings earlier: nothing to compare',
+    better: 'better',
+    worse: 'worse',
+    neither: 'neither better nor worse',
   },
   readiness: {
     heading: 'Readiness for the meeting',
@@ -704,6 +716,10 @@ export const en = {
     saved: 'Saved',
     hasAnswer: 'You have already answered for this meeting – you can change your answer.',
     frozen: 'This meeting no longer takes answers.',
+    copyOfferLabel: 'Your answer from this week',
+    copyOffer: 'You answered at the {{team}} meeting on {{date}}. Copy that answer here?',
+    copy: 'Copy',
+    notNow: 'Not now',
   },
   auth: {
     signIn: 'Sign in',

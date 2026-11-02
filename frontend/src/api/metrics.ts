@@ -245,6 +245,10 @@ export interface BoardMetric {
   change: string | null;
   /** True or false for a one-sided metric; null for a band, or with no change. */
   improvement: boolean | null;
+  /** The number at the team's meeting four meetings before this one, and the change since. */
+  previous_4: string | null;
+  change_4: string | null;
+  improvement_4: boolean | null;
   sparkline: SparklinePoint[];
 }
 

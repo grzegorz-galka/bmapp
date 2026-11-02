@@ -18,10 +18,13 @@ from sqlalchemy.orm import Session, contains_eager
 
 from app.core.exceptions import PulseAnswerMeetingFrozenError
 from app.core.time import ORGANIZATION_TZ
-from app.models import Employee, Meeting, PulseAnswer, TeamMember
+from app.models import Employee, Meeting, PulseAnswer, Team, TeamMember
 from app.schemas.pulse import (
     PulseAnswerRead,
     PulseAnswerWrite,
+    PulseElsewhere,
+    PulseElsewhereMeeting,
+    PulseElsewhereTeam,
     PulseMissingMember,
     PulsePrevious,
     PulseResults,
@@ -115,9 +118,10 @@ def build_results(
 
     A fixed number of statements however large the team and however long its
     history: the meeting, the team's meeting dates, this meeting's answers,
-    the team's current members, and the trend grouped in SQL. When the viewer
-    may not read names, `answers`, `missing` and `own` are null rather than
-    built and dropped by the caller.
+    the team's current members, and the trend grouped in SQL - and one more,
+    the viewer's answer elsewhere that week, only for a member who has not
+    answered here. When the viewer may not read names, `answers`, `missing`
+    and `own` are null rather than built and dropped by the caller.
     """
     meeting = get_meeting(session, team_id, meeting_id)
     dates = (m.date for m in team_meeting_dates(session, team_id))
@@ -156,6 +160,17 @@ def build_results(
     )
 
     reads = [_read(answer) for answer in answers] if may_read_names else None
+    own = (
+        next((read for read in reads if read.employee_id == viewer_id), None)
+        if reads is not None and viewer_id is not None
+        else None
+    )
+    is_member = viewer_id is not None and any(m.employee_id == viewer_id for m in members)
+    elsewhere = (
+        _elsewhere(session, team_id, meeting, viewer_id)
+        if is_member and own is None and viewer_id is not None
+        else None
+    )
     return PulseResults(
         meeting_id=meeting_id,
         editable=meeting.date in editable_meetings(dates, today),
@@ -185,11 +200,51 @@ def build_results(
             else None
         ),
         missing_count=len(missing),
-        own=(
-            next((read for read in reads if read.employee_id == viewer_id), None)
-            if reads is not None and viewer_id is not None
-            else None
+        own=own,
+        elsewhere=elsewhere,
+    )
+
+
+def _elsewhere(
+    session: Session, team_id: uuid.UUID, meeting: Meeting, viewer_id: uuid.UUID
+) -> PulseElsewhere | None:
+    """The viewer's own answer at another team's meeting in this meeting's ISO week.
+
+    The week is Monday to Sunday on the organization's clock, turned into a
+    range of instants so the filter can use `starts_at` as stored. With
+    several such answers, the one changed last.
+    """
+    monday = meeting.date - datetime.timedelta(days=meeting.date.isoweekday() - 1)
+    week_start = datetime.datetime.combine(monday, datetime.time(), tzinfo=ORGANIZATION_TZ)
+    week_end = datetime.datetime.combine(
+        monday + datetime.timedelta(days=7), datetime.time(), tzinfo=ORGANIZATION_TZ
+    )
+    row = session.execute(
+        select(PulseAnswer, Meeting.id, Meeting.starts_at, Team.id, Team.name)
+        .join(Meeting, PulseAnswer.meeting_id == Meeting.id)
+        .join(Team, Meeting.team_id == Team.id)
+        .where(
+            PulseAnswer.employee_id == viewer_id,
+            Meeting.team_id != team_id,
+            Meeting.starts_at >= week_start,
+            Meeting.starts_at < week_end,
+        )
+        .order_by(PulseAnswer.updated_at.desc())
+        .limit(1)
+    ).first()
+    if row is None:
+        return None
+    answer, other_meeting_id, starts_at, other_team_id, other_team_name = row
+    return PulseElsewhere(
+        rating=answer.rating,
+        positive=answer.positive,
+        negative=answer.negative,
+        better=answer.better,
+        team=PulseElsewhereTeam(id=other_team_id, name=other_team_name),
+        meeting=PulseElsewhereMeeting(
+            id=other_meeting_id, date=starts_at.astimezone(ORGANIZATION_TZ).date()
         ),
+        updated_at=answer.updated_at,
     )
 
 

@@ -174,6 +174,19 @@ describe.each(['dark', 'light'] as const)('the %s theme', (theme) => {
     }
   });
 
+  it('shows the grey --status-none badge on every surface at 3:1 or better', () => {
+    for (const surface of SURFACES) {
+      const background = token(tokens, surface);
+
+      const ratio = contrast(
+        composite(token(tokens, '--status-none'), background),
+        parse(background).rgb,
+      );
+
+      expect(ratio, surface).toBeGreaterThanOrEqual(3);
+    }
+  });
+
   it.each(PDCA_MARKS)('draws the %s PDCA mark on every surface at 3:1 or better', (mark) => {
     for (const surface of SURFACES) {
       const background = token(tokens, surface);
@@ -184,7 +197,7 @@ describe.each(['dark', 'light'] as const)('the %s theme', (theme) => {
     }
   });
 
-  it.each(STATUSES)('keeps text on the %s status fill readable', (status) => {
+  it.each([...STATUSES, '--status-none'])('keeps text on the %s status fill readable', (status) => {
     const ratio = contrast(
       parse(token(tokens, '--on-status')).rgb,
       parse(token(tokens, status)).rgb,

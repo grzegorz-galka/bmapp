@@ -3,7 +3,7 @@
  * specs/metric-values/spec.md, then what each tile and the navigator show.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Link, Route, Routes, useLocation } from 'react-router';
 import { BoardPage, defaultMeeting } from './BoardPage';
@@ -13,6 +13,7 @@ import { en } from '../../i18n/en';
 import { pl } from '../../i18n/pl';
 import type { Language } from '../../i18n/languages';
 import controls from '../../styles/controls.module.css';
+import type { BoardMetric } from '../../api/metrics';
 import {
   board,
   definition,
@@ -29,6 +30,7 @@ import {
   serveBoard,
   SEVEN_ANSWERS,
   TEAM_ID,
+  threshold,
   tile,
   TREND,
   type Fixtures,
@@ -127,10 +129,15 @@ describe('the board page', () => {
     const tiles = within(await screen.findByRole('region', { name: 'Finance' })).getAllByRole(
       'listitem',
     );
-    expect(tiles[0]).toHaveTextContent(en.status.amber);
-    expect(tiles[1]).toHaveTextContent(`${en.status.red}${en.status.setByHand}`);
+    const badge = (item: HTMLElement) =>
+      within(item).getByRole('img', { name: /^(Green|Amber|Red)\./ });
+    expect(badge(tiles[0]!)).toHaveAccessibleName(/^Amber\. Target: /);
+    expect(badge(tiles[1]!)).toHaveAccessibleName(/^Red\. Colour set by hand\. Target: /);
+    expect(badge(tiles[1]!)).toHaveAccessibleDescription(
+      new RegExp(`^${en.status.red} · ${en.status.setByHand}`),
+    );
     expect(tiles[1]).toHaveTextContent('Release slipped');
-    expect(tiles[2]).toHaveTextContent(en.status.green);
+    expect(badge(tiles[2]!)).toHaveAccessibleName(/^Green\. Target: /);
   });
 
   it('says a board without metrics has none, and links a leader to the settings', async () => {
@@ -156,13 +163,22 @@ describe('the board page', () => {
     expect(screen.queryByRole('link', { name: en.board.configureLink })).not.toBeInTheDocument();
   });
 
-  it('shows each tile’s value, change, threshold and sparkline', async () => {
+  it('shows each tile’s value, badge, two changes and sparkline', async () => {
     await renderBoard();
 
     const tileItem = (await screen.findByRole('heading', { name: 'Revenue' })).closest('li')!;
     expect(tileItem).toHaveTextContent('90.0 %');
-    expect(tileItem).toHaveTextContent('+5.0 % since the last meeting · better');
-    expect(tileItem).toHaveTextContent('Green from 95.0 %, amber from 85.0 %');
+    expect(tileItem).toHaveTextContent('Target: ≥ 95.0 %');
+    expect(
+      within(tileItem).getByRole('img', {
+        name: 'Since the previous meeting: +5.0\u00a0%, better',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(tileItem).getByRole('img', {
+        name: 'Since four meetings earlier: +10.0\u00a0%, better',
+      }),
+    ).toBeInTheDocument();
     expect(
       within(tileItem).getByRole('img', { name: 'Revenue over the last meetings: 2' }),
     ).toBeInTheDocument();
@@ -219,10 +235,15 @@ describe('the board page', () => {
     const tiles = within(await screen.findByRole('region', { name: 'Finance' })).getAllByRole(
       'listitem',
     );
-    expect(tiles[0]).toHaveTextContent('-2.0 % since the last meeting · worse');
-    expect(tiles[1]).toHaveTextContent('+0.5 % since the last meeting');
-    expect(tiles[1]).not.toHaveTextContent(/better|worse/);
-    expect(tiles[2]).toHaveTextContent(en.board.noChange);
+    const sincePrevious = (item: HTMLElement) =>
+      within(item).getByRole('img', { name: /^Since the previous meeting/ });
+    expect(sincePrevious(tiles[0]!)).toHaveAccessibleName(
+      'Since the previous meeting: −2.0\u00a0%, worse',
+    );
+    expect(sincePrevious(tiles[1]!)).toHaveAccessibleName(
+      'Since the previous meeting: +0.5\u00a0%, neither better nor worse',
+    );
+    expect(sincePrevious(tiles[2]!)).toHaveAccessibleName(en.tile.previousNone);
   });
 
   it("Tiles follow the board's layout", async () => {
@@ -379,8 +400,13 @@ describe('the board page', () => {
 
     const tileItem = (await screen.findByRole('heading', { name: 'Revenue' })).closest('li')!;
     expect(tileItem).toHaveTextContent('90,0 %');
-    expect(tileItem).toHaveTextContent('+5,0 % od ostatniego spotkania · lepiej');
-    expect(tileItem).toHaveTextContent(pl.status.amber);
+    expect(
+      within(tileItem).getByRole('img', { name: 'Od poprzedniego spotkania: +5,0\u00a0%, lepiej' }),
+    ).toBeInTheDocument();
+    expect(tileItem).toHaveTextContent('Cel: ≥ 95,0 %');
+    expect(within(tileItem).getByRole('tooltip', { hidden: true })).toHaveTextContent(
+      pl.status.amber,
+    );
     expect(screen.getByRole('option', { name: 'Spotkanie śr., 14 paź 2026' })).toBeInTheDocument();
   });
 
@@ -402,6 +428,274 @@ describe('the board page', () => {
     await renderBoard();
 
     expect(await screen.findByRole('alert')).toHaveTextContent(en.errors['meeting.not_found']);
+  });
+});
+
+/** The one tile shown at the coming meeting, after the board has loaded. */
+async function onlyTile(entry: BoardMetric, language: Language = 'en'): Promise<HTMLElement> {
+  fixtures.boards['m-2026-10-14'] = board('2026-10-14', { metrics: [entry] });
+  await renderBoard(language);
+  return (await screen.findByRole('heading', { name: entry.metric.name })).closest('li')!;
+}
+
+/** The badge: the one focusable image of a tile. */
+function badgeOf(tileItem: HTMLElement): HTMLElement {
+  return within(tileItem)
+    .getAllByRole('img')
+    .find((element) => element.tabIndex === 0)!;
+}
+
+const WITH_TARGET = threshold({
+  target_value: '72.3',
+  green_pct: '5',
+  amber_pct: '10',
+  green_lo: '68.685',
+  amber_lo: '65.07',
+});
+
+describe("a tile's status badge", () => {
+  it.each([
+    ['en', 'Target: 72.3 %'],
+    ['pl', 'Cel: 72,3 %'],
+  ] as const)('The badge names the target value (%s)', async (language, text) => {
+    const tileItem = await onlyTile(
+      tile({ status: 'green', value: '73', threshold: WITH_TARGET }),
+      language,
+    );
+
+    const badge = badgeOf(tileItem);
+    // The text is matched with its spaces normalised, the no-break one included.
+    expect(badge).toHaveTextContent(text.replace(/\s/g, ' '));
+    expect(badge).toHaveAttribute('data-status', 'green');
+  });
+
+  it('A version without a target value names its boundaries', async () => {
+    const tileItem = await onlyTile(
+      tile({
+        metric: definition({ direction: 'lower_is_better', unit: '', decimals: 0 }),
+        status: 'green',
+        value: '4',
+        threshold: threshold({ green_lo: null, amber_lo: null, green_hi: '5', amber_hi: '8' }),
+      }),
+    );
+
+    expect(badgeOf(tileItem)).toHaveTextContent('Target: ≤ 5');
+  });
+
+  it('A band without a target value names the band', async () => {
+    const tileItem = await onlyTile(
+      tile({
+        metric: definition({ direction: 'within_band', unit: '', decimals: 0 }),
+        status: 'green',
+        value: '100',
+        threshold: threshold({
+          green_lo: '90',
+          green_hi: '110',
+          amber_lo: '85',
+          amber_hi: '115',
+        }),
+      }),
+    );
+
+    expect(badgeOf(tileItem)).toHaveTextContent('Target: 90–110');
+  });
+
+  it('No number makes the badge grey', async () => {
+    const tileItem = await onlyTile(tile({ value: null, status: 'no_data' }));
+
+    const badge = badgeOf(tileItem);
+    // Only green, amber and red are filled in their colour; the rest take --status-none.
+    expect(badge).toHaveAttribute('data-status', 'no_data');
+    expect(badge).toHaveTextContent('Target: ≥ 95.0 %');
+    expect(badge).toHaveAccessibleName(`${en.status.no_data}. Target: ≥\u00a095.0\u00a0%`);
+  });
+
+  it('A metric without a threshold', async () => {
+    const tileItem = await onlyTile(tile({ threshold: null, status: 'no_threshold' }));
+
+    const badge = badgeOf(tileItem);
+    expect(badge).toHaveAttribute('data-status', 'no_threshold');
+    expect(badge).toHaveTextContent(en.threshold.none);
+  });
+
+  it('The badge names the status in words', async () => {
+    const tileItem = await onlyTile(
+      tile({ status: 'red', set_by_hand: true, manual_status: 'red', comment: 'Release slipped' }),
+    );
+
+    expect(badgeOf(tileItem)).toHaveAccessibleName('Red. Colour set by hand. Target: ≥ 95.0 %');
+    expect(within(tileItem).getByText('✎')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('The threshold is no longer printed on the tile', async () => {
+    const tileItem = await onlyTile(tile());
+
+    const outside = tileItem.cloneNode(true) as HTMLElement;
+    outside.querySelector('[role="tooltip"]')!.remove();
+    expect(outside).not.toHaveTextContent('Green from');
+    expect(outside).not.toHaveTextContent('amber from');
+    expect(within(tileItem).getByRole('tooltip', { hidden: true })).toHaveTextContent(
+      'Green from 95.0 %, amber from 85.0 %',
+    );
+  });
+});
+
+describe('the threshold definition over the badge', () => {
+  const TEN = threshold({
+    target_value: '10',
+    green_pct: '5',
+    amber_pct: '10',
+    green_lo: '9.5',
+    amber_lo: '9',
+  });
+  const DEFINITION = 'Target value 10.0 % · green −5% · amber −10%';
+
+  it('Hovering the badge shows the threshold', async () => {
+    const user = userEvent.setup();
+    const tileItem = await onlyTile(tile({ threshold: TEN }));
+    expect(within(tileItem).getByRole('tooltip', { hidden: true })).not.toBeVisible();
+
+    await user.hover(badgeOf(tileItem));
+
+    const tooltip = within(tileItem).getByRole('tooltip');
+    expect(tooltip).toBeVisible();
+    expect(tooltip).toHaveTextContent(en.status.amber);
+    expect(tooltip).toHaveTextContent(DEFINITION);
+
+    await user.unhover(badgeOf(tileItem));
+    expect(within(tileItem).getByRole('tooltip', { hidden: true })).not.toBeVisible();
+  });
+
+  it('Keyboard focus shows the threshold', async () => {
+    const tileItem = await onlyTile(tile({ threshold: TEN }));
+    const badge = badgeOf(tileItem);
+
+    act(() => badge.focus());
+
+    const tooltip = within(tileItem).getByRole('tooltip');
+    expect(tooltip).toBeVisible();
+    expect(tooltip).toHaveTextContent(DEFINITION);
+    expect(badge).toHaveAccessibleDescription(
+      /^Amber Target value 10\.0\s% · green −5% · amber −10%$/,
+    );
+
+    act(() => badge.blur());
+    expect(within(tileItem).getByRole('tooltip', { hidden: true })).not.toBeVisible();
+  });
+
+  it('Escape closes the tooltip', async () => {
+    const user = userEvent.setup();
+    const tileItem = await onlyTile(tile({ threshold: TEN }));
+    const badge = badgeOf(tileItem);
+    act(() => badge.focus());
+    expect(within(tileItem).getByRole('tooltip')).toBeVisible();
+
+    await user.keyboard('{Escape}');
+
+    expect(within(tileItem).getByRole('tooltip', { hidden: true })).not.toBeVisible();
+    expect(badge).toHaveFocus();
+  });
+});
+
+describe("a tile's two change indicators", () => {
+  const previous = (item: HTMLElement) =>
+    within(item).getByRole('img', { name: /^Since the previous meeting/ });
+  const four = (item: HTMLElement) =>
+    within(item).getByRole('img', { name: /^Since four meetings earlier/ });
+
+  it('Both indicators for a one-sided metric', async () => {
+    const tileItem = await onlyTile(
+      tile({
+        metric: definition({ unit: '', decimals: 0 }),
+        value: '90',
+        previous: '85',
+        change: '5',
+        improvement: true,
+        previous_4: '95',
+        change_4: '-5',
+        improvement_4: false,
+      }),
+    );
+
+    expect(previous(tileItem)).toHaveAttribute('data-improvement', 'true');
+    expect(previous(tileItem)).toHaveTextContent('▲+5');
+    expect(four(tileItem)).toHaveAttribute('data-improvement', 'false');
+    expect(four(tileItem)).toHaveTextContent('▼−5');
+  });
+
+  it("A band metric's arrows are neutral", async () => {
+    const tileItem = await onlyTile(
+      tile({
+        metric: definition({ direction: 'within_band', unit: '', decimals: 0 }),
+        value: '104',
+        previous: '100',
+        change: '4',
+        improvement: null,
+      }),
+    );
+
+    expect(previous(tileItem)).toHaveAttribute('data-improvement', 'null');
+    expect(previous(tileItem)).toHaveTextContent('▲+4');
+  });
+
+  it('No change shows a level arrow', async () => {
+    const tileItem = await onlyTile(
+      tile({
+        metric: definition({ unit: '', decimals: 0 }),
+        value: '90',
+        previous: '90',
+        change: '0',
+        improvement: null,
+      }),
+    );
+
+    expect(previous(tileItem)).toHaveAttribute('data-improvement', 'null');
+    expect(previous(tileItem)).toHaveTextContent(/^→0/);
+  });
+
+  it('Nothing to compare shows a dash', async () => {
+    const tileItem = await onlyTile(
+      tile({ previous_4: null, change_4: null, improvement_4: null }),
+    );
+
+    expect(four(tileItem)).toHaveTextContent(/^–/);
+    expect(four(tileItem)).not.toHaveTextContent(/[▲▼→]/);
+    expect(four(tileItem)).toHaveAccessibleName(en.tile.fourNone);
+  });
+
+  it.each([
+    [
+      'en',
+      'Since the previous meeting: +5.0 %, better',
+      'Since four meetings earlier: −2.0 %, worse',
+    ],
+    [
+      'pl',
+      'Od poprzedniego spotkania: +5,0 %, lepiej',
+      'Od czwartego spotkania wstecz: −2,0 %, gorzej',
+    ],
+  ] as const)('The indicators are named in words (%s)', async (language, first, second) => {
+    const tileItem = await onlyTile(
+      tile({ previous_4: '92', change_4: '-2', improvement_4: false }),
+      language,
+    );
+
+    expect(within(tileItem).getByRole('img', { name: first })).toBeInTheDocument();
+    expect(within(tileItem).getByRole('img', { name: second })).toBeInTheDocument();
+  });
+
+  it('names a band indicator as neither better nor worse', async () => {
+    const tileItem = await onlyTile(
+      tile({
+        metric: definition({ direction: 'within_band' }),
+        change: '0.5',
+        improvement: null,
+      }),
+    );
+
+    expect(previous(tileItem)).toHaveAccessibleName(
+      'Since the previous meeting: +0.5 %, neither better nor worse',
+    );
   });
 });
 

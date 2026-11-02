@@ -27,12 +27,20 @@ export function PulseView({
   answering,
   onAnswering,
   hideNames,
+  declined,
+  onDecline,
 }: {
   teamId: string;
   meeting: Meeting;
   mayAnswer: boolean;
   /** The board's switch: kept by the board, so it outlives this view. */
   hideNames: boolean;
+  /**
+   * The meetings whose copy offer was declined. Kept by the board, like
+   * `hideNames`, so it outlives this view; never remembered.
+   */
+  declined: ReadonlySet<string>;
+  onDecline: (meetingId: string) => void;
   /** Whether the address asks for the form; ignored where no form is offered. */
   answering: boolean;
   onAnswering: (answering: boolean) => void;
@@ -83,6 +91,9 @@ export function PulseView({
           meetingId={meeting.id}
           meetingDate={meeting.date}
           own={results.own}
+          elsewhere={results.elsewhere}
+          offerDeclined={declined.has(meeting.id)}
+          onDeclineOffer={() => onDecline(meeting.id)}
           onSaved={() => setMode('results')}
         />
       ) : (

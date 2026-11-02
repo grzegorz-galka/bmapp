@@ -80,13 +80,11 @@ test('the dashboard shows the declarations, the teams and the assigned items', a
   }
   await expect(band.getByText('Customer satisfaction: NPS 50+')).toBeVisible();
 
-  // The viewer's team, with a countdown to its proposed meeting.
+  // The viewer's team, with its proposed meeting's date, nothing ticking.
   const teams = page.getByRole('region', { name: en.myTeams.heading, exact: true });
   await expect(teams.getByText(teamName).first()).toBeVisible();
   await expect(teams).toContainText(en.myTeams.role_leader);
-  const timer = page.getByRole('timer', { name: en.myTeams.countdownLabel });
-  await expect(timer).toBeVisible();
-  await expect(timer).not.toContainText('-');
+  await expect(teams.getByRole('timer')).toHaveCount(0);
 
   // The proposed meeting, not yet opened, and the problems and tasks tile.
   await expect(meetingRow(page, teamName)).toContainText(en.meetingsTile.notOpened);
@@ -242,7 +240,7 @@ test('the dashboard lists three teams and three meetings, and links to the rest'
   const teamsTile = page.getByRole('region', { name: en.myTeams.heading, exact: true });
   await expect(teamsTile.getByRole('listitem')).toHaveCount(3);
   await expect(teamsTile).not.toContainText(teams[3]!.name);
-  await expect(page.getByRole('timer', { name: en.myTeams.countdownLabel })).toHaveCount(1);
+  await expect(teamsTile.getByRole('timer')).toHaveCount(0);
 
   const meetingsTile = page.getByRole('region', { name: en.meetingsTile.heading });
   // A row lists its facts in a list of its own; a row is the item with the actions.

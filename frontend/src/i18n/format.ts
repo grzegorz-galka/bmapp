@@ -18,32 +18,6 @@ export const LOCALES: Record<Language, string> = {
   pl: 'pl-PL',
 };
 
-/** Whole days, hours and minutes remaining. Never negative. */
-export interface Countdown {
-  days: number;
-  hours: number;
-  minutes: number;
-}
-
-const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
-
-/**
- * Break a duration in milliseconds into whole units, clamped at zero.
- *
- * Clamped rather than signed: a meeting that has started is not "minus four
- * minutes away", it is under way, and the dashboard reads zero for it.
- */
-export function countdownFrom(milliseconds: number): Countdown {
-  const remaining = Math.max(0, milliseconds);
-  return {
-    days: Math.floor(remaining / DAY),
-    hours: Math.floor(remaining / HOUR) % 24,
-    minutes: Math.floor(remaining / MINUTE) % 60,
-  };
-}
-
 /** Parse an ISO 8601 value, or report that it cannot be read as a date. */
 function toDate(value: string | number | Date): Date | undefined {
   // A date with no time is midnight UTC rather than midnight wherever the

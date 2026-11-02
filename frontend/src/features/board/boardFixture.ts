@@ -127,6 +127,9 @@ export function tile(overrides: Partial<BoardMetric> = {}): BoardMetric {
     previous: '85',
     change: '5',
     improvement: true,
+    previous_4: '80',
+    change_4: '10',
+    improvement_4: true,
     sparkline: [
       { meeting_id: 'm-2026-10-07', date: '2026-10-07', value: '85', status: 'amber' },
       { meeting_id: 'm-2026-10-14', date: '2026-10-14', value: '90', status: 'amber' },
@@ -248,6 +251,7 @@ export function pulseResults(
     missing: FOUR_MISSING,
     missing_count: 4,
     own: null,
+    elsewhere: null,
     ...overrides,
   };
 }

@@ -49,6 +49,7 @@ const empty: PulseResults = {
   missing: [],
   missing_count: 3,
   own: null,
+  elsewhere: null,
 };
 
 beforeEach(() => {

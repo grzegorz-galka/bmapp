@@ -45,6 +45,8 @@ html[data-theme='dark'] {
   --status-green: oklch(0.75 0.14 150);
   --status-amber: oklch(0.79 0.14 70);
   --status-red: oklch(0.72 0.15 25);
+  /* The tile badge's fill when there is no number or no threshold. */
+  --status-none: #9aa6b3;
   --on-status: #0a0e13;
 
   --tile-configure: oklch(0.62 0.14 255);
@@ -91,6 +93,7 @@ html[data-theme='light'] {
   --status-green: oklch(0.46 0.13 150);
   --status-amber: oklch(0.45 0.12 60);
   --status-red: oklch(0.5 0.18 25);
+  --status-none: #59636b;
   --on-status: #ffffff;
 
   --tile-configure: oklch(0.62 0.14 255);
