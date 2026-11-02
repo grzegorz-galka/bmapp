@@ -8,7 +8,7 @@ import { vi } from 'vitest';
 import type { Meeting, MeetingList } from '../../api/meetings';
 import type { PulseResults } from '../../api/pulse';
 import type { Team } from '../../api/teams';
-import { pulseResults } from '../board/boardFixture';
+import { derivedName, pulseResults } from '../board/boardFixture';
 import { dashboardSummary } from '../dashboard/dashboardFixture';
 
 export const NOW = new Date('2026-10-12T08:00:00Z');
@@ -20,7 +20,7 @@ export function teamMeeting(teamId: string, date: string, host: string | null = 
     date,
     time: '13:00',
     starts_at: `${date}T11:00:00Z`,
-    host: host ? { id: `emp-${host}`, email: host } : null,
+    host: host ? { id: `emp-${host}`, email: host, display_name: derivedName(host) } : null,
   };
 }
 
@@ -46,7 +46,7 @@ function team(id: string, name: string): Team {
     id,
     name,
     board: { id: `board-${id}`, name, schedule: null },
-    leader: { id: 'emp-anna', email: 'anna@example.com' },
+    leader: { id: 'emp-anna', email: 'anna@example.com', display_name: 'Anna' },
     member_count: 3,
   };
 }

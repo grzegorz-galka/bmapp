@@ -190,7 +190,7 @@ def test_a_member_is_named_owner(client: TestClient) -> None:
 
     metric = add_metric(client, team["id"], owner_employee_id=owner)
 
-    assert metric["owner"] == {"id": owner, "email": MEMBER}
+    assert metric["owner"] == {"id": owner, "email": MEMBER, "display_name": "Member"}
 
 
 def test_unknown_direction(client: TestClient) -> None:

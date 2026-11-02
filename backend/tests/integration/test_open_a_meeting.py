@@ -34,7 +34,7 @@ def test_a_meeting_is_opened_with_its_host(client: TestClient) -> None:
 
     assert response.status_code == 201, response.json()
     meeting = response.json()
-    assert meeting["host"] == {"id": host, "email": "anna@example.com"}
+    assert meeting["host"] == {"id": host, "email": "anna@example.com", "display_name": "Anna"}
     assert meetings_of(client, team["id"])["meetings"] == [meeting]
 
 

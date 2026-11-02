@@ -27,12 +27,13 @@ export function ItemsTile({
   funnel,
   teams,
   items,
-  email,
+  name,
 }: {
   funnel: Funnel;
   teams: DashboardTeam[];
   items: AssignedItem[];
-  email: string;
+  /** The viewer's display name, which heads the list of what is theirs. */
+  name: string;
 }) {
   const { t } = useTranslation();
 
@@ -52,7 +53,7 @@ export function ItemsTile({
 
       <hr className={styles.rule} />
 
-      <AssignedItems items={items} email={email} />
+      <AssignedItems items={items} name={name} />
     </section>
   );
 }
@@ -135,7 +136,7 @@ function TeamLinks({ teams }: { teams: DashboardTeam[] }) {
  * is shown as it was typed, whatever the active language, and leads to the
  * list on the board the item is in.
  */
-function AssignedItems({ items, email }: { items: AssignedItem[]; email: string }) {
+function AssignedItems({ items, name }: { items: AssignedItem[]; name: string }) {
   const { t } = useTranslation();
   const here = useHere('dashboard');
   const format = useFormat();
@@ -146,7 +147,7 @@ function AssignedItems({ items, email }: { items: AssignedItem[]; email: string 
         <h3 id="assigned-heading" className={styles.subheading}>
           {t('itemsTile.assignedHeading')}
         </h3>
-        <span className={styles.scope}>{t('itemsTile.assignedTo', { email })}</span>
+        <span className={styles.scope}>{t('itemsTile.assignedTo', { name })}</span>
       </div>
 
       {items.length === 0 ? (

@@ -28,9 +28,27 @@ const TEAM: TeamDetail = {
   name: 'Platform',
   board: { id: 'board-1', name: 'Platform', schedule: null },
   members: [
-    { employee_id: 'emp-anna', email: LEADER, is_leader: true, is_deputy: false },
-    { employee_id: 'emp-bartek', email: MEMBER, is_leader: false, is_deputy: false },
-    { employee_id: 'emp-dora', email: DEPUTY, is_leader: false, is_deputy: true },
+    {
+      employee_id: 'emp-anna',
+      email: LEADER,
+      display_name: 'Anna Nowak',
+      is_leader: true,
+      is_deputy: false,
+    },
+    {
+      employee_id: 'emp-bartek',
+      email: MEMBER,
+      display_name: 'Bartek Wiśniewski',
+      is_leader: false,
+      is_deputy: false,
+    },
+    {
+      employee_id: 'emp-dora',
+      email: DEPUTY,
+      display_name: 'Dora',
+      is_leader: false,
+      is_deputy: true,
+    },
   ],
 };
 
@@ -47,6 +65,7 @@ const THRESHOLD: Threshold = {
   amber_hi: null,
   reason: 'Plan for Q4',
   recorded_by_email: LEADER,
+  recorded_by_display_name: 'Anna Nowak',
   recorded_at: '2026-10-01T08:00:00Z',
 };
 
@@ -599,7 +618,8 @@ describe('the metric settings page', () => {
 
     const history = await screen.findByRole('heading', { name: 'Threshold history: Revenue' });
     const entry = await within(history.parentElement as HTMLElement).findByText(/Plan for Q4/);
-    expect(entry).toHaveTextContent(LEADER);
+    expect(entry).toHaveTextContent('Anna Nowak');
+    expect(entry).not.toHaveTextContent(LEADER);
   });
 
   it('shows a member the metrics and thresholds without controls to change them', async () => {
@@ -649,14 +669,14 @@ const TEAMS: Team[] = [
     id: TEAM_ID,
     name: 'Platform',
     board: TEAM.board,
-    leader: { id: 'emp-anna', email: LEADER },
+    leader: { id: 'emp-anna', email: LEADER, display_name: 'Anna Nowak' },
     member_count: 2,
   },
   {
     id: OTHER_TEAM,
     name: 'Sales',
     board: { id: 'board-2', name: 'Sales', schedule: null },
-    leader: { id: 'emp-celina', email: 'celina@example.com' },
+    leader: { id: 'emp-celina', email: 'celina@example.com', display_name: 'Celina' },
     member_count: 1,
   },
 ];
@@ -1508,7 +1528,7 @@ describe('a metric’s derivation on the settings page', () => {
       id: CKIP,
       name: 'CKI-P',
       board: { id: 'board-ckip', name: 'CKI-P', schedule: null },
-      leader: { id: 'emp-celina', email: 'celina@example.com' },
+      leader: { id: 'emp-celina', email: 'celina@example.com', display_name: 'Celina' },
       member_count: 1,
     },
     TEAMS[0]!,

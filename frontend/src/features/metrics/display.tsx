@@ -102,15 +102,20 @@ export function StatusBadge({
   );
 }
 
-/** Threshold versions, each with its date, boundaries, reason and author. */
+/**
+ * Threshold versions, each with its date, boundaries, reason and author.
+ * `hideNames` leaves the author out, for a board shown on a shared screen.
+ */
 export function ThresholdList({
   metric,
   versions,
   format,
+  hideNames = false,
 }: {
   metric: Formatted;
   versions: Threshold[];
   format: Format;
+  hideNames?: boolean;
 }) {
   const { t } = useTranslation();
   return (
@@ -123,10 +128,12 @@ export function ThresholdList({
           {describeThreshold(t, format, metric, version)}
           <span className={styles.historyWhy}>
             {version.reason} ·{' '}
-            {t('detail.recordedBy', {
-              email: version.recorded_by_email,
-              date: format.dateTime(version.recorded_at),
-            })}
+            {hideNames
+              ? format.dateTime(version.recorded_at)
+              : t('detail.recordedBy', {
+                  name: version.recorded_by_display_name,
+                  date: format.dateTime(version.recorded_at),
+                })}
           </span>
         </li>
       ))}

@@ -61,5 +61,9 @@ def test_the_responsible_person_leaves_the_team(client: TestClient, team: dict[s
     remove(client, team["id"], MEMBER)
 
     [kept] = items_of(client, team["id"], "tasks")
-    assert kept["responsible"] == {"employee_id": responsible, "email": MEMBER}
+    assert kept["responsible"] == {
+        "employee_id": responsible,
+        "email": MEMBER,
+        "display_name": "Member",
+    }
     assert kept == task

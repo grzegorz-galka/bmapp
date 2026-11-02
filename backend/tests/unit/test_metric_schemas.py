@@ -573,6 +573,7 @@ def test_bounds_are_written_as_plain_decimal_strings() -> None:
             "amber_hi": None,
             "reason": "x",
             "recorded_by_email": "a@b.c",
+            "recorded_by_display_name": "A",
             "recorded_at": "2026-10-01T10:00:00Z",
         }
     )
@@ -596,6 +597,7 @@ def test_a_read_carries_the_boundaries_a_target_value_amounts_to() -> None:
         amber_hi=None,
         reason="x",
         recorded_by_email="a@b.c",
+        recorded_by_display_name="A",
         recorded_at=datetime.datetime(2026, 10, 1, 10, tzinfo=datetime.UTC),
     )
 

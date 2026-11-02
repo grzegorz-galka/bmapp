@@ -84,7 +84,9 @@ describe('the signed-out panel', () => {
     await renderBoardRoute('signedIn');
     expect(await screen.findByRole('heading', { name: 'Board of Platform' })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: `Account: ${MEMBER}` }));
+    // The account control names the person; signing out is in its menu.
+    await userEvent.click(screen.getByRole('button', { name: 'Account: Bartek' }));
+    await userEvent.click(screen.getByRole('button', { name: en.auth.signOut }));
     const requests = fetchMock.mock.calls.length;
 
     expect(boardHeading()).not.toBeInTheDocument();

@@ -64,7 +64,10 @@ export function RecordingView({
           {missing
             .map((metric) =>
               metric.owner && !hideNames
-                ? t('recording.missingOwner', { name: metric.name, email: metric.owner.email })
+                ? t('recording.missingOwner', {
+                    name: metric.name,
+                    owner: metric.owner.display_name,
+                  })
                 : metric.name,
             )
             .join(', ')}

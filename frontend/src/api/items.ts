@@ -24,6 +24,8 @@ export type ItemState = 'active' | 'archived';
 export interface ItemResponsible {
   employee_id: string;
   email: string;
+  /** How the interface names the person; computed by the server. */
+  display_name: string;
 }
 
 export interface ItemMetric {

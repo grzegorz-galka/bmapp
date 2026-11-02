@@ -60,6 +60,7 @@ beforeEach(() => {
       const answer = {
         employee_id: 'e-1',
         email: 'ala@pse.pl',
+        display_name: 'Ala',
         rating: 4,
         status: 'green',
         positive: 'Release',

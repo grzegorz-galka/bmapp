@@ -31,6 +31,7 @@ export const TODAYS_MEETING: DashboardMeeting = {
   starts_at: '2026-09-17T13:30:00Z',
   today: true,
   host: 'anna.nowak@pse.pl',
+  host_display_name: 'Anna Nowak',
   recorded: 12,
   total: 14,
   pulse_answered: false,
@@ -49,6 +50,7 @@ export const PROPOSED_MEETING: DashboardMeeting = {
   starts_at: '2026-09-22T11:30:00Z',
   today: false,
   host: null,
+  host_display_name: null,
   recorded: null,
   total: null,
   pulse_answered: false,
@@ -67,6 +69,7 @@ export const NEXT_WEEKS_MEETING: DashboardMeeting = {
   starts_at: '2026-09-24T13:30:00Z',
   today: false,
   host: null,
+  host_display_name: null,
   recorded: 0,
   total: 14,
   pulse_answered: true,
@@ -101,7 +104,7 @@ export const LATER_TEAMS: DashboardTeam[] = [
 
 export function dashboardSummary(overrides: Partial<DashboardSummary> = {}): DashboardSummary {
   return {
-    current_user: { email: 'g.galka@pse.pl', initials: 'GG' },
+    current_user: { email: 'g.galka@pse.pl', display_name: 'Grzegorz Gałka', initials: 'GG' },
     declarations: {
       mission: {
         en: 'We are here to change the energy sector for the better',

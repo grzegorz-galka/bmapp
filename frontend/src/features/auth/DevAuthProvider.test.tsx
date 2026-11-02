@@ -19,6 +19,10 @@ import { stubDialog } from './dialogStub';
 
 const EMAIL = 'grzegorz.galka@pse.pl';
 const PASSWORD = 'grgapspl';
+// A second account, not yet signed in to: its derived password asks for a new one.
+const NEW_EMAIL = 'jan.kowalski@example.com';
+const DERIVED = 'jakoexco';
+const CHOSEN = 'correct horse';
 
 beforeAll(stubDialog);
 
@@ -38,28 +42,50 @@ function json(status: number, body: unknown): Response {
   });
 }
 
-/** A backend whose dev-login accepts only EMAIL with PASSWORD, issuing `token-N`. */
+/**
+ * A backend whose dev-login accepts EMAIL with PASSWORD, issuing `token-N`.
+ * NEW_EMAIL has chosen no password yet: DERIVED asks for one, which
+ * dev-password sets, and from then on only that one signs in.
+ */
 function fakeBackend() {
   let issued = 0;
+  let chosen: string | null = null;
+  const token = () => {
+    issued += 1;
+    return json(200, { access_token: `token-${issued}`, token_type: 'Bearer' });
+  };
+  const refused = (field: string, code: string) =>
+    json(401, { errors: [{ field, code, message: 'x' }] });
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = String(input);
     if (url.endsWith('/auth/dev-login')) {
       const { email, password } = JSON.parse(String(init?.body)) as Record<string, string>;
-      if (password !== PASSWORD) {
-        return json(401, {
-          errors: [{ field: 'password', code: 'auth.password_incorrect', message: 'x' }],
-        });
+      const address = (email ?? '').trim().toLowerCase();
+      if (address === NEW_EMAIL) {
+        if (chosen === null && password === DERIVED) {
+          return json(200, { password_change_required: true, name: 'Jan', surname: 'Kowalski' });
+        }
+        if (chosen !== null && password === chosen) return token();
+        return refused('password', 'auth.password_incorrect');
       }
-      if ((email ?? '').trim().toLowerCase() !== EMAIL) {
-        return json(401, {
-          errors: [{ field: 'email', code: 'auth.employee_unknown', message: 'x' }],
-        });
+      if (password !== PASSWORD) return refused('password', 'auth.password_incorrect');
+      if (address !== EMAIL) return refused('email', 'auth.employee_unknown');
+      return token();
+    }
+    if (url.endsWith('/auth/dev-password')) {
+      const body = JSON.parse(String(init?.body)) as Record<string, string>;
+      if (body.email !== NEW_EMAIL || body.current_password !== DERIVED) {
+        return refused('password', 'auth.password_incorrect');
       }
-      issued += 1;
-      return json(200, { access_token: `token-${issued}`, token_type: 'Bearer' });
+      chosen = body.new_password ?? null;
+      return token();
     }
     return json(404, { errors: [] });
   });
+}
+
+function devPasswordCalls(backend: ReturnType<typeof fakeBackend>) {
+  return backend.mock.calls.filter(([url]) => String(url).endsWith('/auth/dev-password'));
 }
 
 function Probe() {
@@ -239,5 +265,77 @@ describe('DevAuthProvider', () => {
     await expect(request('/dashboard')).rejects.toThrow();
     expect(backend.mock.calls.some(([url]) => String(url).endsWith('/auth/dev-login'))).toBe(true);
     expect(screen.getByTestId('status')).toHaveTextContent('signedOut');
+  });
+
+  it('the first sign-in moves to the new step', async () => {
+    const backend = fakeBackend();
+    await renderSession();
+
+    await signInThroughTheWindow(NEW_EMAIL, DERIVED);
+
+    expect(await screen.findByLabelText(en.auth.devPasswordNew)).toHaveValue('');
+    expect(screen.getByLabelText(en.auth.devLoginEmail)).toHaveValue(NEW_EMAIL);
+    expect(screen.getByLabelText(en.auth.devPasswordName)).toHaveValue('Jan');
+    expect(screen.getByLabelText(en.auth.devPasswordSurname)).toHaveValue('Kowalski');
+    expect(loginWindow()).toBeInTheDocument();
+    expect(screen.getByTestId('status')).toHaveTextContent('signedOut');
+    expect(devPasswordCalls(backend)).toHaveLength(0);
+  });
+
+  it('setting the password signs in', async () => {
+    const backend = fakeBackend();
+    await renderSession();
+    await signInThroughTheWindow(NEW_EMAIL, DERIVED);
+
+    const surname = await screen.findByLabelText(en.auth.devPasswordSurname);
+    await userEvent.clear(surname);
+    await userEvent.type(surname, 'Kowalska');
+    await userEvent.type(screen.getByLabelText(en.auth.devPasswordNew), CHOSEN);
+    await userEvent.type(screen.getByLabelText(en.auth.devPasswordRepeat), CHOSEN);
+    await userEvent.click(screen.getByRole('button', { name: en.auth.devPasswordSubmit }));
+
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('signedIn'));
+    expect(screen.getByTestId('email')).toHaveTextContent(NEW_EMAIL);
+    expect(loginWindow()).not.toBeInTheDocument();
+    const [, init] = devPasswordCalls(backend)[0]!;
+    expect(JSON.parse(String(init?.body))).toEqual({
+      email: NEW_EMAIL,
+      current_password: DERIVED,
+      new_password: CHOSEN,
+      name: 'Jan',
+      surname: 'Kowalska',
+    });
+    expect({ ...window.localStorage }).toEqual({ [DEV_EMAIL_KEY]: NEW_EMAIL });
+
+    // The token it was given is the one sent, and a restart is recovered with
+    // the chosen password, never the derived one.
+    await request('/dashboard').catch(() => undefined);
+    const [, sent] = backend.mock.calls.at(-1)!;
+    expect((sent?.headers as Record<string, string>).Authorization).toBe('Bearer token-1');
+    const original = backend.getMockImplementation()!;
+    backend.mockImplementation(async (input, init) => {
+      if (!String(input).endsWith('/dashboard')) return original(input, init);
+      const token = (init?.headers as Record<string, string>).Authorization;
+      return token === 'Bearer token-1' ? json(401, { errors: [] }) : json(200, { ok: true });
+    });
+    await expect(request('/dashboard')).resolves.toEqual({ ok: true });
+  });
+
+  it('closing the window at the new password step drops it, and the next sign-in asks again', async () => {
+    const backend = fakeBackend();
+    await renderSession();
+    await signInThroughTheWindow(NEW_EMAIL, DERIVED);
+    await screen.findByLabelText(en.auth.devPasswordNew);
+
+    await userEvent.click(screen.getByRole('button', { name: en.auth.devLoginClose }));
+
+    expect(loginWindow()).not.toBeInTheDocument();
+    expect(screen.getByTestId('status')).toHaveTextContent('signedOut');
+    expect(devPasswordCalls(backend)).toHaveLength(0);
+
+    await userEvent.click(screen.getByRole('button', { name: en.auth.signIn }));
+    expect(screen.getByLabelText(en.auth.devLoginPassword)).toHaveValue('');
+    await signInThroughTheWindow(NEW_EMAIL, DERIVED);
+    expect(await screen.findByLabelText(en.auth.devPasswordNew)).toBeInTheDocument();
   });
 });

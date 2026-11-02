@@ -8,12 +8,17 @@ import { pl } from '../../i18n/pl';
 import type { Team } from '../../api/teams';
 import controls from '../../styles/controls.module.css';
 
-function team(name: string, leaderEmail = 'lead@example.com', memberCount = 1): Team {
+function team(
+  name: string,
+  leaderEmail = 'lead@example.com',
+  memberCount = 1,
+  leaderName = 'Lead',
+): Team {
   return {
     id: `id-${name}`,
     name,
     board: { id: `board-${name}`, name, schedule: null },
-    leader: { id: `leader-${name}`, email: leaderEmail },
+    leader: { id: `leader-${name}`, email: leaderEmail, display_name: leaderName },
     member_count: memberCount,
   };
 }
@@ -65,12 +70,14 @@ describe('TeamsPage in English', () => {
   });
 
   it("shows each team's leader, member count and a link to its members page", async () => {
-    fetchMock.mockResolvedValue(jsonResponse([team('Platform', 'anna@example.com', 3)]));
+    fetchMock.mockResolvedValue(
+      jsonResponse([team('Platform', 'anna@example.com', 3, 'Anna Nowak')]),
+    );
 
     await renderWithLanguage(<TeamsPage />, 'en', { auth: { isAdmin: true } });
 
     const item = await screen.findByRole('listitem');
-    expect(item).toHaveTextContent('leader: anna@example.com');
+    expect(item).toHaveTextContent('leader: Anna Nowak');
     expect(item).toHaveTextContent('Members: 3');
     expect(within(item).getByRole('link', { name: 'Members of Platform' })).toHaveAttribute(
       'href',
@@ -135,16 +142,21 @@ describe('Members are managed from the team page', () => {
   it('A team is registered with its leader from the page', async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse([]))
-      .mockResolvedValueOnce(jsonResponse(team('Platform', 'anna@example.com'), 201))
-      .mockResolvedValue(jsonResponse([team('Platform', 'anna@example.com', 1)]));
+      .mockResolvedValueOnce(
+        jsonResponse(team('Platform', 'jan.kowalski@example.com', 1, 'Jan Kowalski'), 201),
+      )
+      .mockResolvedValue(
+        jsonResponse([team('Platform', 'jan.kowalski@example.com', 1, 'Jan Kowalski')]),
+      );
 
     await renderWithLanguage(<TeamsPage />, 'en', { auth: { isAdmin: true } });
     await screen.findByText(en.teams.empty);
 
-    await register(en, 'Platform', 'anna@example.com');
+    await register(en, 'Platform', 'jan.kowalski@example.com');
 
     const item = await screen.findByRole('listitem');
-    expect(item).toHaveTextContent('leader: anna@example.com');
+    expect(item).toHaveTextContent('leader: Jan Kowalski');
+    expect(item).not.toHaveTextContent('jan.kowalski@example.com');
     expect(item).toHaveTextContent('Members: 1');
     // Registered: the section has closed.
     expect(screen.queryByRole('region', { name: en.teams.register })).not.toBeInTheDocument();
@@ -152,7 +164,7 @@ describe('Members are managed from the team page', () => {
     const [, init] = fetchMock.mock.calls[1] as [string, RequestInit];
     expect(JSON.parse(String(init.body))).toEqual({
       name: 'Platform',
-      leader_email: 'anna@example.com',
+      leader_email: 'jan.kowalski@example.com',
     });
   });
 
@@ -326,7 +338,7 @@ describe('TeamsPage in Polish', () => {
     // A team name is data, not text to translate, but the label around it is.
     const item = await screen.findByRole('listitem');
     expect(item).toHaveTextContent('Platform — tablica: Platform');
-    expect(item).toHaveTextContent('lider zespołu: lead@example.com');
+    expect(item).toHaveTextContent('lider zespołu: Lead');
     expect(item).toHaveTextContent('Liczba członków: 1');
     expect(within(item).getByRole('link', { name: 'Członkowie zespołu Platform' })).toBeVisible();
     expect(within(item).getByRole('link', { name: 'Spotkania zespołu Platform' })).toBeVisible();

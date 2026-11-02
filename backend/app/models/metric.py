@@ -27,7 +27,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.core.metric_enums import Colour, DerivationKind, Direction, Scope
-from app.models.employee import EMAIL_MAX_LENGTH, Employee
+from app.models.employee import EMAIL_MAX_LENGTH, Employee, person_display_name
 from app.models.team import Team
 
 METRIC_NAME_MAX_LENGTH = 200
@@ -39,6 +39,22 @@ METRIC_DECIMALS_MAX = 6
 #: for 0.71, and never a binary float near a boundary.
 NUMBER_PRECISION = 21
 NUMBER_SCALE = 6
+
+
+def _person_by_email(column: str) -> Mapped[Employee | None]:
+    """The employee a plain email column names, joined into the same statement.
+
+    The column is not a foreign key - an administrator with no employee
+    record records and corrects too - so this is a view-only LEFT OUTER JOIN
+    on the email, which costs no statement of its own and is None for such
+    a person.
+    """
+    return relationship(
+        Employee,
+        primaryjoin=f"foreign({column}) == Employee.email",
+        viewonly=True,
+        lazy="joined",
+    )
 
 
 def _number() -> Numeric[Decimal]:
@@ -391,6 +407,12 @@ class MetricThreshold(Base):
         server_default=func.clock_timestamp(),
     )
 
+    recorded_by: Mapped[Employee | None] = _person_by_email("MetricThreshold.recorded_by_email")
+
+    @property
+    def recorded_by_display_name(self) -> str:
+        return _named(self.recorded_by_email, self.recorded_by)
+
 
 class MetricValue(Base):
     """The number, comment and colour recorded for one metric at one meeting."""
@@ -420,6 +442,12 @@ class MetricValue(Base):
     recorded_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+    recorded_by: Mapped[Employee | None] = _person_by_email("MetricValue.recorded_by_email")
+
+    @property
+    def recorded_by_display_name(self) -> str:
+        return _named(self.recorded_by_email, self.recorded_by)
 
 
 class MetricValueCorrection(Base):
@@ -454,3 +482,18 @@ class MetricValueCorrection(Base):
     corrected_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.clock_timestamp()
     )
+
+    corrected_by: Mapped[Employee | None] = _person_by_email(
+        "MetricValueCorrection.corrected_by_email"
+    )
+
+    @property
+    def corrected_by_display_name(self) -> str:
+        return _named(self.corrected_by_email, self.corrected_by)
+
+
+def _named(email: str, employee: Employee | None) -> str:
+    """The display name of whoever an email column names, recorded or not."""
+    if employee is not None:
+        return employee.display_name
+    return person_display_name(email, None, None)

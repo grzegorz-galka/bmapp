@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models import Meeting
+from app.models import Employee, Meeting
 from app.schemas import DashboardSummary
 from tests.integration.dashboard_api import (
     VIEWER,
@@ -24,6 +24,7 @@ from tests.integration.dashboard_api import (
 from tests.integration.meetings_api import open_meeting, set_schedule
 from tests.integration.metrics_api import add_metric, record
 from tests.integration.pulse_api import answer
+from tests.integration.teams_api import member_id
 
 pytestmark = pytest.mark.integration
 
@@ -68,11 +69,44 @@ def test_the_summary_requires_authentication(anonymous_client: TestClient) -> No
 
 def test_the_identity_is_the_authenticated_callers(client_as: ClientAs) -> None:
     """Scenario: The identity is the authenticated caller's."""
-    first = client_as("jan.kowalski@pse.pl").get("/dashboard").json()["current_user"]
+    first = client_as("jan.kowalski@example.com").get("/dashboard").json()["current_user"]
     second = client_as("anna.nowak@pse.pl").get("/dashboard").json()["current_user"]
 
-    assert first == {"email": "jan.kowalski@pse.pl", "initials": "JK"}
-    assert second == {"email": "anna.nowak@pse.pl", "initials": "AN"}
+    # Nothing is stored for either, so both are named from the email.
+    assert first == {
+        "email": "jan.kowalski@example.com",
+        "display_name": "Jan Kowalski",
+        "initials": "JK",
+    }
+    assert second == {"email": "anna.nowak@pse.pl", "display_name": "Anna Nowak", "initials": "AN"}
+
+
+def test_stored_names_give_the_initials(
+    client: TestClient, client_as: ClientAs, session: Session
+) -> None:
+    """The summary names the viewer by their stored name, on a team or on none."""
+    on_a_team = "grzegorz.galka@pse.pl"
+    on_none = "ewa.nowak@pse.pl"
+    team = team_with(client, "Platform", on_a_team, on_none)
+    session.execute(
+        sa.update(Employee)
+        .where(Employee.email == on_a_team)
+        .values(name="Grzegorz", surname="Gałka")
+    )
+    session.execute(sa.update(Employee).where(Employee.email == on_none).values(name="Ewa"))
+    session.commit()
+    removed = client.delete(f"/teams/{team['id']}/members/{member_id(team, on_none)}")
+    assert removed.status_code == 200, removed.json()
+
+    named = client_as(on_a_team).get("/dashboard").json()["current_user"]
+    teamless = client_as(on_none).get("/dashboard").json()
+
+    assert (named["display_name"], named["initials"]) == ("Grzegorz Gałka", "GG")
+    assert teamless["teams"] == []
+    assert (teamless["current_user"]["display_name"], teamless["current_user"]["initials"]) == (
+        "Ewa",
+        "E",
+    )
 
 
 def test_the_summary_changes_nothing(client_as: ClientAs, assigned: Any, session: Session) -> None:

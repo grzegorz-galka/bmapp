@@ -19,6 +19,8 @@ export type PulseStatus = 'green' | 'amber' | 'red' | 'no_data';
 export interface PulseAnswerRead {
   employee_id: string;
   email: string;
+  /** How the interface names the person; computed by the server. */
+  display_name: string;
   rating: PulseRating;
   status: PulseStatus;
   positive: string;
@@ -52,6 +54,8 @@ export interface PulseTrendPoint {
 export interface PulseMissingMember {
   employee_id: string;
   email: string;
+  /** How the interface names the person; computed by the server. */
+  display_name: string;
 }
 
 export type PulseDistribution = Record<'1' | '2' | '3' | '4' | '5', number>;

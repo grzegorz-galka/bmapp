@@ -29,7 +29,11 @@ def test_recording_is_partly_done(client: TestClient, monkeypatch: pytest.Monkey
 
     assert (completeness["recorded"], completeness["total"]) == (12, 14)
     assert completeness["missing"] == [
-        {"metric_id": owned["id"], "name": "Owned", "owner": {"id": owner, "email": OWNER}},
+        {
+            "metric_id": owned["id"],
+            "name": "Owned",
+            "owner": {"id": owner, "email": OWNER, "display_name": "Owner"},
+        },
         {"metric_id": unowned["id"], "name": "Unowned", "owner": None},
     ]
 

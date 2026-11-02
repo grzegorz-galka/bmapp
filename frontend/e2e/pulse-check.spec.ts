@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { pl } from '../src/i18n/pl';
 import { LANGUAGE_STORAGE_KEY } from '../src/i18n/languages';
 import { organizationToday } from '../src/features/board/organizationDate';
-import { ADMIN_EMAIL, signInAs } from './auth';
+import { ADMIN_EMAIL, displayName, signInAs } from './auth';
 import { addDays, apiAs, uniqueSuffix } from './api';
 
 /*
@@ -83,7 +83,9 @@ test('members answer the pulse check in Polish and the team reads the results', 
   // The results: two of three, the average of 3 and 4, the distribution.
   const view = page.getByRole('region', { name: pl.pulse.view });
   await expect(view.getByText('2 z 3', { exact: true })).toBeVisible();
-  await expect(view.getByText(pl.pulse.missing.replace('{{names}}', leader))).toBeVisible();
+  await expect(
+    view.getByText(pl.pulse.missing.replace('{{names}}', displayName(leader))),
+  ).toBeVisible();
   await expect(
     view.getByRole('img', { name: pl.pulse.gaugeLabel.replace('{{average}}', '3,5') }),
   ).toBeVisible();
@@ -96,15 +98,15 @@ test('members answer the pulse check in Polish and the team reads the results', 
   await expect(bar(2)).toHaveText(`${caption(2)}0`);
   await expect(bar(1)).toHaveText(`${caption(1)}0`);
 
-  // Both answers, by email, the changed one as it now stands.
+  // Both answers, by name, the changed one as it now stands.
   // The answers' own table: the trend carries a hidden one of its own.
   const answers = view.getByRole('region', { name: pl.pulse.answersHeading, exact: true });
   const rows = answers.getByRole('table').getByRole('row');
   await expect(rows).toHaveCount(3);
-  await expect(rows.nth(1).getByRole('rowheader')).toHaveText(first);
+  await expect(rows.nth(1).getByRole('rowheader')).toHaveText(displayName(first));
   await expect(rows.nth(1)).toContainText(caption(3));
   await expect(rows.nth(1)).toContainText('Za dużo spotkań');
-  await expect(rows.nth(2).getByRole('rowheader')).toHaveText(second);
+  await expect(rows.nth(2).getByRole('rowheader')).toHaveText(displayName(second));
   await expect(rows.nth(2)).toContainText(caption(4));
   await expect(rows.nth(2)).toContainText('Udane wdrożenie');
 
@@ -118,7 +120,9 @@ test('members answer the pulse check in Polish and the team reads the results', 
     pl.pulse.person.replace('{{n}}', '2'),
   );
   await expect(view.getByText(first)).toBeHidden();
+  await expect(view.getByText(displayName(first))).toBeHidden();
   await expect(view.getByText(second)).toBeHidden();
+  await expect(view.getByText(displayName(second))).toBeHidden();
   await expect(view.getByText(pl.pulse.missingCount.replace('{{count}}', '1'))).toBeVisible();
 
   // An older meeting is frozen: its results are shown, no form is offered.
@@ -140,5 +144,7 @@ test('members answer the pulse check in Polish and the team reads the results', 
   await expect(answers).toBeHidden();
   await expect(page.getByRole('button', { name: pl.pulse.yourAnswer })).toBeHidden();
   await expect(view.getByText(first)).toBeHidden();
+  await expect(view.getByText(displayName(first))).toBeHidden();
   await expect(view.getByText(leader)).toBeHidden();
+  await expect(view.getByText(displayName(leader))).toBeHidden();
 });

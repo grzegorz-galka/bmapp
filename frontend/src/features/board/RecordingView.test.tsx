@@ -24,6 +24,7 @@ import {
   jsonResponse,
   MEETINGS,
   MEMBER,
+  MEMBER_NAME,
   MONDAY,
   serveBoard,
   TEAM_ID,
@@ -356,7 +357,11 @@ describe('the recording view', () => {
         recorded: 12,
         total: 14,
         missing: [
-          { metric_id: 'a', name: 'NPS', owner: { id: 'emp-bartek', email: MEMBER } },
+          {
+            metric_id: 'a',
+            name: 'NPS',
+            owner: { id: 'emp-bartek', email: MEMBER, display_name: MEMBER_NAME },
+          },
           { metric_id: 'b', name: 'OTIF', owner: null },
         ],
         owing: 2,
@@ -365,7 +370,7 @@ describe('the recording view', () => {
     await openRecording();
 
     expect(screen.getByText('Recorded: 12 of 14')).toBeInTheDocument();
-    expect(screen.getByText(`Still missing: NPS (${MEMBER}), OTIF`)).toBeInTheDocument();
+    expect(screen.getByText(`Still missing: NPS (${MEMBER_NAME}), OTIF`)).toBeInTheDocument();
   });
 
   it('shows each metric’s threshold and its number at the previous meeting', async () => {

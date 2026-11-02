@@ -185,10 +185,11 @@ describe('the header', () => {
       auth: { email: 'jan.kowalski@pse.pl' },
     });
 
-    expect(await screen.findByText('jan.kowalski@pse.pl')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /account: jan\.kowalski@pse\.pl/i }),
-    ).toHaveTextContent(en.auth.signOut);
+    const account = await screen.findByRole('button', { name: 'Account: Jan Kowalski' });
+    expect(account).toHaveTextContent('Jan Kowalski');
+    await userEvent.click(account);
+    expect(screen.getByText('jan.kowalski@pse.pl')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: en.auth.signOut })).toBeInTheDocument();
   });
 
   it('offers the sign-in and no identity when nobody is signed in', async () => {

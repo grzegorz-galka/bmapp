@@ -51,7 +51,7 @@ export function DashboardPage() {
             funnel={summary.data.funnel}
             teams={summary.data.teams}
             items={summary.data.assigned_items}
-            email={summary.data.current_user.email}
+            name={summary.data.current_user.display_name}
           />
         </div>
       )}

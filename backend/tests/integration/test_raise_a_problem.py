@@ -71,7 +71,11 @@ def test_a_problem_with_every_field(client: TestClient, team: dict[str, Any]) ->
         "Shared test database",
         "One database per run",
     )
-    assert problem["responsible"] == {"employee_id": responsible, "email": MEMBER}
+    assert problem["responsible"] == {
+        "employee_id": responsible,
+        "email": MEMBER,
+        "display_name": "Member",
+    }
     assert problem["due_on"] == "2026-10-20"
     assert problem["metric"] == {"id": metric["id"], "name": "Open bugs"}
     assert (problem["stage"], problem["archived"]) == ("plan", False)

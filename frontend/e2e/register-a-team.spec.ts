@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { en, type Translations } from '../src/i18n/en';
 import { pl } from '../src/i18n/pl';
 import { LANGUAGE_STORAGE_KEY } from '../src/i18n/languages';
-import { signInAs } from './auth';
+import { displayName, signInAs } from './auth';
 
 /*
  * The team page moved to /teams when the dashboard (then called the hub) took the root address; these
@@ -30,7 +30,7 @@ function entryText(catalogue: Translations, name: string) {
 
 /** The entry's second line: who leads the team, from the same catalogue. */
 function leaderText(catalogue: Translations, email: string) {
-  return catalogue.teams.leaderSuffix.replace('{{email}}', email);
+  return catalogue.teams.leaderSuffix.replace('{{name}}', displayName(email));
 }
 
 /** Fill in the registration form and submit it. */

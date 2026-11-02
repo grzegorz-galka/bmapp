@@ -3,7 +3,7 @@ import { pl } from '../src/i18n/pl';
 import { LANGUAGE_STORAGE_KEY } from '../src/i18n/languages';
 import { formatDate, formatMeetingDate } from '../src/i18n/format';
 import { organizationToday } from '../src/features/board/organizationDate';
-import { ADMIN_EMAIL, signInAs } from './auth';
+import { ADMIN_EMAIL, displayName, signInAs } from './auth';
 import { addDays, apiAs, uniqueSuffix } from './api';
 
 /*
@@ -85,14 +85,14 @@ test('a member keeps a problem and its task to the archive in Polish', async ({
     /[0-9a-f-]{36}/,
   );
   await newTask.getByLabel(pl.items.summaryLabel).fill(taskSummary);
-  await newTask.getByLabel(pl.items.responsibleLabel).selectOption({ label: member });
+  await newTask.getByLabel(pl.items.responsibleLabel).selectOption({ label: displayName(member) });
   await newTask.getByLabel(pl.items.dueLabel).fill(due);
   await newTask.getByRole('button', { name: pl.items.save }).click();
   await expect(newTask).toBeHidden();
 
   // Overdue in words, new at the meeting shown, and naming its problem.
   const taskEntry = tasks.getByRole('listitem').filter({ hasText: taskSummary });
-  await expect(taskEntry).toContainText(member);
+  await expect(taskEntry).toContainText(displayName(member));
   await expect(taskEntry).toContainText(
     pl.items.overdueSince.replace('{{date}}', formatDate(due, 'pl', '')),
   );
@@ -139,7 +139,7 @@ test('a member keeps a problem and its task to the archive in Polish', async ({
   const meetingDate = formatMeetingDate(addDays(today, 3), 'pl', '');
   await expect(row.getByRole('rowheader')).toHaveText(taskSummary);
   await expect(row.getByRole('cell')).toHaveText([
-    member,
+    displayName(member),
     formatDate(due, 'pl', ''),
     meetingDate,
     meetingDate,

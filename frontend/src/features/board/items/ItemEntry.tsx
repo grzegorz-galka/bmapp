@@ -50,7 +50,7 @@ export function ItemEntry({
         <PdcaBall stage={item.stage} onMoveOn={onMoveOn} />
       </span>
       <span className={styles.meta}>
-        {!hideNames && <span>{item.responsible?.email ?? t('items.noResponsible')}</span>}
+        {!hideNames && <span>{item.responsible?.display_name ?? t('items.noResponsible')}</span>}
         {item.due_on === null ? (
           <span>{t('items.noDueDate')}</span>
         ) : item.overdue ? (

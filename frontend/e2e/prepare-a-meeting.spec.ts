@@ -4,7 +4,7 @@ import { pl } from '../src/i18n/pl';
 import { formatMeetingDate } from '../src/i18n/format';
 import { LANGUAGE_STORAGE_KEY, type Language } from '../src/i18n/languages';
 import { organizationToday } from '../src/features/board/organizationDate';
-import { ADMIN_EMAIL, signInAs } from './auth';
+import { ADMIN_EMAIL, displayName, signInAs } from './auth';
 import { addDays, apiAs, isoWeekday } from './api';
 
 /*
@@ -118,9 +118,9 @@ async function prepareAMeeting(page: Page, language: Language) {
   await expect(row).toContainText(catalogue.meetings.noHost);
 
   await row.getByRole('button', { name: catalogue.meetings.change }).click();
-  await row.getByLabel(catalogue.meetings.hostLabel).selectOption({ label: member });
+  await row.getByLabel(catalogue.meetings.hostLabel).selectOption({ label: displayName(member) });
   await row.getByRole('button', { name: catalogue.meetings.save }).click();
-  await expect(row).toContainText(fill(catalogue.meetings.host, { email: member }));
+  await expect(row).toContainText(fill(catalogue.meetings.host, { name: displayName(member) }));
 
   // Moved a day later, it keeps its host.
   const moved = nextDay(first);
@@ -128,7 +128,9 @@ async function prepareAMeeting(page: Page, language: Language) {
   await row.getByLabel(catalogue.meetings.dateLabel).fill(moved);
   await row.getByRole('button', { name: catalogue.meetings.save }).click();
   const movedRow = meetingRow(page, language, moved);
-  await expect(movedRow).toContainText(fill(catalogue.meetings.host, { email: member }));
+  await expect(movedRow).toContainText(
+    fill(catalogue.meetings.host, { name: displayName(member) }),
+  );
 
   // The scheduled day is free again once the meeting moved off it, so the
   // proposal comes back to it; opening it leaves the week after to propose.
@@ -175,6 +177,8 @@ test('the host checks readiness and chases who still owes data', async ({
   const host = `e2e.ready.host.${suffix}@example.com`;
   const leader = `e2e.ready.lead.${suffix}@example.com`;
   const other = `e2e.ready.other.${suffix}@example.com`;
+  // How each of their display names begins: what hiding names must leave out.
+  const NAMED = 'E2e Ready';
   const today = organizationToday();
   const coming = addDays(today, 3);
   await seedLanguage(page, 'en');
@@ -207,11 +211,11 @@ test('the host checks readiness and chases who still owes data', async ({
   await page.getByRole('button', { name: en.meetings.prepare }).click();
   const form = prepareForm(page, en);
   await expect(form.getByLabel(en.meetings.dateLabel)).toHaveValue(coming);
-  await form.getByLabel(en.meetings.hostLabel).selectOption({ label: host });
+  await form.getByLabel(en.meetings.hostLabel).selectOption({ label: displayName(host) });
   await page.getByRole('button', { name: en.meetings.open }).click();
   await expect(form).toBeHidden();
   await expect(meetingRow(page, 'en', coming)).toContainText(
-    fill(en.meetings.host, { email: host }),
+    fill(en.meetings.host, { name: displayName(host) }),
   );
 
   // 2. Another member answers the pulse check from the dashboard.
@@ -242,12 +246,17 @@ test('the host checks readiness and chases who still owes data', async ({
   await expect(panel).toHaveAttribute('open', '');
   await expect(panel.getByText(fill(en.readiness.owing_other, { count: '3' }))).toBeVisible();
   const missing = panel.getByRole('region', { name: en.readiness.metricsHeading });
-  await expect(missing.getByRole('listitem').filter({ hasText: 'Lead time' })).toContainText(other);
+  await expect(missing.getByRole('listitem').filter({ hasText: 'Lead time' })).toContainText(
+    displayName(other),
+  );
   await expect(missing.getByRole('listitem').filter({ hasText: 'Open bugs' })).toContainText(
     en.readiness.noOwner,
   );
   const unanswered = panel.getByRole('region', { name: en.readiness.pulseHeading });
-  await expect(unanswered.getByRole('listitem')).toHaveText([host, leader]);
+  await expect(unanswered.getByRole('listitem')).toHaveText([
+    displayName(host),
+    displayName(leader),
+  ]);
 
   // 5. The addresses go to the clipboard, each once, in email order.
   await panel.getByRole('button', { name: en.readiness.copy }).click();
@@ -259,10 +268,11 @@ test('the host checks readiness and chases who still owes data', async ({
 
   // 6. With names hidden for screen sharing, no view names anyone.
   const main = page.getByRole('main');
-  await expect(main.getByText(host).first()).toBeVisible();
+  await expect(main.getByText(displayName(host)).first()).toBeVisible();
   const hide = page.getByLabel(en.pulse.hideNames);
   await hide.check();
   await expect(main).not.toContainText('@');
+  await expect(main).not.toContainText(NAMED);
   await expect(panel.getByRole('button', { name: en.readiness.copy })).toBeHidden();
   await expect(panel).toContainText(fill(en.readiness.unanswered_other, { count: '2' }));
 
@@ -270,6 +280,7 @@ test('the host checks readiness and chases who still owes data', async ({
   await views.getByRole('button', { name: /^Pulse check/ }).click();
   await expect(page.getByRole('region', { name: en.pulse.view, exact: true })).toBeVisible();
   await expect(main).not.toContainText('@');
+  await expect(main).not.toContainText(NAMED);
 
   // Back on the metrics view the address no longer names the panel, so it is
   // collapsed again until the host opens it.
@@ -280,6 +291,7 @@ test('the host checks readiness and chases who still owes data', async ({
   await expect(panel).toHaveAttribute('open', '');
   await expect(panel.getByText(fill(en.readiness.unanswered_other, { count: '2' }))).toBeVisible();
   await expect(main).not.toContainText('@');
+  await expect(main).not.toContainText(NAMED);
 
   // Last week's meeting: past, so no panel, and still no name.
   await page.getByRole('button', { name: en.board.previousMeeting }).click();
@@ -287,5 +299,6 @@ test('the host checks readiness and chases who still owes data', async ({
   await expect(panel).toBeHidden();
   await expect(page.getByText('Chase the data')).toBeVisible();
   await expect(main).not.toContainText('@');
+  await expect(main).not.toContainText(NAMED);
   await expect(hide).toBeChecked();
 });

@@ -60,6 +60,7 @@ from app.schemas.dashboard import (
     TeamRole,
     Value,
 )
+from app.services import names
 from app.services.item_lifecycle import is_overdue
 from app.services.meetings import propose_next, to_instant, to_wall_clock
 from app.services.metric_values import editable_meetings, owing_by_meeting
@@ -70,16 +71,15 @@ def _initials(words: Sequence[str], fallback: str) -> str:
     return "".join(word[0] for word in words[:2]).upper() or fallback[:1].upper()
 
 
-def identify(email: str) -> CurrentUser:
+def identify(email: str, name: str | None = None, surname: str | None = None) -> CurrentUser:
     """The signed-in person, as the dashboard shows them.
 
-    Initials are derived from the email rather than stored: there is no name
-    on an employee, and the header needs something short. "jan.kowalski"
-    gives JK, a single-part address gives its first letter.
+    Named as every response names a person, by `names.display_name`, and the
+    initials come from that name, so the header and the summary agree:
+    "jan.kowalski" with nothing stored gives "Jan Kowalski" and JK.
     """
-    local = email.partition("@")[0]
-    parts = [part for part in local.replace("_", ".").replace("-", ".").split(".") if part]
-    return CurrentUser(email=email, initials=_initials(parts, email))
+    shown = names.display_name(email, name, surname)
+    return CurrentUser(email=email, display_name=shown, initials=names.initials(shown))
 
 
 def team_initials(name: str) -> str:
@@ -166,13 +166,23 @@ class _Team:
 
 
 @dataclass(frozen=True, slots=True)
+class _Viewer:
+    """The viewer's stored name parts; both none when nothing is stored or no record exists."""
+
+    name: str | None
+    surname: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class OpenedMeeting:
     """A meeting of one of the viewer's teams, dated today or later."""
 
     id: uuid.UUID
     team_id: uuid.UUID
     starts_at: datetime.datetime
+    #: The host's email, if one is named.
     host: str | None
+    host_display_name: str | None = None
 
     @property
     def date(self) -> datetime.date:
@@ -185,8 +195,14 @@ def _role(*, is_leader: bool, is_deputy: bool) -> TeamRole:
     return "deputy" if is_deputy else "member"
 
 
-def _teams(session: Session, email: str) -> list[_Team]:
-    """The teams `email` is a member of, with role, schedule and member count. One statement."""
+def _teams(session: Session, email: str) -> tuple[_Viewer, list[_Team]]:
+    """The viewer's stored name, and the teams `email` is a member of. One statement.
+
+    Read from the employee outward, so a recorded employee on no team still
+    yields one row, carrying their name and no team; with no record there is
+    no row and nothing stored to name them by. Each team comes with role,
+    schedule and member count.
+    """
     everyone = aliased(TeamMember)
     members = (
         select(func.count())
@@ -196,6 +212,8 @@ def _teams(session: Session, email: str) -> list[_Team]:
     )
     rows = session.execute(
         select(
+            Employee.name.label("viewer_name"),
+            Employee.surname.label("viewer_surname"),
             Team.id,
             Team.name,
             TeamMember.is_leader,
@@ -204,13 +222,14 @@ def _teams(session: Session, email: str) -> list[_Team]:
             BoardDefinition.schedule_time,
             members.label("members"),
         )
-        .select_from(TeamMember)
-        .join(Employee, Employee.id == TeamMember.employee_id)
-        .join(Team, Team.id == TeamMember.team_id)
-        .join(BoardDefinition, BoardDefinition.team_id == Team.id)
+        .select_from(Employee)
+        .outerjoin(TeamMember, TeamMember.employee_id == Employee.id)
+        .outerjoin(Team, Team.id == TeamMember.team_id)
+        .outerjoin(BoardDefinition, BoardDefinition.team_id == Team.id)
         .where(Employee.email == email)
-    )
-    return [
+    ).all()
+    viewer = _Viewer(rows[0].viewer_name, rows[0].viewer_surname) if rows else _Viewer(None, None)
+    return viewer, [
         _Team(
             id=row.id,
             name=row.name,
@@ -223,6 +242,7 @@ def _teams(session: Session, email: str) -> list[_Team]:
             members=row.members,
         )
         for row in rows
+        if row.id is not None
     ]
 
 
@@ -235,7 +255,14 @@ def _opened(
     neither be the next meeting nor move a proposal dated today or later.
     """
     rows = session.execute(
-        select(Meeting.id, Meeting.team_id, Meeting.starts_at, Employee.email)
+        select(
+            Meeting.id,
+            Meeting.team_id,
+            Meeting.starts_at,
+            Employee.email,
+            Employee.name,
+            Employee.surname,
+        )
         .outerjoin(Employee, Employee.id == Meeting.host_employee_id)
         .where(
             Meeting.team_id.in_(team_ids),
@@ -245,7 +272,19 @@ def _opened(
     )
     by_team: dict[uuid.UUID, list[OpenedMeeting]] = defaultdict(list)
     for row in rows:
-        by_team[row.team_id].append(OpenedMeeting(row.id, row.team_id, row.starts_at, row.email))
+        by_team[row.team_id].append(
+            OpenedMeeting(
+                row.id,
+                row.team_id,
+                row.starts_at,
+                row.email,
+                (
+                    names.display_name(row.email, row.name, row.surname)
+                    if row.email is not None
+                    else None
+                ),
+            )
+        )
     return by_team
 
 
@@ -368,9 +407,9 @@ def _team_order(team: DashboardTeam) -> tuple[bool, datetime.datetime, str]:
 
 def _teams_and_meetings(
     session: Session, email: str, today: datetime.date
-) -> tuple[list[DashboardTeam], list[DashboardMeeting]]:
-    """The viewer's teams and their board meetings. Six statements."""
-    teams = _teams(session, email)
+) -> tuple[_Viewer, list[DashboardTeam], list[DashboardMeeting]]:
+    """The viewer's stored name, their teams and their board meetings. Six statements."""
+    viewer, teams = _teams(session, email)
     team_ids = [team.id for team in teams]
     opened = _opened(session, team_ids, today)
     totals = _active_metrics(session, team_ids)
@@ -412,6 +451,7 @@ def _teams_and_meetings(
                     starts_at=meeting.starts_at.astimezone(datetime.UTC),
                     today=date == today,
                     host=meeting.host,
+                    host_display_name=meeting.host_display_name,
                     recorded=recorded.get(meeting.id, 0),
                     total=totals.get(team.id, 0),
                     pulse_answered=answers.by_viewer,
@@ -432,6 +472,7 @@ def _teams_and_meetings(
                     starts_at=to_instant(date, start_time),
                     today=date == today,
                     host=None,
+                    host_display_name=None,
                     recorded=None,
                     total=None,
                     pulse_answered=False,
@@ -442,7 +483,7 @@ def _teams_and_meetings(
             )
     dashboard_teams.sort(key=_team_order)
     rows.sort(key=lambda row: (row.starts_at, row.team))
-    return dashboard_teams, rows
+    return viewer, dashboard_teams, rows
 
 
 #: The order the funnel's stages are shown in.
@@ -560,7 +601,13 @@ def _assigned_items(session: Session, email: str, today: datetime.date) -> list[
     ]
 
 
-def build_dashboard_summary(session: Session, today: datetime.date, email: str) -> DashboardSummary:
+def build_dashboard_summary(
+    session: Session,
+    today: datetime.date,
+    email: str,
+    given_name: str | None = None,
+    family_name: str | None = None,
+) -> DashboardSummary:
     """Assemble the dashboard summary for the person signed in, as of `today` in Europe/Warsaw.
 
     Eight statements, whatever the viewer's teams, meetings and items: the
@@ -571,9 +618,16 @@ def build_dashboard_summary(session: Session, today: datetime.date, email: str) 
     with no employee record has no teams and no items, so gets empty lists
     and zeros without a special case.
     """
-    teams, meetings = _teams_and_meetings(session, email, today)
+    viewer, teams, meetings = _teams_and_meetings(session, email, today)
+    # The token's name claims stand in when nothing is stored - an administrator
+    # with no record, or a first visit before `/auth/me` has kept them - so the
+    # summary names the viewer as the header does. The summary itself never writes.
+    if viewer.name or viewer.surname:
+        name, surname = viewer.name, viewer.surname
+    else:
+        name, surname = given_name, family_name
     return DashboardSummary(
-        current_user=identify(email),
+        current_user=identify(email, name, surname),
         declarations=DECLARATIONS,
         teams=teams,
         meetings=meetings,

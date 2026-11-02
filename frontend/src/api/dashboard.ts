@@ -29,6 +29,9 @@ export type ValueIcon = 'effectiveness' | 'passion' | 'innovation' | 'collaborat
 
 export interface CurrentUser {
   email: string;
+  /** The stored name and surname, else derived from the email. */
+  display_name: string;
+  /** From the display name. */
   initials: string;
 }
 
@@ -93,6 +96,8 @@ export interface DashboardMeeting {
   today: boolean;
   /** The host's email, if one is named. */
   host: string | null;
+  /** The host's display name, if one is named. */
+  host_display_name: string | null;
   /** Active metrics with a value at this meeting, and how many there are. None when proposed. */
   recorded: number | null;
   total: number | null;
