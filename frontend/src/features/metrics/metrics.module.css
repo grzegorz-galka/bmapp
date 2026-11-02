@@ -13,6 +13,32 @@
   color: var(--ink-2);
 }
 
+/* A line of its own inside a wrapping form: the threshold form's hint and preview. */
+.formNote {
+  flex-basis: 100%;
+}
+
+/* A switch with its caption: hiding a metric on the board. */
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.check input {
+  accent-color: var(--accent-solid);
+}
+
+/* In a dialog the switch takes a line of its own, with its hint beneath. */
+.switchField {
+  display: flex;
+  flex-basis: 100%;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
 .dialog {
   flex-basis: 100%;
   margin-top: var(--sp-2);
@@ -92,4 +118,138 @@
 /* As wide as the longest group name needs, not the whole row. */
 .moveTo.moveTo {
   width: auto;
+}
+
+/* A derivation in a form: a line of its own, its sources in order beneath the kind. */
+.derivation {
+  display: flex;
+  flex-basis: 100%;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+
+.sources {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding-left: var(--sp-5);
+}
+
+.source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* As wide as a metric's name needs, not the whole row. */
+.source .sourceSelect {
+  width: auto;
+  max-width: 100%;
+}
+
+.sourceList {
+  margin: var(--sp-1) 0 0;
+  padding-left: var(--sp-5);
+}
+
+/*
+ * A metric's row on the settings page keeps every control in a fixed place:
+ * the name and what it says on the left with the "Hidden on board" switch in
+ * the top right corner, then one line of actions - viewing and changing on the
+ * left, arranging and ending on the right. A move that does not apply leaves
+ * its slot empty rather than letting the buttons after it slide over.
+ */
+.rowHead {
+  display: grid;
+  flex-basis: 100%;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--sp-2) var(--sp-4);
+}
+
+.rowCorner {
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.rowActions {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.actionsStart,
+.actionsEnd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.actionsEnd {
+  margin-left: auto;
+}
+
+/* As wide as an icon-only control, so an absent move keeps its place. */
+.moveSlot {
+  display: inline-block;
+  width: 34px;
+  height: 34px;
+}
+
+/* Retire and Bring back, Delete and Remove: one width each way round. */
+.steadyWidth {
+  min-width: 8.5rem;
+}
+
+/* On a phone the row wraps anyway: let the controls flow from the left at their own width. */
+@media (max-width: 40rem) {
+  .actionsEnd {
+    margin-left: 0;
+  }
+
+  .steadyWidth {
+    min-width: 0;
+  }
+}
+
+/* A derivation's sources: a panel opened from its reading. */
+.sourcesPanel > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  list-style: none;
+}
+
+.sourcesPanel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.sourcesPanel > summary:hover {
+  color: var(--ink);
+}
+
+.chevron {
+  transition: transform 120ms ease;
+}
+
+.sourcesPanel[open] .chevron {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
 }

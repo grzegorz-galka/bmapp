@@ -13,6 +13,7 @@ import type { Metric, MetricGroup, MetricLayout } from '../../api/metrics';
 import type { Member } from '../../api/teams';
 import { describeFailure, describeFieldFailure, describeOtherFailure } from '../../i18n/apiErrors';
 import { Modal } from '../../components/Modal';
+import { ArrowDownIcon, ArrowUpIcon, EditIcon, TrashIcon } from '../../components/icons';
 import {
   changesNothing,
   layoutOf,
@@ -317,25 +318,31 @@ function MetricMoves({
 
   return (
     <>
-      {index > 0 && (
+      {index > 0 ? (
         <button
           type="button"
-          className={controls.button}
+          className={controls.iconOnly}
           aria-label={t('metrics.moveUpLabel', { name })}
+          title={t('metrics.moveUp')}
           onClick={() => move(container, ids[index - 1] ?? null)}
         >
-          {t('metrics.moveUp')}
+          <ArrowUpIcon />
         </button>
+      ) : (
+        <span className={styles.moveSlot} />
       )}
-      {index < ids.length - 1 && (
+      {index < ids.length - 1 ? (
         <button
           type="button"
-          className={controls.button}
+          className={controls.iconOnly}
           aria-label={t('metrics.moveDownLabel', { name })}
+          title={t('metrics.moveDown')}
           onClick={() => move(container, ids[index + 2] ?? null)}
         >
-          {t('metrics.moveDown')}
+          <ArrowDownIcon />
         </button>
+      ) : (
+        <span className={styles.moveSlot} />
       )}
       {elsewhere.length > 0 && (
         <select
@@ -410,25 +417,31 @@ function GroupHeader({
       </h2>
       {mayConfigure && (
         <span className={teamStyles.actions}>
-          {!first && (
+          {!first ? (
             <button
               type="button"
-              className={controls.button}
+              className={controls.iconOnly}
               aria-label={t('metrics.moveGroupUpLabel', { name })}
+              title={t('metrics.moveUp')}
               onClick={() => onMove('up')}
             >
-              {t('metrics.moveUp')}
+              <ArrowUpIcon />
             </button>
+          ) : (
+            <span className={styles.moveSlot} />
           )}
-          {!last && (
+          {!last ? (
             <button
               type="button"
-              className={controls.button}
+              className={controls.iconOnly}
               aria-label={t('metrics.moveGroupDownLabel', { name })}
+              title={t('metrics.moveDown')}
               onClick={() => onMove('down')}
             >
-              {t('metrics.moveDown')}
+              <ArrowDownIcon />
             </button>
+          ) : (
+            <span className={styles.moveSlot} />
           )}
           <button
             type="button"
@@ -437,6 +450,7 @@ function GroupHeader({
             aria-label={t('metrics.renameGroupLabel', { name })}
             onClick={() => setDialog('rename')}
           >
+            <EditIcon />
             {t('metrics.renameGroup')}
           </button>
           <button
@@ -446,6 +460,7 @@ function GroupHeader({
             aria-label={t('metrics.deleteGroupLabel', { name })}
             onClick={handleDelete}
           >
+            <TrashIcon />
             {t('metrics.deleteGroup')}
           </button>
         </span>

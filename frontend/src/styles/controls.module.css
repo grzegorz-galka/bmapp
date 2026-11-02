@@ -39,6 +39,17 @@
   opacity: 0.7;
 }
 
+/*
+ * An action shown by its icon alone, square so that a row of them keeps its
+ * places. It still carries an accessible name and a tooltip of the same text.
+ */
+.iconOnly {
+  composes: button;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+}
+
 /* The weight, not only the hue, tells the default apart (WCAG 1.4.1). */
 .default {
   composes: button;

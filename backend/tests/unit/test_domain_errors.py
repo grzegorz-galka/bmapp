@@ -7,6 +7,15 @@ import pytest
 
 from app.core.exceptions import (
     CorrectionReasonBlankError,
+    DerivationIncompleteError,
+    DerivationNoneError,
+    DerivationPreviousMissingError,
+    DerivationSourceCountError,
+    DerivationSourceDuplicateError,
+    DerivationSourceMissingError,
+    DerivationSourceNotFoundError,
+    DerivationSourceSelfError,
+    DerivedValueOutOfRangeError,
     DomainError,
     DuplicateMemberError,
     DuplicateMetricNameError,
@@ -25,6 +34,7 @@ from app.core.exceptions import (
     MeetingNotFoundError,
     MemberNotFoundError,
     MetricCopySourceGlobalError,
+    MetricDerivationSourceError,
     MetricDirectionImmutableError,
     MetricHasValuesError,
     MetricNotFoundError,
@@ -42,6 +52,7 @@ from app.core.exceptions import (
     TeamNotFoundError,
     ThresholdOrderError,
     ThresholdShapeError,
+    ThresholdToleranceNegativeError,
     UnknownEmployeeError,
 )
 from app.main import handle_domain_error
@@ -91,8 +102,48 @@ SOME_ID = uuid.uuid4()
         (MetricNotFoundError(SOME_ID), 404, None, "metric.not_found"),
         (MetricRetiredError(SOME_ID), 409, None, "metric.retired"),
         (MetricHasValuesError(SOME_ID), 409, None, "metric.has_values"),
+        (MetricDerivationSourceError(SOME_ID), 409, None, "metric.derivation_source"),
+        (
+            DerivationSourceCountError("delta", 2),
+            422,
+            "derivation.sources",
+            "derivation.source_count",
+        ),
+        (
+            DerivationSourceNotFoundError(1, SOME_ID, SOME_ID),
+            422,
+            "derivation.sources[1]",
+            "derivation_source.not_found",
+        ),
+        (DerivationSourceSelfError(0), 422, "derivation.sources[0]", "derivation_source.self"),
+        (
+            DerivationSourceDuplicateError(2),
+            422,
+            "derivation.sources[2]",
+            "derivation_source.duplicate",
+        ),
+        (DerivationNoneError(SOME_ID), 404, None, "derivation.none"),
+        (
+            DerivationSourceMissingError(3, "CKI-P", "OTIF-Etap"),
+            409,
+            "sources[3]",
+            "derivation.source_missing",
+        ),
+        (
+            DerivationPreviousMissingError("CKI-P", "Zatrudnienie"),
+            409,
+            "sources[0]",
+            "derivation.previous_missing",
+        ),
+        (DerivedValueOutOfRangeError(), 409, None, "metric_value.out_of_range"),
         (ThresholdOrderError(), 422, None, "threshold.order_invalid"),
         (ThresholdShapeError("green_hi", "x"), 422, "green_hi", "request.invalid_field"),
+        (
+            ThresholdToleranceNegativeError("green_pct"),
+            422,
+            "green_pct",
+            "threshold_tolerance.negative",
+        ),
         (MeetingFrozenError(SOME_ID), 409, None, "metric_value.meeting_frozen"),
         (CorrectionReasonBlankError(), 422, "reason", "metric_value_reason.blank"),
         (IncorrectDevPasswordError(), 401, "password", "auth.password_incorrect"),
@@ -121,3 +172,22 @@ def test_maps_to_its_status_and_body(
     body = json.loads(bytes(response.body))
     assert body == {"errors": [{"field": field, "code": code, "message": error.message}]}
     assert error.message
+
+
+def test_a_derivation_missing_several_pieces_lists_each_one() -> None:
+    missing: list[DomainError] = [
+        DerivationSourceMissingError(0, "Zarząd", "OTIF E: BPW"),
+        DerivationPreviousMissingError("Zarząd", "OTIF E: BPW"),
+        DerivationSourceMissingError(2, "CKI-S", "OTIF-Etap"),
+    ]
+
+    response = handle_domain_error(None, DerivationIncompleteError(missing))  # type: ignore[arg-type]
+
+    assert response.status_code == 409
+    body = json.loads(bytes(response.body))
+    assert [(e["field"], e["code"]) for e in body["errors"]] == [
+        ("sources[0]", "derivation.source_missing"),
+        ("sources[0]", "derivation.previous_missing"),
+        ("sources[2]", "derivation.source_missing"),
+    ]
+    assert all(entry["message"] for entry in body["errors"])

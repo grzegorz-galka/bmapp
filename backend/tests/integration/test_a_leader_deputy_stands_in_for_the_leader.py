@@ -19,7 +19,13 @@ DEPUTY = "deputy@pse.pl"
 MEMBER = "member@pse.pl"
 NEWCOMER = "newcomer@pse.pl"
 SCHEDULE = {"weekday": 3, "time": "13:00"}
-THRESHOLD = {"effective_from": "2026-10-01", "reason": "Plan", "green": "95", "amber": "85"}
+THRESHOLD = {
+    "effective_from": "2026-10-01",
+    "reason": "Plan",
+    "target_value": "100",
+    "green_pct": "5",
+    "amber_pct": "15",
+}
 
 
 def team_with_deputy(client: TestClient, name: str = "Platform") -> Any:

@@ -81,7 +81,13 @@ describe('the global metrics client', () => {
     await getGlobalThresholds('gm-1');
     expect(sent()).toEqual(['/api/global-metrics/gm-1/thresholds', 'GET', undefined]);
 
-    const version = { effective_from: '2026-10-01', reason: 'SLA', green: '99.5', amber: '99' };
+    const version = {
+      effective_from: '2026-10-01',
+      reason: 'SLA',
+      target_value: '100',
+      green_pct: '0.5',
+      amber_pct: '1',
+    };
     await addGlobalThreshold('gm-1', version);
     expect(sent()).toEqual(['/api/global-metrics/gm-1/thresholds', 'POST', version]);
   });

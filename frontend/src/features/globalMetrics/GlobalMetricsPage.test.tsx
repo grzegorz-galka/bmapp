@@ -22,6 +22,9 @@ const THRESHOLD: Threshold = {
   id: 'th-1',
   metric_id: 'gm-availability',
   effective_from: '2026-10-01',
+  target_value: null,
+  green_pct: null,
+  amber_pct: null,
   green_lo: '99.5',
   green_hi: null,
   amber_lo: '99',
@@ -135,6 +138,29 @@ describe('the global metrics page', () => {
     expect(security).toHaveTextContent(en.metrics.retired);
     expect(security).toHaveTextContent('Boards including it: 0');
     expect(security).toHaveTextContent(en.threshold.none);
+  });
+
+  it('a global threshold reads as a target value', async () => {
+    // Scenario: A global threshold reads as a target value.
+    catalogue = [
+      globalMetric({
+        threshold: {
+          ...THRESHOLD,
+          target_value: '100',
+          green_pct: '5',
+          amber_pct: '10',
+          green_lo: '95',
+          amber_lo: '90',
+        },
+      }),
+    ];
+    const list = await renderPage('en', { email: LEADER });
+
+    const [availability] = within(list).getAllByRole('listitem');
+    expect(availability!.textContent?.replace(/\u00a0/g, ' ')).toContain(
+      'Target value 100.00 % · green −5% · amber −10%',
+    );
+    expect(availability).not.toHaveTextContent('Green from');
   });
 
   it('The add form is hidden until asked for', async () => {
@@ -265,16 +291,49 @@ describe('the global metrics page', () => {
     const from = within(dialog).getByLabelText(en.metrics.effectiveFromLabel);
     await user.clear(from);
     await user.type(from, '2026-10-01');
-    await user.type(within(dialog).getByLabelText(en.metrics.greenFrom), '99.5');
-    await user.type(within(dialog).getByLabelText(en.metrics.amberFrom), '99');
+    await user.type(within(dialog).getByLabelText(en.metrics.targetValueLabel), '100');
+    await user.type(within(dialog).getByLabelText(en.metrics.greenPctLabel), '0.5');
+    await user.type(within(dialog).getByLabelText(en.metrics.amberPctLabel), '1');
+    expect(
+      within(dialog)
+        .getByText(/^Amounts to:/)
+        .textContent?.replace(/\u00a0/g, ' '),
+    ).toBe('Amounts to: Green from 99.50 %, amber from 99.00 %');
     await user.type(within(dialog).getByLabelText(en.metrics.reasonLabel), 'Company SLA');
     await user.click(within(dialog).getByRole('button', { name: en.metrics.recordThreshold }));
 
     expect(lastWrite()).toEqual([
       '/api/global-metrics/gm-availability/thresholds',
       'POST',
-      { effective_from: '2026-10-01', reason: 'Company SLA', green: '99.5', amber: '99' },
+      {
+        effective_from: '2026-10-01',
+        reason: 'Company SLA',
+        target_value: '100',
+        green_pct: '0.5',
+        amber_pct: '1',
+      },
     ]);
+  });
+
+  it('records a range in the catalogue for a target value of 0', async () => {
+    const user = userEvent.setup();
+    const list = await renderPage();
+
+    await user.click(within(list).getByRole('button', { name: 'Change threshold: Availability' }));
+    const dialog = screen.getByRole('dialog', { name: 'New threshold for Availability' });
+    await user.type(within(dialog).getByLabelText(en.metrics.targetValueLabel), '0');
+    await user.type(within(dialog).getByLabelText(en.metrics.greenFrom), '99.5');
+    await user.type(within(dialog).getByLabelText(en.metrics.amberFrom), '99');
+    await user.type(within(dialog).getByLabelText(en.metrics.reasonLabel), 'Company SLA');
+    await user.click(within(dialog).getByRole('button', { name: en.metrics.recordThreshold }));
+
+    expect(lastWrite()[2]).toEqual({
+      effective_from: expect.any(String),
+      reason: 'Company SLA',
+      target_value: '0',
+      green: '99.5',
+      amber: '99',
+    });
   });
 
   it('shows an invalid threshold version as the API reports it', async () => {
@@ -285,8 +344,9 @@ describe('the global metrics page', () => {
 
     await user.click(within(list).getByRole('button', { name: 'Change threshold: Availability' }));
     const dialog = screen.getByRole('dialog');
-    await user.type(within(dialog).getByLabelText(en.metrics.greenFrom), '99');
-    await user.type(within(dialog).getByLabelText(en.metrics.amberFrom), '99.5');
+    await user.type(within(dialog).getByLabelText(en.metrics.targetValueLabel), '100');
+    await user.type(within(dialog).getByLabelText(en.metrics.greenPctLabel), '10');
+    await user.type(within(dialog).getByLabelText(en.metrics.amberPctLabel), '5');
     await user.type(within(dialog).getByLabelText(en.metrics.reasonLabel), 'SLA');
     await user.click(within(dialog).getByRole('button', { name: en.metrics.recordThreshold }));
 

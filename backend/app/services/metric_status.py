@@ -7,7 +7,8 @@ and the BDD feature exercises it directly.
 
 import datetime
 from collections.abc import Iterable
-from decimal import Decimal
+from dataclasses import dataclass
+from decimal import Decimal, localcontext
 from typing import Protocol
 
 from app.core.metric_enums import Colour, Direction, Status
@@ -24,6 +25,32 @@ class Bounds(Protocol):
     def amber_lo(self) -> Decimal | None: ...
     @property
     def amber_hi(self) -> Decimal | None: ...
+
+
+class TargetVersion(Bounds, Protocol):
+    """A threshold version as recorded: a target value with tolerances, or boundaries."""
+
+    @property
+    def target_value(self) -> Decimal | None: ...
+    @property
+    def green_pct(self) -> Decimal | None: ...
+    @property
+    def amber_pct(self) -> Decimal | None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedBounds:
+    """The boundaries a version amounts to, whichever way it was recorded."""
+
+    green_lo: Decimal | None = None
+    green_hi: Decimal | None = None
+    amber_lo: Decimal | None = None
+    amber_hi: Decimal | None = None
+
+
+#: Digits enough to multiply two NUMERIC(21, 6) numbers and divide by 100
+#: with nothing rounded away.
+_EXACT_PRECISION = 60
 
 
 class Version(Bounds, Protocol):
@@ -45,6 +72,35 @@ def threshold_in_force[V: Version](versions: Iterable[V], date: datetime.date) -
     if not applicable:
         return None
     return max(applicable, key=lambda version: (version.effective_from, version.recorded_at))
+
+
+def bounds_of(direction: Direction, version: TargetVersion) -> ResolvedBounds:
+    """The boundaries a version amounts to: what `status_of` judges and a chart draws.
+
+    A version with a non-zero target value T and tolerances g and a (per cent)
+    keeps only the worse side of T, d being |T| x p / 100: falling short for
+    higher-is-better, going over for lower-is-better, either way for a band.
+    |T| makes a negative target value behave. Exact, never rounded, so a value
+    is judged against the very boundary the tolerance gives. Any other
+    version - target value 0, or none at all - is its stored boundaries.
+    """
+    target, green_pct, amber_pct = version.target_value, version.green_pct, version.amber_pct
+    if target is None or target == 0 or green_pct is None or amber_pct is None:
+        return ResolvedBounds(
+            version.green_lo, version.green_hi, version.amber_lo, version.amber_hi
+        )
+    with localcontext(prec=_EXACT_PRECISION):
+        green = abs(target) * green_pct / 100
+        amber = abs(target) * amber_pct / 100
+        match direction:
+            case Direction.HIGHER_IS_BETTER:
+                return ResolvedBounds(green_lo=target - green, amber_lo=target - amber)
+            case Direction.LOWER_IS_BETTER:
+                return ResolvedBounds(green_hi=target + green, amber_hi=target + amber)
+            case Direction.WITHIN_BAND:
+                return ResolvedBounds(
+                    target - green, target + green, target - amber, target + amber
+                )
 
 
 def status_of(

@@ -149,6 +149,130 @@ export function ArrowRightIcon(props: IconProps) {
   );
 }
 
+/** Move one place up. */
+export function ArrowUpIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M12 19.5v-15M5.5 11 12 4.5l6.5 6.5" />
+    </Glyph>
+  );
+}
+
+/** Move one place down. */
+export function ArrowDownIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M12 4.5v15M5.5 13l6.5 6.5 6.5-6.5" />
+    </Glyph>
+  );
+}
+
+/** An expandable panel: points right when closed, rotated down by its caller when open. */
+export function ChevronRightIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M9 5.5 15.5 12 9 18.5" />
+    </Glyph>
+  );
+}
+
+/** A history of versions: a clock turning back. */
+export function HistoryIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M3.5 12a8.5 8.5 0 1 0 2.5-6" />
+      <path d="M3.5 4v4h4M12 7.5V12l3 2" />
+    </Glyph>
+  );
+}
+
+/** Change what something is called or how it is set up: a pencil. */
+export function EditIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M4 20h4L19 9l-4-4L4 16z" />
+      <path d="m13.5 6.5 4 4" />
+    </Glyph>
+  );
+}
+
+/** A threshold: a gauge with its needle. */
+export function GaugeIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M3.5 17a8.5 8.5 0 1 1 17 0" />
+      <path d="M12 17l4-5.5M7 17h10" />
+    </Glyph>
+  );
+}
+
+/** Bring back what was retired: an arrow turning back. */
+export function RestoreIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M4.5 9.5h10a5 5 0 0 1 0 10H9" />
+      <path d="M8.5 5.5l-4 4 4 4" />
+    </Glyph>
+  );
+}
+
+/** Delete for good: a bin. */
+export function TrashIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M4 6.5h16M9.5 6.5V4h5v2.5M6 6.5l1 13.5h10l1-13.5M10 10.5v6M14 10.5v6" />
+    </Glyph>
+  );
+}
+
+/** Take off this board only: a broken link. */
+export function UnlinkIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M10 6.5 11.5 5a4 4 0 0 1 5.7 5.7L15.5 12.5M14 17.5 12.5 19a4 4 0 0 1-5.7-5.7l1.7-1.8" />
+      <path d="M4 4l3 3M20 20l-3-3" />
+    </Glyph>
+  );
+}
+
+/** Add something new. */
+export function PlusIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M12 5v14M5 12h14" />
+    </Glyph>
+  );
+}
+
+/** Copy from elsewhere: two sheets. */
+export function CopyIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2" />
+      <path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5" />
+    </Glyph>
+  );
+}
+
+/** The company-wide catalogue: a globe. */
+export function GlobeIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.5 12h17M12 3.5c2.5 2.5 3.5 5.5 3.5 8.5s-1 6-3.5 8.5c-2.5-2.5-3.5-5.5-3.5-8.5s1-6 3.5-8.5z" />
+    </Glyph>
+  );
+}
+
+/** A group of metrics: a folder. */
+export function FolderIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M3.5 6.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" />
+    </Glyph>
+  );
+}
+
 /** The mission. */
 export function TargetIcon(props: IconProps) {
   return (

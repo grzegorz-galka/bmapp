@@ -1,5 +1,7 @@
 """One test per scenario of "Thresholds of a global metric" in specs/global-metrics/spec.md."""
 
+import datetime
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -36,11 +38,48 @@ def test_one_threshold_judges_every_board(
     assert global_thresholds_of(client, metric["id"]) == [version]
 
 
+def test_one_target_value_judges_every_board(
+    client: TestClient, session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scenario: One target value judges every board."""
+    freeze_today(monkeypatch, datetime.date(2026, 11, 2))
+    metric = add_global(client, "OTIF", direction="higher_is_better")
+    version = add_global_threshold(
+        client, metric["id"], "2026-11-01", target_value="100", green_pct="5", amber_pct="10"
+    )
+    statuses = []
+    for name in ("Alpha", "Beta"):
+        team = register(client, name, f"lead.{name.lower()}@example.com")
+        include(session, team["id"], metric["id"])
+        meeting = open_meeting(client, team["id"], "2026-11-04")
+        statuses.append(
+            record(client, team["id"], meeting["id"], metric["id"], value="92")["status"]
+        )
+        assert thresholds_of(client, team["id"], metric["id"]) == [version]
+
+    assert statuses == ["amber", "amber"]
+    assert (version["green_lo"], version["amber_lo"]) == ("95", "90")
+
+
 @pytest.mark.parametrize(
     ("body", "error"),
     [
-        ({"green": "99", "amber": "99.5", "reason": "Plan"}, (None, "threshold.order_invalid")),
-        ({"green": "99.5", "amber": "99", "reason": "  "}, ("reason", "threshold_reason.blank")),
+        (
+            {"target_value": "0", "green": "99", "amber": "99.5", "reason": "Plan"},
+            (None, "threshold.order_invalid"),
+        ),
+        (
+            {"target_value": "100", "green_pct": "1", "amber_pct": "0.5", "reason": "Plan"},
+            (None, "threshold.order_invalid"),
+        ),
+        (
+            {"green_pct": "0.5", "amber_pct": "1", "reason": "Plan"},
+            ("target_value", "request.invalid_field"),
+        ),
+        (
+            {"target_value": "0", "green": "99.5", "amber": "99", "reason": "  "},
+            ("reason", "threshold_reason.blank"),
+        ),
     ],
 )
 def test_invalid_versions_are_refused_as_for_a_boards_metric(

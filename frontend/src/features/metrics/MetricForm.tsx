@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DIRECTIONS, type Direction, type MetricCreate, type MetricGroup } from '../../api/metrics';
 import type { Member } from '../../api/teams';
@@ -7,6 +7,12 @@ import controls from '../../styles/controls.module.css';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
 import styles from './metrics.module.css';
+import {
+  DerivationEditor,
+  derivationFields,
+  isIncomplete,
+  type DerivationDraft,
+} from './DerivationEditor';
 
 const DEFINITION_FIELDS = ['name', 'unit', 'decimals', 'direction'] as const;
 const PLACEMENT_FIELDS = ['group_id', 'owner_employee_id'] as const;
@@ -22,6 +28,11 @@ const PLACEMENT_FIELDS = ['group_id', 'owner_employee_id'] as const;
  *
  * The group is chosen only where a metric arrives on the board, by passing
  * `groups`; afterwards it moves between groups on the settings page's layout.
+ * Likewise `offerHidden` only where it arrives: afterwards each row has its
+ * own switch.
+ *
+ * `derivation` adds the derivation editor, for a board's own metric only. A
+ * source still without its metric stops the submit before anything is sent.
  */
 export function MetricForm({
   idPrefix,
@@ -37,6 +48,8 @@ export function MetricForm({
   definition = true,
   placement = true,
   groups,
+  offerHidden = false,
+  derivation,
 }: {
   idPrefix: string;
   draft: MetricCreate;
@@ -51,9 +64,22 @@ export function MetricForm({
   definition?: boolean;
   placement?: boolean;
   groups?: MetricGroup[];
+  /** Offer to hide the metric on the board as it arrives there. */
+  offerHidden?: boolean;
+  derivation?: {
+    teamId: string;
+    metricId?: string;
+    value: DerivationDraft;
+    onChange: (draft: DerivationDraft) => void;
+  };
 }) {
   const { t } = useTranslation();
-  const shown = [...(definition ? DEFINITION_FIELDS : []), ...(placement ? PLACEMENT_FIELDS : [])];
+  const [incomplete, setIncomplete] = useState(false);
+  const shown = [
+    ...(definition ? DEFINITION_FIELDS : []),
+    ...(placement ? PLACEMENT_FIELDS : []),
+    ...(derivation ? derivationFields(derivation.value) : []),
+  ];
   const fieldError = (field: string) => describeFieldFailure(t, error, field);
   const otherError = describeOtherFailure(t, error, shown);
   const id = (field: string) => `${idPrefix}-${field}`;
@@ -106,11 +132,21 @@ export function MetricForm({
     );
   }
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    const stopped = derivation !== undefined && isIncomplete(derivation.value);
+    setIncomplete(stopped);
+    if (stopped) {
+      event.preventDefault();
+      return;
+    }
+    onSubmit(event);
+  }
+
   const directionError = fieldError('direction');
   const ownerError = fieldError('owner_employee_id');
 
   return (
-    <form className={teamStyles.form} onSubmit={onSubmit} noValidate>
+    <form className={teamStyles.form} onSubmit={handleSubmit} noValidate>
       {definition && (
         <>
           {text('name')}
@@ -167,7 +203,28 @@ export function MetricForm({
             members={members}
             error={ownerError}
           />
+          {offerHidden && (
+            <HiddenSwitch
+              id={id('hidden')}
+              checked={draft.hidden ?? false}
+              onChange={(hidden) => onChange({ ...draft, hidden })}
+            />
+          )}
         </>
+      )}
+      {derivation && (
+        <DerivationEditor
+          idPrefix={idPrefix}
+          teamId={derivation.teamId}
+          metricId={derivation.metricId}
+          value={derivation.value}
+          onChange={(next) => {
+            setIncomplete(false);
+            derivation.onChange(next);
+          }}
+          error={error}
+          incomplete={incomplete}
+        />
       )}
       <span className={`${teamStyles.actions} ${teamStyles.submit}`}>
         <button type="submit" className={controls.default} disabled={pending}>
@@ -185,6 +242,50 @@ export function MetricForm({
         </p>
       )}
     </form>
+  );
+}
+
+/**
+ * Whether the board leaves a metric's tile out. A hidden metric is still
+ * active: it is recorded, counted and charted. In a dialog it carries a hint
+ * saying so; on a metric's row, `name` names the metric in its accessible name.
+ */
+export function HiddenSwitch({
+  id,
+  checked,
+  onChange,
+  name,
+  disabled = false,
+}: {
+  id: string;
+  checked: boolean;
+  onChange: (hidden: boolean) => void;
+  name?: string;
+  disabled?: boolean;
+}) {
+  const { t } = useTranslation();
+  const hint = name === undefined ? `${id}-hint` : undefined;
+  return (
+    <span className={name === undefined ? styles.switchField : undefined}>
+      <label className={styles.check}>
+        <input
+          id={id}
+          type="checkbox"
+          role="switch"
+          checked={checked}
+          disabled={disabled}
+          aria-label={name === undefined ? undefined : t('metrics.hiddenLabel', { name })}
+          aria-describedby={hint}
+          onChange={(event) => onChange(event.target.checked)}
+        />
+        {t('metrics.hidden')}
+      </label>
+      {hint && (
+        <p id={hint} className={styles.hint}>
+          {t('metrics.hiddenHint')}
+        </p>
+      )}
+    </span>
   );
 }
 

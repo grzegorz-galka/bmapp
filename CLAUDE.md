@@ -41,10 +41,10 @@ board. BMAPP provides that board online and lets a team:
 |-------------------|------------------------------------------------------------------------------      |
 | Employee          | email, teams (many)                                                                |
 | Team              | name, team leader, members (many), board definition                                |
-| Board definition  | name, metric groups (many, ordered), metrics (many) each placed in at most one group with position and owner; custom targets (optional), schedule |
+| Board definition  | name, metric groups (many, ordered), metrics (many) each placed in at most one group with position, owner and whether it is hidden on the board; custom targets (optional), schedule |
 | Meeting           | team, date and time, the metric values recorded at it                              |
-| Metric            | board (none if global), name, unit, decimals, direction, thresholds (many), values (many) |
-| Threshold         | metric, effective from, green and amber boundaries, reason, who recorded it        |
+| Metric            | board (none if global), name, unit, decimals, direction, derivation (optional: kind and ordered sources), thresholds (many), values (many) |
+| Threshold         | metric, effective from, target value, green and amber tolerances (or boundaries when the target value is 0), reason, who recorded it |
 | Metric value      | metric, meeting, the number recorded, comment, colour set by hand (optional)       |
 | Pulse answer      | meeting, respondent (a member), rating 1–5, what helped, what hurt, what could be better |
 | Problem           | team, summary, reason, solution proposal, responsible member, due date, metric (optional), PDCA stage, meetings raised and closed at |
@@ -63,12 +63,14 @@ Glossary (use these exact terms in code, UI and tests):
 - **Schedule** — the weekday and start time a board's team meets, on the organization's clock (Europe/Warsaw). It proposes the next meeting's date; it never creates meetings.
 - **Host** — the member who runs one meeting (*prowadzący*). Rotates from meeting to meeting; not the team leader.
 - **Leader deputy** (*zastępca lidera*) — a member who stands in for the team leader: configures the board and schedule and adds and removes ordinary members. A team has any number, never the leader. Only the leader or an administrator appoints, revokes or removes one; who leads stays an administrator's decision. Code `deputy`.
-- **Metric** — a named thing the team measures (e.g. "Open bugs"), with a unit and a fixed **direction**: higher is better, lower is better, or within a band. Teams track metrics directly. A metric with values is **retired**, never deleted.
-- **Global metric** (*wskaźnik globalny*) — a metric defined once by an administrator in the company-wide catalogue at `/global-metrics`, with its thresholds, and **included** in any number of boards. A board sets only its placement (group, position, owner) and may remove or retire it there; its definition and thresholds are read-only on the board. Each team still records its own values for it. A board's own metric can be **copied** onto another board with its thresholds; the copy is independent.
-- **Threshold** (*próg*) — one version of what green and amber mean for a metric, from an effective date on, with a reason. Versions are append-only and may be back-dated; a value is judged against the version in force on its meeting's date.
+- **Metric** — a named thing the team measures (e.g. "Open bugs"), with a unit and a fixed **direction**: higher is better, lower is better, or within a band. Teams track metrics directly. A metric with values is **retired**, never deleted. A board may mark a metric **hidden on the board**: it still takes values and counts as owed, but the board shows no tile for it.
+- **Global metric** (*wskaźnik globalny*) — a metric defined once by an administrator in the company-wide catalogue at `/global-metrics`, with its thresholds, and **included** in any number of boards. A board sets only its placement (group, position, owner, hidden) and may remove or retire it there; its definition and thresholds are read-only on the board. Each team still records its own values for it. A board's own metric can be **copied** onto another board with its thresholds; the copy is independent.
+- **Threshold** (*próg*) — one version of what green and amber mean for a metric, from an effective date on, with a reason. Versions are append-only and may be back-dated; a value is judged against the version in force on its meeting's date. A version carries a **target value** and green and amber **tolerances** (*tolerancja*) in per cent of it; only the worse side counts (falling short, going over, or either way for a band). A target value of 0 takes absolute boundaries instead. Versions recorded before target values existed have none and are read as boundaries. `bounds_of` resolves a version into boundaries; `status_of` judges against them.
+- **Target value** (*wartość docelowa*) — the number a metric aims at from a threshold version's effective date, e.g. 72.3 for utilisation. Code `target_value`. Not a **Target**.
+- **Derived metric** (*wskaźnik wyliczany*) — a board's own metric whose number "Derive" in the recording view works out from other metrics in the same ISO week, on the same team or others: a `mean`, a `sum`, or a `delta` (the change since the source team's previous meeting, never reaching further back). The result is saved as an ordinary value of the meeting, a snapshot; it is never computed when read. Global metrics are never derived but may be sources.
 - **Metric value** — one number, recorded at one meeting, for one metric. Its date is the meeting's date; it has none of its own. It may carry a comment and a **colour set by hand**, which needs the comment.
 - **Status** — green, amber, red, no data or no threshold. Computed when read by `status_of`, never stored; boundaries count as the better zone.
-- **Target** — a declaration in prose, *not* a numeric range: what the company or the team is aiming at. Company-wide targets appear on every board; a team may add **custom targets**. A colour never comes from a target — only from the metric's threshold.
+- **Target** — a declaration in prose, *not* a numeric range: what the company or the team is aiming at. Company-wide targets appear on every board; a team may add **custom targets**. A colour never comes from a target — only from the metric's threshold, whose number is a **target value**, a different thing.
 - **Problem** — an obstacle identified at the board meeting; has a root cause ("reason") and a proposed solution.
 - **Task** — an action item, possibly raised from a problem. Problems and tasks are **archived**, never deleted, once closed: an archived item is read-only and cannot be reopened.
 - **PDCA stage** — a problem's or task's progress: not started, plan, do, check, act. Any member moves it forwards or back; reaching *act* closes and archives the item. Each item records the meeting it was raised at and the one it was closed at: the team's first meeting dated today or later, else its latest, else none. Overdue means a due date before today (Europe/Warsaw) on an active item, decided on the server.
@@ -299,6 +301,21 @@ page by drag and drop or the keyboard move controls, and the page saves the
 whole arrangement at once (`PUT /teams/:teamId/metric-layout`), refused as
 stale if the board changed meanwhile. The board shows the groups in that order,
 the ungrouped metrics last.
+
+Target values are implemented: a threshold version records a target value
+with green and amber tolerances in per cent of it, or boundaries when the
+target value is 0. Reads return the resolved boundaries beside them, so the
+board and the charts draw from boundaries and never compute a percentage.
+A placement may be hidden on the board (`board_metrics.hidden`). Existing
+versions are converted with `scripts/convert_thresholds.py` and a mapping
+file, verified against every recorded value's status (see README).
+
+`derived-metrics` is implemented: a board's own metric may carry a derivation
+(`metrics.derivation_kind` and `metric_derivation_sources`), set on the
+settings page, and the recording view's "Derive" fills and saves its number
+from `GET …/meetings/:meetingId/metrics/:metricId/derivation`, naming each
+missing source instead when one has no number that week. A metric that is a
+source cannot be deleted, nor an included global source removed.
 
 `pulse-check` is implemented: each member answers the weekly pulse check for a
 meeting (`PUT …/meetings/:meetingId/pulse/me`, only ever one's own answer), and

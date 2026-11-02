@@ -20,6 +20,7 @@ import {
   LEADER,
   serveBoard,
   TEAM_ID,
+  threshold,
   TREND,
   type Fixtures,
 } from './boardFixture';
@@ -62,6 +63,52 @@ describe('the metric detail', () => {
     expect(rows.map((row) => row.textContent?.replace(/\u00a0/g, ' '))).toEqual([
       'Wed, 26 Aug 202691.0 %GreenGreen from 90.0 %, amber from 80.0 %',
       'Wed, 2 Sept 202691.0 %AmberGreen from 95.0 %, amber from 85.0 %',
+    ]);
+  });
+
+  it('the chart shows the target value', async () => {
+    // Scenario: The chart shows the target value.
+    const version = (id: string, from: string, target: string, green: string, amber: string) =>
+      threshold({
+        id,
+        effective_from: from,
+        target_value: target,
+        green_pct: '0',
+        amber_pct: '5',
+        green_lo: green,
+        amber_lo: amber,
+      });
+    fixtures.trend = {
+      ...TREND,
+      points: [
+        { ...TREND.points[0]!, threshold: version('th-376', '2026-08-01', '376', '376', '357.2') },
+        {
+          ...TREND.points[1]!,
+          threshold: version('th-395', '2026-09-01', '395', '395', '375.25'),
+        },
+      ],
+    };
+
+    expect(
+      trendRows(fixtures.trend.points).map((row) => [
+        row.date,
+        row.target,
+        row.greenLo,
+        row.amberLo,
+      ]),
+    ).toEqual([
+      ['2026-08-26', 376, 376, 357.2],
+      ['2026-09-02', 395, 395, 375.25],
+    ]);
+    // A version recorded before target values has none to draw.
+    expect(trendRows(TREND.points).map((row) => row.target)).toEqual([null, null]);
+
+    const dialog = await renderDetail();
+    const table = await within(dialog).findByRole('table', { name: en.detail.chartData });
+    const rows = within(table).getAllByRole('row').slice(1);
+    expect(rows.map((row) => row.textContent?.replace(/\u00a0/g, ' '))).toEqual([
+      'Wed, 26 Aug 202691.0 %GreenTarget value 376.0 % · green −0% · amber −5%',
+      'Wed, 2 Sept 202691.0 %AmberTarget value 395.0 % · green −0% · amber −5%',
     ]);
   });
 

@@ -21,11 +21,19 @@ from app.core.exceptions import (
     MetricNotFoundError,
 )
 from app.models import BoardMetric, Metric, MetricThreshold, MetricValue
-from app.schemas.metric import GlobalMetricChange, GlobalMetricCreate, ThresholdCreate
+from app.schemas.metric import (
+    GlobalMetricChange,
+    GlobalMetricCreate,
+    ThresholdCreate,
+    ThresholdRead,
+)
+from app.services.derivations import refuse_removing_a_source
 from app.services.metric_status import threshold_in_force
 from app.services.metrics import (
     lock_boards_and_check_name,
     new_threshold_version,
+    read_threshold,
+    threshold_history,
     versions_by_metric,
 )
 
@@ -136,11 +144,13 @@ def change_global_metric(
 def delete_global_metric(session: Session, metric_id: uuid.UUID, actor_email: str) -> None:
     """Delete a global metric no board ever recorded a value for.
 
-    Its placements and threshold versions go with it.
+    Its placements and threshold versions go with it. Refused while a
+    derivation on any board reads it, as removing it from that board is.
     """
     metric = get_global_metric(session, metric_id)
     if session.scalar(select(exists().where(MetricValue.metric_id == metric_id))):
         raise MetricHasValuesError(metric_id)
+    refuse_removing_a_source(session, metric_id)
     session.delete(metric)
     session.commit()
     logger.info("Global metric %s deleted by %s", metric_id, actor_email)
@@ -148,7 +158,7 @@ def delete_global_metric(session: Session, metric_id: uuid.UUID, actor_email: st
 
 def record_global_threshold(
     session: Session, metric_id: uuid.UUID, payload: ThresholdCreate, actor_email: str
-) -> MetricThreshold:
+) -> ThresholdRead:
     """Add a threshold version to a global metric; it judges every including board."""
     metric = get_global_metric(session, metric_id)
     version = new_threshold_version(metric, payload, actor_email)
@@ -158,19 +168,12 @@ def record_global_threshold(
     logger.info(
         "Threshold %s of global metric %s recorded by %s", version.id, metric_id, actor_email
     )
-    return version
+    return read_threshold(version, metric.direction)
 
 
-def list_global_thresholds(session: Session, metric_id: uuid.UUID) -> list[MetricThreshold]:
+def list_global_thresholds(session: Session, metric_id: uuid.UUID) -> list[ThresholdRead]:
     """Every threshold version of a global metric, the most recent first."""
-    get_global_metric(session, metric_id)
-    return list(
-        session.scalars(
-            select(MetricThreshold)
-            .where(MetricThreshold.metric_id == metric_id)
-            .order_by(MetricThreshold.effective_from.desc(), MetricThreshold.recorded_at.desc())
-        )
-    )
+    return threshold_history(session, get_global_metric(session, metric_id))
 
 
 def _commit(session: Session, name: str) -> None:

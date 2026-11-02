@@ -4,7 +4,7 @@
  * header, and an administrator's correction.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { BoardPage } from './BoardPage';
@@ -12,6 +12,8 @@ import { RecordingView } from './RecordingView';
 import styles from './board.module.css';
 import { renderWithLanguage } from '../../test/render';
 import { en } from '../../i18n/en';
+import { formatMeetingDate } from '../../i18n/format';
+import type { DerivedValue, MetricDefinition } from '../../api/metrics';
 import { pl } from '../../i18n/pl';
 import type { Language } from '../../i18n/languages';
 import {
@@ -25,6 +27,7 @@ import {
   MONDAY,
   serveBoard,
   TEAM_ID,
+  threshold,
   tile,
   TREND,
   writesOf,
@@ -149,6 +152,69 @@ describe('the recording view', () => {
     const tileItem = (await screen.findByRole('heading', { name: 'Revenue' })).closest('li')!;
     expect(tileItem).toHaveTextContent('95,3 %');
     expect(tileItem).toHaveTextContent(pl.status.green);
+  });
+
+  it('a hidden metric is recorded', async () => {
+    // Scenario: A hidden metric is recorded.
+    fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
+      completeness: { recorded: 1, total: 2, missing: [], owing: 0 },
+      metrics: [
+        tile(),
+        tile({
+          metric: definition({
+            id: 'metric-zatrudnienie',
+            name: 'Zatrudnienie',
+            unit: '',
+            decimals: 0,
+            hidden: true,
+          }),
+          threshold: null,
+          value: null,
+          status: 'no_data',
+          previous: '409',
+          change: null,
+          improvement: null,
+        }),
+      ],
+    });
+    const user = await openRecording();
+
+    const field = screen.getByRole('textbox', { name: 'Value: Zatrudnienie' });
+    expect(statusList('Zatrudnienie')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Comment: Zatrudnienie' })).toBeInTheDocument();
+    await user.type(field, '412');
+    await user.tab();
+
+    expect(lastWrite()).toEqual({
+      url: `/api/teams/${TEAM_ID}/meetings/m-2026-10-14/values/metric-zatrudnienie`,
+      body: { value: '412', manual_status: null, comment: null },
+    });
+    expect(await screen.findByText(en.recording.saved)).toBeInTheDocument();
+  });
+
+  it('shows a version’s target value and tolerances on its row', async () => {
+    fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
+      metrics: [
+        tile({
+          metric: definition({ direction: 'within_band' }),
+          threshold: threshold({
+            target_value: '72.3',
+            green_pct: '5',
+            amber_pct: '10',
+            green_lo: '68.685',
+            green_hi: '75.915',
+            amber_lo: '65.07',
+            amber_hi: '79.53',
+          }),
+        }),
+      ],
+    });
+    await openRecording();
+
+    const view = screen.getByRole('region', { name: /Values at the meeting on/ });
+    expect(view.textContent?.replace(/\u00a0/g, ' ')).toContain(
+      'Target value 72.3 % · green ±5% · amber ±10% · Last meeting: 85.0 %',
+    );
   });
 
   it('A frozen meeting is read-only', async () => {
@@ -469,5 +535,254 @@ describe('the recording view', () => {
 
     expect(screen.getByRole('textbox', { name: 'Value: Revenue' })).toHaveValue('90');
     expect(screen.getByRole('textbox', { name: 'Value: NPS' })).toBeInTheDocument();
+  });
+});
+
+/*
+ * "Derive in the recording view", from specs/derived-metrics: a derived
+ * metric's number worked out from its sources, filled in and saved as typed.
+ */
+describe('deriving a number in the recording view', () => {
+  const UNITS = ['BPW', 'CKBiR', 'CKI-P', 'CKI-W', 'ODM', 'CKI-S'];
+  const NUMBERS = ['90', '97', '87', '83', '105', '101'];
+  const PLATFORM = { id: TEAM_ID, name: 'Platform' };
+  const CKIP = { id: 'team-ckip', name: 'CKI-P' };
+
+  /** "OTIF E", the mean of its six units on the same board, with no number yet. */
+  function otif(derivation: MetricDefinition['derivation'] = mean()) {
+    return tile({
+      metric: definition({ id: 'metric-otif', name: 'OTIF E', derivation }),
+      value: null,
+      status: 'no_data',
+      change: null,
+      improvement: null,
+    });
+  }
+
+  function mean(): MetricDefinition['derivation'] {
+    return {
+      kind: 'mean',
+      sources: UNITS.map((unit) => ({
+        team: PLATFORM,
+        metric: { id: `metric-${unit}`, name: `OTIF E: ${unit}` },
+      })),
+    };
+  }
+
+  function derived(): DerivedValue {
+    return {
+      value: '93.833333',
+      kind: 'mean',
+      sources: UNITS.map((unit, index) => ({
+        team: PLATFORM,
+        metric: { id: `metric-${unit}`, name: `OTIF E: ${unit}` },
+        meeting_id: 'm-2026-10-14',
+        date: '2026-10-14',
+        value: NUMBERS[index]!,
+        previous: null,
+      })),
+    };
+  }
+
+  beforeEach(() => {
+    fixtures.boards['m-2026-10-14'] = board('2026-10-14', { metrics: [tile(), otif()] });
+    fixtures.derive = () => jsonResponse(derived());
+  });
+
+  function deriveUrls(): string[] {
+    return (fetchMock.mock.calls as [string][])
+      .map(([url]) => url)
+      .filter((url) => url.endsWith('/derivation'));
+  }
+
+  it('deriving fills and saves the number', async () => {
+    // Scenario: Deriving fills and saves the number.
+    const user = await openRecording();
+
+    await user.click(screen.getByRole('button', { name: 'Derive: OTIF E' }));
+
+    expect(deriveUrls()).toEqual([
+      `/api/teams/${TEAM_ID}/meetings/m-2026-10-14/metrics/metric-otif/derivation`,
+    ]);
+    expect(screen.getByRole('textbox', { name: 'Value: OTIF E' })).toHaveValue('93.833333');
+    expect(lastWrite()).toEqual({
+      url: `/api/teams/${TEAM_ID}/meetings/m-2026-10-14/values/metric-otif`,
+      body: { value: '93.833333', manual_status: null, comment: null },
+    });
+    expect(await screen.findByText(en.recording.saved)).toBeInTheDocument();
+    expect(screen.getByText('Mean of 6: 90 · 97 · 87 · 83 · 105 · 101')).toBeInTheDocument();
+  });
+
+  it('derives in Polish, the number and the note formatted for the language', async () => {
+    fixtures.derive = () =>
+      jsonResponse({
+        ...derived(),
+        sources: derived().sources.map((source, index) =>
+          index === 0 ? { ...source, value: '90.5' } : source,
+        ),
+      });
+    const user = await openRecording('pl', { email: MEMBER }, 'm-2026-10-14', pl.board.record);
+
+    await user.click(screen.getByRole('button', { name: 'Wylicz: OTIF E' }));
+
+    expect(screen.getByRole('textbox', { name: 'Wartość: OTIF E' })).toHaveValue('93,833333');
+    expect(lastWrite().body).toEqual({ value: '93.833333', manual_status: null, comment: null });
+    expect(screen.getByText('Średnia z 6: 90,5 · 97 · 87 · 83 · 105 · 101')).toBeInTheDocument();
+  });
+
+  it('a derived number can be changed', async () => {
+    // Scenario: A derived number can be changed.
+    const user = await openRecording();
+    await user.click(screen.getByRole('button', { name: 'Derive: OTIF E' }));
+    expect(lastWrite().body).toMatchObject({ value: '93.833333' });
+
+    const field = screen.getByRole('textbox', { name: 'Value: OTIF E' });
+    await user.clear(field);
+    await user.type(field, '95');
+    await user.tab();
+
+    expect(lastWrite()).toEqual({
+      url: `/api/teams/${TEAM_ID}/meetings/m-2026-10-14/values/metric-otif`,
+      body: { value: '95', manual_status: null, comment: null },
+    });
+    expect(field).toHaveValue('95');
+    // The note named the derived numbers, which are no longer the value.
+    expect(screen.queryByText(/^Mean of 6:/)).not.toBeInTheDocument();
+  });
+
+  it('a missing source is named', async () => {
+    // Scenario: A missing source is named.
+    fixtures.derive = () =>
+      errorResponse(409, `sources[${UNITS.indexOf('CKI-S')}]`, 'derivation.source_missing');
+    const user = await openRecording();
+
+    await user.click(screen.getByRole('button', { name: 'Derive: OTIF E' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'OTIF E: CKI-S has no number for that week.',
+    );
+    expect(screen.getByRole('textbox', { name: 'Value: OTIF E' })).toHaveValue('');
+    expect(writesOf(fetchMock)).toEqual([]);
+  });
+
+  it('names every missing source, another team’s with its team, and a missing previous meeting', async () => {
+    fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
+      metrics: [
+        otif({
+          kind: 'mean',
+          sources: [
+            { team: CKIP, metric: { id: 'metric-otif-etap', name: 'OTIF-Etap' } },
+            { team: PLATFORM, metric: { id: 'metric-bpw', name: 'OTIF E: BPW' } },
+          ],
+        }),
+      ],
+    });
+    fixtures.derive = () =>
+      jsonResponse(
+        {
+          errors: [
+            { field: 'sources[0]', code: 'derivation.source_missing', message: 'x' },
+            { field: 'sources[1]', code: 'derivation.source_missing', message: 'x' },
+          ],
+        },
+        409,
+      );
+    const user = await openRecording('pl', { email: MEMBER }, 'm-2026-10-14', pl.board.record);
+
+    await user.click(screen.getByRole('button', { name: 'Wylicz: OTIF E' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'OTIF-Etap (CKI-P): brak liczby w tym tygodniu. OTIF E: BPW: brak liczby w tym tygodniu.',
+    );
+
+    fixtures.derive = () => errorResponse(409, 'sources[0]', 'derivation.previous_missing');
+    await user.click(screen.getByRole('button', { name: 'Wylicz: OTIF E' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'OTIF-Etap (CKI-P): brak liczby na poprzednim spotkaniu zespołu.',
+      ),
+    );
+    expect(writesOf(fetchMock)).toEqual([]);
+  });
+
+  it('notes both numbers and both meetings of a change since the previous meeting', async () => {
+    fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
+      metrics: [
+        otif({
+          kind: 'delta',
+          sources: [{ team: PLATFORM, metric: { id: 'metric-staff', name: 'Zatrudnienie' } }],
+        }),
+      ],
+    });
+    fixtures.derive = () =>
+      jsonResponse({
+        value: '-4',
+        kind: 'delta',
+        sources: [
+          {
+            team: PLATFORM,
+            metric: { id: 'metric-staff', name: 'Zatrudnienie' },
+            meeting_id: 'm-2026-10-14',
+            date: '2026-10-14',
+            value: '391',
+            previous: { meeting_id: 'm-2026-09-30', date: '2026-09-30', value: '395' },
+          },
+        ],
+      } satisfies DerivedValue);
+    const user = await openRecording();
+
+    await user.click(screen.getByRole('button', { name: 'Derive: OTIF E' }));
+
+    expect(screen.getByRole('textbox', { name: 'Value: OTIF E' })).toHaveValue('-4');
+    expect(lastWrite().body).toEqual({ value: '-4', manual_status: null, comment: null });
+    const note = screen.getByText(/^Change: 391 on .* minus 395 on /);
+    expect(note).toHaveTextContent(
+      `Change: 391 on ${formatMeetingDate('2026-10-14', 'en', '')} minus 395 on ${formatMeetingDate('2026-09-30', 'en', '')}`,
+    );
+  });
+
+  it('no derive on a metric without a derivation', async () => {
+    // Scenario: No Derive on a metric without a derivation.
+    await openRecording();
+
+    expect(screen.getAllByRole('button', { name: /^Derive:/ })).toEqual([
+      screen.getByRole('button', { name: 'Derive: OTIF E' }),
+    ]);
+    const revenue = screen.getByRole('row', { name: /Revenue/ });
+    expect(within(revenue).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('no derive on a frozen meeting', async () => {
+    // Scenario: No Derive on a frozen meeting.
+    fixtures.boards['m-2026-09-30'] = board('2026-09-30', { metrics: [tile(), otif()] });
+    await openRecording('en', { email: MEMBER }, 'm-2026-09-30', en.board.list);
+
+    const view = screen.getByRole('region', { name: /Values at the meeting on/ });
+    expect(view).toHaveTextContent(en.recording.readOnly);
+    expect(within(view).queryByRole('button', { name: /Derive/ })).not.toBeInTheDocument();
+  });
+
+  it('derives in an administrator’s correction, the save carrying the reason', async () => {
+    fixtures.boards['m-2026-09-30'] = board('2026-09-30', { metrics: [otif()] });
+    const user = await openRecording(
+      'en',
+      { email: ADMIN, isAdmin: true },
+      'm-2026-09-30',
+      en.board.correct,
+    );
+
+    await user.type(screen.getByLabelText(en.recording.reasonLabel), 'Units corrected');
+    await user.click(screen.getByRole('button', { name: 'Derive: OTIF E' }));
+
+    expect(lastWrite()).toEqual({
+      url: `/api/teams/${TEAM_ID}/meetings/m-2026-09-30/values/metric-otif`,
+      body: {
+        value: '93.833333',
+        manual_status: null,
+        comment: null,
+        reason: 'Units corrected',
+      },
+    });
   });
 });

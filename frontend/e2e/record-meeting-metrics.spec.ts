@@ -8,7 +8,9 @@ import { addDays, apiAs, uniqueSuffix } from './api';
 /*
  * Recording at a meeting, in Polish: a member types values in the Polish
  * format, sees each one's colour and its change since the last meeting, and
- * sets a status by hand with a comment. An older meeting is read-only. Along
+ * sets a status by hand with a comment. A metric hidden on the board is
+ * recorded and counted like any other, but has no tile. An older meeting is
+ * read-only. Along
  * the way, the board's layout: the navigator on one line, the wider problems
  * and tasks column, and the metric detail clear of the sticky header.
  *
@@ -40,9 +42,33 @@ test('a member records values in Polish and sees them judged', async ({ page, re
     decimals: 0,
     direction: 'lower_is_better',
   });
+  const staff = await admin.addMetric(team.id, {
+    name: 'Zatrudnienie',
+    unit: 'os.',
+    decimals: 0,
+    direction: 'higher_is_better',
+    hidden: true,
+  });
   const plan = { effective_from: '2026-01-01', reason: 'Plan' };
-  await admin.addThreshold(team.id, revenue.id, { ...plan, green: '95', amber: '85' });
-  await admin.addThreshold(team.id, bugs.id, { ...plan, green: '5', amber: '10' });
+  // Green from 95 %, amber from 85 %: the target value 100 less 5 % and 15 %.
+  await admin.addThreshold(team.id, revenue.id, {
+    ...plan,
+    target_value: '100',
+    green_pct: '5',
+    amber_pct: '15',
+  });
+  await admin.addThreshold(team.id, bugs.id, {
+    ...plan,
+    target_value: '0',
+    green: '5',
+    amber: '10',
+  });
+  await admin.addThreshold(team.id, staff.id, {
+    ...plan,
+    target_value: '40',
+    green_pct: '0',
+    amber_pct: '10',
+  });
   await admin.recordValue(team.id, held.id, revenue.id, '85');
   await admin.recordValue(team.id, older.id, revenue.id, '80', 'History from the old tool');
 
@@ -63,10 +89,12 @@ test('a member records values in Polish and sees them judged', async ({ page, re
     .getByRole('combobox', { name: 'Status: Otwarte błędy' })
     .selectOption({ label: pl.status.red });
   await page.getByRole('textbox', { name: 'Komentarz: Otwarte błędy' }).fill('Krytyczny błąd');
+  // The hidden metric is listed for recording like any other.
+  await page.getByRole('textbox', { name: 'Wartość: Zatrudnienie' }).fill('38');
   await page.getByRole('textbox', { name: 'Wartość: Przychód' }).click();
   await expect(
     page.getByText(
-      pl.recording.completeness.replace('{{recorded}}', '2').replace('{{total}}', '2'),
+      pl.recording.completeness.replace('{{recorded}}', '3').replace('{{total}}', '3'),
     ),
   ).toBeVisible();
 
@@ -102,8 +130,13 @@ test('a member records values in Polish and sees them judged', async ({ page, re
   await expect(tile('Otwarte błędy')).toContainText(`${pl.status.red}${pl.status.setByHand}`);
   await expect(tile('Otwarte błędy')).toContainText('Krytyczny błąd');
 
-  // The metrics switch counts what has a number, as the pulse check counts answers.
-  await expect(page.getByRole('button', { name: 'Wskaźniki 2/2' })).toBeVisible();
+  // The hidden metric has no tile, yet it was recorded.
+  await expect(page.getByRole('heading', { name: 'Przychód' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Zatrudnienie' })).toHaveCount(0);
+
+  // The metrics switch counts what has a number, as the pulse check counts
+  // answers - the hidden metric included.
+  await expect(page.getByRole('button', { name: 'Wskaźniki 3/3' })).toBeVisible();
 
   // The navigator stays on one line, its chooser only as wide as it needs.
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -157,4 +190,79 @@ test('a member records values in Polish and sees them judged', async ({ page, re
   await page.getByRole('button', { name: pl.board.list }).click();
   await expect(page.getByText(pl.recording.readOnly)).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Wartość: Przychód' })).toBeHidden();
+});
+
+/*
+ * A derived metric: the member records its two sources, then has "Wylicz"
+ * work out their mean, which is saved and judged as a typed number would be.
+ */
+test('a member derives a mean from two recorded values', async ({ page, request }) => {
+  const suffix = uniqueSuffix();
+  const leader = `e2e.lead.${suffix}@example.com`;
+  const member = `e2e.member.${suffix}@example.com`;
+  const admin = await apiAs(request, ADMIN_EMAIL);
+  const team = await admin.registerTeam(`E2E Derive ${suffix}`, leader);
+  await admin.addMember(team.id, member);
+  await admin.openMeeting(team.id, addDays(organizationToday(), 3));
+  const metric = (name: string) => ({
+    name,
+    unit: '%',
+    decimals: 1,
+    direction: 'higher_is_better',
+  });
+  const bpw = await admin.addMetric(team.id, metric('OTIF E: BPW'));
+  const ckbir = await admin.addMetric(team.id, metric('OTIF E: CKBiR'));
+  const otif = await admin.addMetric(team.id, {
+    ...metric('OTIF E'),
+    derivation: {
+      kind: 'mean',
+      sources: [
+        { team_id: team.id, metric_id: bpw.id },
+        { team_id: team.id, metric_id: ckbir.id },
+      ],
+    },
+  });
+  // Green from 95 %, amber from 85 %: the mean of 90 and 97 is amber.
+  await admin.addThreshold(team.id, otif.id, {
+    effective_from: '2026-01-01',
+    reason: 'Plan',
+    target_value: '100',
+    green_pct: '5',
+    amber_pct: '15',
+  });
+
+  await page.addInitScript(
+    ([key, value]) => window.localStorage.setItem(key!, value!),
+    [LANGUAGE_STORAGE_KEY, 'pl'],
+  );
+  await signInAs(page, member);
+  await page.goto(`/teams/${team.id}`);
+  await page.getByRole('button', { name: pl.board.record }).click();
+
+  const field = (name: string) =>
+    page.getByRole('textbox', { name: `Wartość: ${name}`, exact: true });
+  const row = (name: string) => page.getByRole('row').filter({ has: field(name) });
+  for (const [name, value] of [
+    ['OTIF E: BPW', '90'],
+    ['OTIF E: CKBiR', '97'],
+  ] as const) {
+    await field(name).fill(value);
+    await field(name).blur();
+    await expect(row(name).getByText(pl.recording.saved)).toBeVisible();
+  }
+
+  // Only the derived metric offers it.
+  await expect(page.getByRole('button', { name: /^Wylicz: / })).toHaveCount(1);
+  await page.getByRole('button', { name: 'Wylicz: OTIF E', exact: true }).click();
+  await expect(field('OTIF E')).toHaveValue('93,5');
+  await expect(row('OTIF E')).toContainText('Średnia z 2: 90 · 97');
+  await expect(row('OTIF E').getByText(pl.recording.saved)).toBeVisible();
+
+  // On the board, the derived number is a value like any other, judged by its threshold.
+  await page.getByRole('button', { name: pl.board.showTiles }).click();
+  const tile = page
+    .getByRole('listitem')
+    .filter({ has: page.getByRole('heading', { name: 'OTIF E', exact: true }) });
+  await expect(tile).toContainText('93,5 %');
+  await expect(tile).toContainText(pl.status.amber);
 });

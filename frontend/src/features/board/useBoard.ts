@@ -1,5 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getBoard, putValue, type MeetingBoard, type MetricValueWrite } from '../../api/metrics';
+import {
+  getBoard,
+  getDerivedValue,
+  putValue,
+  type MeetingBoard,
+  type MetricValueWrite,
+} from '../../api/metrics';
 import { boardQueryKey, metricsQueryKey } from '../metrics/useMetrics';
 
 /** A team's board at one meeting. */
@@ -22,5 +28,16 @@ export function useRecordValue(teamId: string, meetingId: string) {
     mutationFn: ({ metricId, write }: { metricId: string; write: MetricValueWrite }) =>
       putValue(teamId, meetingId, metricId, write),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: metricsQueryKey(teamId) }),
+  });
+}
+
+/**
+ * Work a derived metric's number out at a meeting. A read that records
+ * nothing, asked for on demand, so a mutation rather than a cached query: the
+ * sources may have changed since the last time, and nothing should be reused.
+ */
+export function useDeriveValue(teamId: string, meetingId: string) {
+  return useMutation({
+    mutationFn: (metricId: string) => getDerivedValue(teamId, meetingId, metricId),
   });
 }

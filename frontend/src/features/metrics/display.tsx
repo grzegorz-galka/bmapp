@@ -20,32 +20,61 @@ export function statusColour(status: Status): string | undefined {
     : undefined;
 }
 
-/** "Green from 95 %, amber from 85 %" - a threshold in the metric's own terms. */
+/** What a threshold reads from: boundaries, and a target value with tolerances where it has one. */
+type Readable = Bounds & Partial<Pick<Threshold, 'target_value' | 'green_pct' | 'amber_pct'>>;
+
+/**
+ * A threshold in the metric's own terms. A version with a target value and
+ * tolerances reads as those - "Target value 72.3 % · green ±5% · amber ±10%",
+ * signed by the side that is worse. Anything else, a version recorded before
+ * target values or one whose target value is 0, reads as its boundaries:
+ * "Green from 95 %, amber from 85 %".
+ */
 export function describeThreshold(
   t: TFunction,
   format: Format,
   metric: Formatted,
-  threshold: Bounds | null,
+  threshold: Readable | null,
 ): string {
   if (!threshold) return t('threshold.none');
-  const show = (value: string | null) => format.metricValue(value, metric.decimals, metric.unit);
+  const { target_value: target, green_pct: green, amber_pct: amber } = threshold;
+  if (target != null && green != null && amber != null) {
+    const unit = metric.unit ? `\u00a0${metric.unit}` : '';
+    return t(`threshold.target_${metric.direction}`, {
+      target: `${format.exactDecimal(target, metric.decimals)}${unit}`,
+      green: format.exactDecimal(green),
+      amber: format.exactDecimal(amber),
+    });
+  }
+  return describeBounds(t, metric, threshold, (value) =>
+    format.metricValue(value, metric.decimals, metric.unit),
+  );
+}
+
+/** Boundaries in the metric's terms, each number written by `show`. */
+export function describeBounds(
+  t: TFunction,
+  metric: Pick<Formatted, 'direction'>,
+  bounds: Bounds,
+  show: (value: string | null) => string,
+): string {
   switch (metric.direction) {
     case 'higher_is_better':
       return t('threshold.higher_is_better', {
-        green: show(threshold.green_lo),
-        amber: show(threshold.amber_lo),
+        green: show(bounds.green_lo),
+        amber: show(bounds.amber_lo),
       });
     case 'lower_is_better':
       return t('threshold.lower_is_better', {
-        green: show(threshold.green_hi),
-        amber: show(threshold.amber_hi),
+        green: show(bounds.green_hi),
+        amber: show(bounds.amber_hi),
       });
     case 'within_band':
       return t('threshold.within_band', {
-        greenLo: show(threshold.green_lo),
-        greenHi: show(threshold.green_hi),
-        amberLo: show(threshold.amber_lo),
-        amberHi: show(threshold.amber_hi),
+        greenLo: show(bounds.green_lo),
+        greenHi: show(bounds.green_hi),
+        amberLo: show(bounds.amber_lo),
+        amberHi: show(bounds.amber_hi),
       });
   }
 }

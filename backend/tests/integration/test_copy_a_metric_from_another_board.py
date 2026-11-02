@@ -21,6 +21,7 @@ from tests.integration.metrics_api import (
     metrics_of,
     placement,
     record,
+    seed_version_before_target_values,
     thresholds_of,
     tile,
     trend_of,
@@ -103,6 +104,73 @@ def test_a_metric_is_copied_with_its_thresholds(
     ]
     assert [v["recorded_by_email"] for v in copied] == [LEADER, LEADER]
     assert all(datetime.datetime.fromisoformat(v["recorded_at"]) >= before for v in copied)
+
+
+def test_target_values_and_tolerances_are_copied(client: TestClient, session: Session) -> None:
+    """Scenario: Target values and tolerances are copied."""
+    team_id, source_id = _boards(client)
+    source = add_metric(client, source_id, "Utylizacja", direction="within_band")
+    seed_version_before_target_values(
+        session,
+        source["id"],
+        "2026-04-01",
+        green_lo="71",
+        green_hi="72",
+        amber_lo="70",
+        amber_hi="73",
+    )
+    add_threshold(
+        client,
+        source_id,
+        source["id"],
+        "2026-11-01",
+        target_value="72.3",
+        green_pct="5",
+        amber_pct="10",
+    )
+
+    response = _copy(client, team_id, source["id"])
+
+    assert response.status_code == 201, response.json()
+    fields = ("effective_from", "target_value", "green_pct", "amber_pct", "green_lo", "amber_hi")
+    shapes = [
+        [{k: v[k] for k in fields} for v in thresholds_of(client, board, metric)]
+        for board, metric in ((source_id, source["id"]), (team_id, response.json()["id"]))
+    ]
+    assert (
+        shapes[1]
+        == shapes[0]
+        == [
+            {
+                "effective_from": "2026-11-01",
+                "target_value": "72.3",
+                "green_pct": "5",
+                "amber_pct": "10",
+                "green_lo": "68.685",
+                "amber_hi": "79.53",
+            },
+            {
+                "effective_from": "2026-04-01",
+                "target_value": None,
+                "green_pct": None,
+                "amber_pct": None,
+                "green_lo": "71",
+                "amber_hi": "73",
+            },
+        ]
+    )
+
+
+def test_a_hidden_metric_is_copied_as_shown(client: TestClient) -> None:
+    """Scenario: A hidden metric is copied as shown."""
+    team_id, source_id = _boards(client)
+    source = add_metric(client, source_id, "Zatrudnienie", hidden=True)
+
+    response = _copy(client, team_id, source["id"])
+
+    assert response.status_code == 201, response.json()
+    assert (source["hidden"], response.json()["hidden"]) == (True, False)
+    assert [m["hidden"] for m in metrics_of(client, team_id)] == [False]
 
 
 def test_a_copy_with_no_group_is_ungrouped(client: TestClient) -> None:

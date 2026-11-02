@@ -29,7 +29,7 @@ from app.core.exceptions import (
     MetricRetiredError,
     TeamNotFoundError,
 )
-from app.core.metric_enums import Scope
+from app.core.metric_enums import Direction, Scope
 from app.models import (
     BoardMetric,
     Meeting,
@@ -49,8 +49,15 @@ from app.schemas.metric import (
     MetricGroupRename,
     MetricLayout,
     ThresholdCreate,
+    ThresholdRead,
 )
-from app.services.metric_status import threshold_in_force
+from app.services.derivations import (
+    check_derivation,
+    load_derivations,
+    refuse_removing_a_source,
+    set_derivation,
+)
+from app.services.metric_status import TargetVersion, bounds_of, threshold_in_force
 
 logger = logging.getLogger(__name__)
 
@@ -77,11 +84,16 @@ class MetricWithThreshold:
 def add_metric(
     session: Session, team_id: uuid.UUID, payload: MetricCreate, actor_email: str
 ) -> BoardMetric:
-    """Add a metric of the board's own, with no threshold yet and not retired."""
+    """Add a metric of the board's own, with no threshold yet and not retired.
+
+    With a derivation, when one is given.
+    """
     if session.get(Team, team_id) is None:
         raise TeamNotFoundError(team_id)
     _require_member_owner(session, team_id, payload.owner_employee_id)
     _require_group(session, team_id, payload.group_id)
+    if payload.derivation is not None:
+        check_derivation(session, team_id, None, payload.derivation)
     lock_boards_and_check_name(session, [team_id], payload.name)
     metric = Metric(
         team_id=team_id,
@@ -90,12 +102,14 @@ def add_metric(
         decimals=payload.decimals,
         direction=payload.direction,
     )
+    set_derivation(session, metric, payload.derivation)
     placement = BoardMetric(
         team_id=team_id,
         metric=metric,
         group_id=payload.group_id,
         position=_next_position(session, team_id, payload.group_id),
         owner_employee_id=payload.owner_employee_id,
+        hidden=payload.hidden,
     )
     session.add(placement)
     _commit(session, payload.name)
@@ -129,6 +143,7 @@ def include_global_metric(
         group_id=payload.group_id,
         position=_next_position(session, team_id, payload.group_id),
         owner_employee_id=payload.owner_employee_id,
+        hidden=payload.hidden,
     )
     session.add(placement)
     session.commit()
@@ -141,10 +156,13 @@ def copy_metric(
 ) -> BoardMetric:
     """Copy a board's own metric, of any board, onto this one as a metric of its own.
 
-    The definition and every threshold version come along; the source's
-    group and owner, which belong to the source's board, and the values do
-    not. The copy goes last into the group named, or among the ungrouped. No
-    link to the source is kept, so later changes on either side stay there.
+    The definition and every threshold version come along, each with its
+    target value and tolerances or its boundaries; the source's group, owner
+    and hiding, which belong to the source's board, its derivation, whose
+    sources were chosen for that board, and the values do not.
+    The copy goes last into the group named, or among the ungrouped, and is
+    hidden only when the request asks. No link to the source is kept, so
+    later changes on either side stay there.
     """
     if session.get(Team, team_id) is None:
         raise TeamNotFoundError(team_id)
@@ -169,6 +187,7 @@ def copy_metric(
         metric=metric,
         group_id=payload.group_id,
         position=_next_position(session, team_id, payload.group_id),
+        hidden=payload.hidden,
     )
     session.add(placement)
     versions = session.scalars(
@@ -184,6 +203,9 @@ def copy_metric(
         MetricThreshold(
             metric_id=metric.id,
             effective_from=version.effective_from,
+            target_value=version.target_value,
+            green_pct=version.green_pct,
+            amber_pct=version.amber_pct,
             green_lo=version.green_lo,
             green_hi=version.green_hi,
             amber_lo=version.amber_lo,
@@ -226,6 +248,7 @@ def list_metrics(
             .order_by(*BOARD_ORDER)
         )
     )
+    load_derivations(session, (placement.metric for placement in placements))
     versions = versions_by_metric(session, [placement.metric_id for placement in placements])
     return [
         MetricWithThreshold(placement, threshold_in_force(versions[placement.metric_id], today))
@@ -243,7 +266,7 @@ def with_threshold(
 
 #: What a change touches on the definition, and what on the board's placement.
 _DEFINITION_KEYS = frozenset({"name", "unit", "decimals"})
-_PLACEMENT_KEYS = frozenset({"group_id", "owner_employee_id"})
+_PLACEMENT_KEYS = frozenset({"group_id", "owner_employee_id", "hidden"})
 
 
 def change_metric(
@@ -253,10 +276,11 @@ def change_metric(
     payload: MetricChange,
     actor_email: str,
 ) -> BoardMetric:
-    """Change a metric's properties, retire it or bring it back.
+    """Change a metric's properties, hide it on the board, retire it or bring it back.
 
     Only the keys the request carried change. The direction may be repeated
-    but not changed: every threshold version is read through it.
+    but not changed: every threshold version is read through it. A
+    derivation given replaces the metric's, and null removes it.
     """
     placement = get_board_metric(session, team_id, metric_id)
     metric = placement.metric
@@ -266,6 +290,10 @@ def change_metric(
     direction = changes.pop("direction", metric.direction)
     if direction != metric.direction:
         raise MetricDirectionImmutableError()
+    changing_derivation = "derivation" in changes
+    changes.pop("derivation", None)
+    if changing_derivation and payload.derivation is not None:
+        check_derivation(session, team_id, metric_id, payload.derivation)
     if changes.get("owner_employee_id") is not None:
         _require_member_owner(session, team_id, changes["owner_employee_id"])
     if "name" in changes and changes["name"] != metric.name:
@@ -275,6 +303,8 @@ def change_metric(
         _require_group(session, team_id, changes["group_id"])
         _lock_board(session, team_id)
         placement.position = _next_position(session, team_id, changes["group_id"])
+    if changing_derivation:
+        set_derivation(session, metric, payload.derivation)
     retired_before = placement.retired
     for key, value in changes.items():
         if key in _DEFINITION_KEYS:
@@ -296,9 +326,10 @@ def _refuse_a_global_definition_change(metric: Metric, changes: dict[str, object
     """A board places a global metric; its definition is changed in the catalogue.
 
     Repeating a property's current value is no change, so it is accepted and
-    dropped, as an unchanged direction is for a board's own metric.
+    dropped, as an unchanged direction is for a board's own metric. A global
+    metric is never derived, so only `derivation: null` repeats its value.
     """
-    for key in ("name", "unit", "decimals", "direction"):
+    for key in ("name", "unit", "decimals", "direction", "derivation"):
         if key in changes:
             if changes[key] != getattr(metric, key):
                 raise GlobalMetricReadOnlyError(key)
@@ -312,6 +343,7 @@ def delete_metric(
 
     For a global metric, remove it from this board only, while no value was
     recorded for it at this team's meetings; other boards' values are theirs.
+    Either is refused while a derivation reads the metric on this board.
     """
     placement = get_board_metric(session, team_id, metric_id)
     if placement.metric.scope is Scope.GLOBAL:
@@ -322,12 +354,14 @@ def delete_metric(
         )
         if session.scalar(select(exists(values_here))):
             raise MetricHasValuesError(metric_id)
+        refuse_removing_a_source(session, metric_id, team_id)
         session.delete(placement)
         session.commit()
         logger.info("Global metric %s removed from team %s by %s", metric_id, team_id, actor_email)
         return
     if session.scalar(select(exists().where(MetricValue.metric_id == metric_id))):
         raise MetricHasValuesError(metric_id)
+    refuse_removing_a_source(session, metric_id, team_id)
     session.delete(placement)
     session.delete(placement.metric)
     session.commit()
@@ -340,7 +374,7 @@ def record_threshold(
     metric_id: uuid.UUID,
     payload: ThresholdCreate,
     actor_email: str,
-) -> MetricThreshold:
+) -> ThresholdRead:
     """Add a threshold version to a metric. Back-dating is allowed and intended.
 
     Versions are never edited: what a past meeting was judged against stays
@@ -362,17 +396,20 @@ def record_threshold(
         team_id,
         actor_email,
     )
-    return version
+    return read_threshold(version, placement.metric.direction)
 
 
 def new_threshold_version(
     metric: Metric, payload: ThresholdCreate, actor_email: str
 ) -> MetricThreshold:
-    """A version for a board's own metric or a global one, its bounds read by direction."""
+    """A version for a board's own metric or a global one, its shape read by direction."""
     bounds = payload.bounds(metric.direction)
     return MetricThreshold(
         metric_id=metric.id,
         effective_from=payload.effective_from,
+        target_value=bounds.target_value,
+        green_pct=bounds.green_pct,
+        amber_pct=bounds.amber_pct,
         green_lo=bounds.green_lo,
         green_hi=bounds.green_hi,
         amber_lo=bounds.amber_lo,
@@ -384,16 +421,20 @@ def new_threshold_version(
 
 def list_thresholds(
     session: Session, team_id: uuid.UUID, metric_id: uuid.UUID
-) -> list[MetricThreshold]:
+) -> list[ThresholdRead]:
     """Every threshold version of a metric, the most recent first."""
-    get_board_metric(session, team_id, metric_id)
-    return list(
-        session.scalars(
-            select(MetricThreshold)
-            .where(MetricThreshold.metric_id == metric_id)
-            .order_by(MetricThreshold.effective_from.desc(), MetricThreshold.recorded_at.desc())
-        )
+    metric = get_board_metric(session, team_id, metric_id).metric
+    return threshold_history(session, metric)
+
+
+def threshold_history(session: Session, metric: Metric) -> list[ThresholdRead]:
+    """Every version of a metric, most recent first, each with the boundaries it amounts to."""
+    versions = session.scalars(
+        select(MetricThreshold)
+        .where(MetricThreshold.metric_id == metric.id)
+        .order_by(MetricThreshold.effective_from.desc(), MetricThreshold.recorded_at.desc())
     )
+    return [read_threshold(version, metric.direction) for version in versions]
 
 
 def versions_by_metric(
@@ -408,6 +449,23 @@ def versions_by_metric(
         ):
             grouped[version.metric_id].append(version)
     return grouped
+
+
+def read_threshold(version: TargetVersion, direction: Direction) -> ThresholdRead:
+    """A version as read, its boundaries resolved for a metric of this direction.
+
+    Every reader that returns a version builds it here, so none of them can
+    hand out the raw columns of a version recorded by target value.
+    """
+    bounds = bounds_of(direction, version)
+    return ThresholdRead.model_validate(version).model_copy(
+        update={
+            "green_lo": bounds.green_lo,
+            "green_hi": bounds.green_hi,
+            "amber_lo": bounds.amber_lo,
+            "amber_hi": bounds.amber_hi,
+        }
+    )
 
 
 def list_groups(session: Session, team_id: uuid.UUID) -> list[MetricGroup]:

@@ -1,4 +1,4 @@
-"""A meeting's board, and recording a metric's value at it. Validate, delegate, return."""
+"""A meeting's board, and recording or deriving a metric's value at it. Validate, delegate."""
 
 import uuid
 from typing import Annotated
@@ -8,10 +8,10 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import CurrentUserDependency, relationship_to, require
 from app.core.db import get_session
-from app.schemas import MeetingBoard, MetricValueRead, MetricValueWrite
+from app.schemas import DerivedValue, MeetingBoard, MetricValueRead, MetricValueWrite
 from app.services import today
 from app.services.authz import may_record_meeting_data
-from app.services.metric_values import Actor, build_board, record_value
+from app.services.metric_values import Actor, build_board, derive_value, record_value
 
 router = APIRouter(prefix="/teams/{team_id}/meetings/{meeting_id}", tags=["metric values"])
 
@@ -48,3 +48,19 @@ def put_value(
     )
     actor = Actor(current_user.email, current_user.is_admin)
     return record_value(session, team_id, meeting_id, metric_id, payload, actor, today())
+
+
+@router.get("/metrics/{metric_id}/derivation", response_model=DerivedValue)
+def get_derivation(
+    team_id: uuid.UUID,
+    meeting_id: uuid.UUID,
+    metric_id: uuid.UUID,
+    session: SessionDependency,
+    _: CurrentUserDependency,
+) -> DerivedValue:
+    """Work out the metric's number at this meeting from its sources. Records nothing.
+
+    Open to anyone signed in, as every read is: it returns only numbers
+    already readable on the boards they come from.
+    """
+    return derive_value(session, team_id, meeting_id, metric_id)

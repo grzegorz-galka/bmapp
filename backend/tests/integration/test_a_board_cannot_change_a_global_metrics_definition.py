@@ -19,7 +19,13 @@ from tests.integration.teams_api import add, member_id, register
 
 LEADER = "lead@pse.pl"
 MEMBER = "member@pse.pl"
-THRESHOLD = {"effective_from": "2026-10-01", "reason": "Plan", "green": "99.5", "amber": "99"}
+THRESHOLD = {
+    "effective_from": "2026-10-01",
+    "reason": "Plan",
+    "target_value": "100",
+    "green_pct": "0.5",
+    "amber_pct": "1",
+}
 
 
 def test_a_leader_moves_and_regroups_a_global_metric(
@@ -52,6 +58,28 @@ def test_a_leader_moves_and_regroups_a_global_metric(
     changed = response.json()
     assert (placement(changed), changed["owner"]["email"]) == (("Operations", 1), MEMBER)
     assert (changed["scope"], changed["name"]) == ("global", "Service availability")
+    assert metrics_of(client, other["id"]) == [theirs]
+
+
+def test_a_leader_hides_a_global_metric_on_their_board(
+    client: TestClient, client_as: Callable[[str], TestClient], session: Session
+) -> None:
+    """Scenario: A leader hides a global metric on their board."""
+    team = register(client, "Platform", LEADER)
+    other = register(client, "Billing", "lead.billing@example.com")
+    availability = seed_global_metric(session)
+    include(client, team["id"], availability)
+    theirs = include(client, other["id"], availability)
+
+    response = client_as(LEADER).patch(
+        f"/teams/{team['id']}/metrics/{availability}", json={"hidden": True}
+    )
+
+    assert response.status_code == 200, response.json()
+    hidden = response.json()
+    assert (hidden["scope"], hidden["hidden"], hidden["retired"]) == ("global", True, False)
+    assert metrics_of(client, team["id"]) == [hidden]
+    assert theirs["hidden"] is False
     assert metrics_of(client, other["id"]) == [theirs]
 
 

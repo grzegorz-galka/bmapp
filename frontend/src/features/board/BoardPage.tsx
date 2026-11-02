@@ -440,8 +440,9 @@ function BoardBody({
 
 /**
  * The metrics under the board's groups, in the board's order, the ungrouped
- * ones last. A group with no metric has nothing to show here and is left out;
- * the settings page is where an empty group is seen.
+ * ones last, a metric hidden on the board left out. A group with no metric to
+ * show has nothing here and is left out; the settings page is where an empty
+ * group is seen.
  */
 function Tiles({
   board,
@@ -452,7 +453,9 @@ function Tiles({
 }) {
   const { t } = useTranslation();
   const groups = new Map<string, { label: string; order: number; entries: BoardMetric[] }>();
-  for (const entry of board.metrics) {
+  // A hidden metric is recorded and counted but has no tile, so a group of
+  // hidden metrics only is left out like an empty one.
+  for (const entry of board.metrics.filter((shown) => !shown.metric.hidden)) {
     const { group } = entry.metric;
     const key = group?.id ?? '';
     const section = groups.get(key) ?? {

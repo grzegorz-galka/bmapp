@@ -124,7 +124,15 @@ def test_a_threshold_version_each_time_the_target_changed(
         ("168.997589", "174.122665"),
     ]
     assert [p["status"] for p in points[:2]] == ["amber", "red"]
-    assert Decimal(points[1]["threshold"]["amber_lo"]) == Decimal("169.122665")
+    # Recorded as a target value: green 0% below it, amber the gap's share.
+    threshold = points[1]["threshold"]
+    assert (threshold["target_value"], threshold["green_pct"], threshold["amber_pct"]) == (
+        "174.122665",
+        "0",
+        "2.871539",
+    )
+    # The quantised tolerance moves amber's boundary by under a millionth.
+    assert abs(Decimal(threshold["amber_lo"]) - Decimal("169.122665")) < Decimal("0.000001")
 
 
 def test_loading_again_is_refused_and_replacing_works(session: Session) -> None:

@@ -38,6 +38,9 @@ const THRESHOLD: Threshold = {
   id: 'th-1',
   metric_id: 'metric-revenue',
   effective_from: '2026-10-01',
+  target_value: null,
+  green_pct: null,
+  amber_pct: null,
   green_lo: '95',
   green_hi: null,
   amber_lo: '85',
@@ -64,6 +67,8 @@ function metric(overrides: Partial<Metric> = {}): Metric {
     owner: null,
     retired: false,
     retired_in_catalogue: false,
+    hidden: false,
+    derivation: null,
     threshold: THRESHOLD,
     ...overrides,
   };
@@ -229,7 +234,72 @@ describe('the metric settings page', () => {
       direction: 'lower_is_better',
       group_id: OPERATIONS.id,
       owner_employee_id: 'emp-bartek',
+      hidden: false,
     });
+  });
+
+  it('a metric is hidden in the create dialog', async () => {
+    // Scenario: A metric is hidden in the create dialog.
+    serve((url, init) => {
+      const created = metric({
+        id: 'metric-headcount',
+        name: 'Zatrudnienie',
+        group: null,
+        threshold: null,
+        hidden: true,
+      });
+      if (url.endsWith('/metrics') && init.method === 'POST') metrics = [...metrics, created];
+      return jsonResponse(created, 201);
+    });
+    const user = userEvent.setup();
+    await renderSettings();
+
+    await user.click(screen.getByRole('button', { name: en.metrics.create }));
+    const dialog = within(screen.getByRole('dialog', { name: en.metrics.create }));
+    const hidden = dialog.getByRole('switch', { name: en.metrics.hidden });
+    expect(hidden).not.toBeChecked();
+    expect(hidden).toHaveAccessibleDescription(en.metrics.hiddenHint);
+    await user.type(dialog.getByLabelText(en.metrics.nameLabel), 'Zatrudnienie');
+    await user.click(hidden);
+    await user.click(dialog.getByRole('button', { name: en.metrics.add }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(lastBody()).toMatchObject({ name: 'Zatrudnienie', hidden: true });
+    const row = (await screen.findByText('Zatrudnienie')).closest('li')!;
+    expect(within(row).getByText(en.metrics.hiddenMark)).toBeInTheDocument();
+    const revenue = screen.getByText('Revenue').closest('li')!;
+    expect(within(revenue).queryByText(en.metrics.hiddenMark)).not.toBeInTheDocument();
+  });
+
+  it('a metric is hidden from the settings page', async () => {
+    // Scenario: A metric is hidden from the settings page.
+    serve((_url, init) => {
+      const change = JSON.parse(String(init.body)) as { hidden?: boolean };
+      metrics = [metric({ hidden: change.hidden ?? false })];
+      return jsonResponse(metrics[0]);
+    });
+    const user = userEvent.setup();
+    await renderSettings();
+
+    const toggle = screen.getByRole('switch', { name: 'Hidden on board: Revenue' });
+    expect(toggle).not.toBeChecked();
+    expect(screen.queryByText(en.metrics.hiddenMark)).not.toBeInTheDocument();
+    await user.click(toggle);
+
+    const [url, init] = writes()[0] ?? [];
+    expect([url, init?.method]).toEqual([`/api/teams/${TEAM_ID}/metrics/metric-revenue`, 'PATCH']);
+    expect(lastBody()).toEqual({ hidden: true });
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: 'Hidden on board: Revenue' })).toBeChecked(),
+    );
+    // Hidden, not retired: it is still offered for retirement.
+    const row = screen.getByRole('listitem');
+    expect(within(row).getByText(en.metrics.hiddenMark)).toBeInTheDocument();
+    expect(within(row).queryByText(en.metrics.retired)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retire: Revenue' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('switch', { name: 'Hidden on board: Revenue' }));
+    expect(lastBody()).toEqual({ hidden: false });
   });
 
   it('A rejection keeps the dialog open', async () => {
@@ -329,6 +399,7 @@ describe('the metric settings page', () => {
     expect(from).toHaveFocus();
     await user.clear(from);
     await user.type(from, '2026-09-01');
+    await user.type(within(dialog).getByLabelText(pl.metrics.targetValueLabel), '0,0');
     await user.type(within(dialog).getByLabelText(pl.metrics.greenFrom), '95,5');
     await user.type(within(dialog).getByLabelText(pl.metrics.amberFrom), '1 085');
     await user.type(within(dialog).getByLabelText(pl.metrics.reasonLabel), 'Plan na Q4');
@@ -338,9 +409,134 @@ describe('the metric settings page', () => {
     expect(lastBody()).toEqual({
       effective_from: '2026-09-01',
       reason: 'Plan na Q4',
+      target_value: '0.0',
       green: '95.5',
       amber: '1085',
     });
+  });
+
+  it('a version is recorded on the settings page', async () => {
+    // Scenario: A version is recorded on the settings page.
+    const recorded: Threshold = {
+      ...THRESHOLD,
+      id: 'th-2027',
+      effective_from: '2026-11-01',
+      reason: 'Plan for 2027',
+      target_value: '72.3',
+      green_pct: '5',
+      amber_pct: '10',
+      green_lo: '68.685',
+      green_hi: '75.915',
+      amber_lo: '65.07',
+      amber_hi: '79.53',
+    };
+    metrics = [metric({ direction: 'within_band', threshold: null })];
+    serve(() => {
+      metrics = [metric({ direction: 'within_band', threshold: recorded })];
+      return jsonResponse(recorded, 201);
+    });
+    const user = userEvent.setup();
+    await renderSettings();
+
+    await user.click(screen.getByRole('button', { name: 'Change threshold: Revenue' }));
+    const dialog = screen.getByRole('dialog', { name: 'New threshold for Revenue' });
+    const from = within(dialog).getByLabelText(en.metrics.effectiveFromLabel);
+    await user.clear(from);
+    await user.type(from, '2026-11-01');
+    // Tolerances by default; a band's boundaries are not asked for.
+    expect(within(dialog).queryByLabelText(en.metrics.greenTo)).not.toBeInTheDocument();
+    expect(within(dialog).getByText(en.metrics.toleranceHint_within_band)).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText(en.metrics.targetValueLabel), '72.3');
+    await user.type(within(dialog).getByLabelText(en.metrics.greenPctLabel), '5');
+    await user.type(within(dialog).getByLabelText(en.metrics.amberPctLabel), '10');
+    // The boundaries they amount to, for information, exactly.
+    expect(
+      within(dialog)
+        .getByText(/^Amounts to:/)
+        .textContent?.replace(/\u00a0/g, ' '),
+    ).toBe('Amounts to: Green 68.685 mln zł to 75.915 mln zł, amber 65.07 mln zł to 79.53 mln zł');
+    await user.type(within(dialog).getByLabelText(en.metrics.reasonLabel), 'Plan for 2027');
+    await user.click(within(dialog).getByRole('button', { name: en.metrics.recordThreshold }));
+
+    expect(writes()[0]?.[0]).toBe(`/api/teams/${TEAM_ID}/metrics/metric-revenue/thresholds`);
+    expect(lastBody()).toEqual({
+      effective_from: '2026-11-01',
+      reason: 'Plan for 2027',
+      target_value: '72.3',
+      green_pct: '5',
+      amber_pct: '10',
+    });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('listitem').textContent?.replace(/\u00a0/g, ' ')).toContain(
+        'Target value 72.3 mln zł · green ±5% · amber ±10%',
+      ),
+    );
+  });
+
+  it('target value 0 asks for boundaries', async () => {
+    // Scenario: Target value 0 asks for boundaries.
+    metrics = [metric({ direction: 'lower_is_better', threshold: null })];
+    const user = userEvent.setup();
+    await renderSettings();
+
+    await user.click(screen.getByRole('button', { name: 'Change threshold: Revenue' }));
+    const dialog = within(screen.getByRole('dialog'));
+    const target = dialog.getByLabelText(en.metrics.targetValueLabel);
+    await user.type(target, '20');
+    await user.type(dialog.getByLabelText(en.metrics.greenPctLabel), '10');
+    await user.type(dialog.getByLabelText(en.metrics.amberPctLabel), '25');
+    expect(dialog.queryByLabelText(en.metrics.greenUpTo)).not.toBeInTheDocument();
+    expect(dialog.getByText(/^Amounts to:/).textContent?.replace(/\u00a0/g, ' ')).toBe(
+      'Amounts to: Green up to 22.0 mln zł, amber up to 25.0 mln zł',
+    );
+
+    await user.clear(target);
+    await user.type(target, '0');
+    expect(dialog.queryByLabelText(en.metrics.greenPctLabel)).not.toBeInTheDocument();
+    expect(dialog.queryByLabelText(en.metrics.amberPctLabel)).not.toBeInTheDocument();
+    expect(dialog.queryByText(/^Amounts to:/)).not.toBeInTheDocument();
+    expect(dialog.getByText(en.metrics.boundsHint)).toBeInTheDocument();
+    await user.type(dialog.getByLabelText(en.metrics.greenUpTo), '5');
+    await user.type(dialog.getByLabelText(en.metrics.amberUpTo), '10');
+
+    // Switching back and forth keeps what was typed in each.
+    await user.clear(target);
+    await user.type(target, '20');
+    expect(dialog.getByLabelText(en.metrics.greenPctLabel)).toHaveValue('10');
+    await user.clear(target);
+    await user.type(target, '0');
+    expect(dialog.getByLabelText(en.metrics.greenUpTo)).toHaveValue('5');
+
+    await user.type(dialog.getByLabelText(en.metrics.reasonLabel), 'Aneksy');
+    await user.click(dialog.getByRole('button', { name: en.metrics.recordThreshold }));
+
+    expect(lastBody()).toEqual({
+      effective_from: expect.any(String),
+      reason: 'Aneksy',
+      target_value: '0',
+      green: '5',
+      amber: '10',
+    });
+  });
+
+  it('shows a negative tolerance against its field', async () => {
+    serve(() => errorResponse(422, 'green_pct', 'threshold_tolerance.negative'));
+    const user = userEvent.setup();
+    await renderSettings('pl');
+
+    await user.click(screen.getByRole('button', { name: 'Zmień próg: Revenue' }));
+    const dialog = within(screen.getByRole('dialog'));
+    await user.type(dialog.getByLabelText(pl.metrics.targetValueLabel), '95');
+    await user.type(dialog.getByLabelText(pl.metrics.greenPctLabel), '-1');
+    await user.type(dialog.getByLabelText(pl.metrics.amberPctLabel), '5');
+    await user.type(dialog.getByLabelText(pl.metrics.reasonLabel), 'Plan');
+    await user.click(dialog.getByRole('button', { name: pl.metrics.recordThreshold }));
+
+    expect(await dialog.findByRole('alert')).toHaveTextContent(
+      pl.errors['threshold_tolerance.negative'],
+    );
+    expect(dialog.getByLabelText(pl.metrics.greenPctLabel)).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('asks a band for both ends of each zone', async () => {
@@ -350,6 +546,7 @@ describe('the metric settings page', () => {
 
     await user.click(screen.getByRole('button', { name: 'Change threshold: Revenue' }));
     const dialog = screen.getByRole('dialog');
+    await user.type(within(dialog).getByLabelText(en.metrics.targetValueLabel), '0');
 
     for (const label of [
       en.metrics.greenFrom,
@@ -367,6 +564,7 @@ describe('the metric settings page', () => {
 
     await user.click(screen.getByRole('button', { name: 'Change threshold: Revenue' }));
     const dialog = screen.getByRole('dialog');
+    await user.type(within(dialog).getByLabelText(en.metrics.targetValueLabel), '0');
     await user.type(within(dialog).getByLabelText(en.metrics.greenFrom), '95,5');
     await user.type(within(dialog).getByLabelText(en.metrics.amberFrom), '85');
     await user.click(within(dialog).getByRole('button', { name: en.metrics.recordThreshold }));
@@ -382,6 +580,7 @@ describe('the metric settings page', () => {
 
     await user.click(screen.getByRole('button', { name: 'Change threshold: Revenue' }));
     const dialog = screen.getByRole('dialog');
+    await user.type(within(dialog).getByLabelText(en.metrics.targetValueLabel), '0');
     await user.type(within(dialog).getByLabelText(en.metrics.greenFrom), '85');
     await user.type(within(dialog).getByLabelText(en.metrics.amberFrom), '95');
     await user.type(within(dialog).getByLabelText(en.metrics.reasonLabel), 'Plan');
@@ -407,6 +606,7 @@ describe('the metric settings page', () => {
     await renderSettings('en', { email: MEMBER });
 
     expect(screen.getByRole('listitem')).toHaveTextContent('Green from 95.0');
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
     for (const name of [
       en.metrics.create,
       /^Edit:/,
@@ -540,7 +740,7 @@ async function openInclude(user: ReturnType<typeof userEvent.setup>) {
 describe('copying a metric from another board', () => {
   beforeEach(() => serveElsewhere());
 
-  it('copies a metric with its thresholds, sending only its source', async () => {
+  it('copies a metric with its thresholds, sending its source and that it is shown', async () => {
     // Scenario: A metric is copied with its thresholds - the server copies
     // the definition and every version; the page names only the source.
     const user = userEvent.setup();
@@ -555,7 +755,7 @@ describe('copying a metric from another board', () => {
     await user.click(within(dialog).getByRole('button', { name: en.metrics.copySubmit }));
 
     expect(writes()[0]?.[0]).toBe(`/api/teams/${TEAM_ID}/metrics/copies`);
-    expect(lastBody()).toEqual({ source_metric_id: 'metric-open-bugs' });
+    expect(lastBody()).toEqual({ source_metric_id: 'metric-open-bugs', hidden: false });
   });
 
   it('copies a metric under a new name', async () => {
@@ -571,6 +771,7 @@ describe('copying a metric from another board', () => {
     expect(lastBody()).toEqual({
       source_metric_id: 'metric-open-bugs',
       name: 'Revenue (Poland)',
+      hidden: false,
     });
   });
 
@@ -583,7 +784,26 @@ describe('copying a metric from another board', () => {
     await user.selectOptions(within(dialog).getByLabelText(en.metrics.groupLabel), 'Operations');
     await user.click(within(dialog).getByRole('button', { name: en.metrics.copySubmit }));
 
-    expect(lastBody()).toEqual({ source_metric_id: 'metric-open-bugs', group_id: OPERATIONS.id });
+    expect(lastBody()).toEqual({
+      source_metric_id: 'metric-open-bugs',
+      group_id: OPERATIONS.id,
+      hidden: false,
+    });
+  });
+
+  it('copies a metric hidden on this board', async () => {
+    // Scenario: A metric is copied or included hidden.
+    const user = userEvent.setup();
+    await renderSettings();
+
+    const { dialog, source } = await openCopy(user);
+    await user.selectOptions(source, 'metric-open-bugs');
+    const hidden = within(dialog).getByRole('switch', { name: en.metrics.hidden });
+    expect(hidden).not.toBeChecked();
+    await user.click(hidden);
+    await user.click(within(dialog).getByRole('button', { name: en.metrics.copySubmit }));
+
+    expect(lastBody()).toEqual({ source_metric_id: 'metric-open-bugs', hidden: true });
   });
 
   it('offers only the other board’s own metrics, retired ones marked', async () => {
@@ -664,6 +884,27 @@ describe('including a global metric', () => {
       global_metric_id: 'gm-availability',
       group_id: OPERATIONS.id,
       owner_employee_id: 'emp-bartek',
+      hidden: false,
+    });
+  });
+
+  it('includes a global metric hidden on this board', async () => {
+    // Scenario: A metric is copied or included hidden.
+    const user = userEvent.setup();
+    await renderSettings();
+
+    const { dialog, source } = await openInclude(user);
+    await user.selectOptions(source, 'gm-availability');
+    const hidden = within(dialog).getByRole('switch', { name: en.metrics.hidden });
+    expect(hidden).not.toBeChecked();
+    await user.click(hidden);
+    await user.click(within(dialog).getByRole('button', { name: en.metrics.includeSubmit }));
+
+    expect(lastBody()).toEqual({
+      global_metric_id: 'gm-availability',
+      group_id: null,
+      owner_employee_id: null,
+      hidden: true,
     });
   });
 
@@ -1253,5 +1494,318 @@ describe('the settings page follows the one button scheme', () => {
     for (const button of buttons) {
       expect(button).toHaveClass(BUTTON);
     }
+  });
+});
+
+/*
+ * A board's own metric derived from others: specs/derived-metrics, "The
+ * settings page edits a derivation".
+ */
+describe('a metric’s derivation on the settings page', () => {
+  const CKIP = 'team-ckip';
+  const DERIVATION_TEAMS: Team[] = [
+    {
+      id: CKIP,
+      name: 'CKI-P',
+      board: { id: 'board-ckip', name: 'CKI-P', schedule: null },
+      leader: { id: 'emp-celina', email: 'celina@example.com' },
+      member_count: 1,
+    },
+    TEAMS[0]!,
+  ];
+  const OTIF = metric({ id: 'metric-otif', name: 'OTIF E', unit: '%', group: null });
+  const BPW = metric({ id: 'metric-bpw', name: 'OTIF E: BPW', unit: '%', group: null });
+  const CKBIR = metric({ id: 'metric-ckbir', name: 'OTIF E: CKBiR', unit: '%', group: null });
+  const OTIF_ETAP = metric({ id: 'metric-otif-etap', team_id: CKIP, name: 'OTIF-Etap' });
+  const platform = { id: TEAM_ID, name: 'Platform' };
+  const ckip = { id: CKIP, name: 'CKI-P' };
+
+  /** The board's metrics from `metrics`, CKI-P's own, and every team; writes answer with `write`. */
+  function serveDerivation(write: (url: string, init: RequestInit) => Response | undefined) {
+    serve(write);
+    const base = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((url: string, init: RequestInit = {}) => {
+      if ((init.method ?? 'GET') === 'GET') {
+        if (url.endsWith('/api/teams')) return Promise.resolve(jsonResponse(DERIVATION_TEAMS));
+        if (url.endsWith(`/teams/${CKIP}/metrics`)) {
+          return Promise.resolve(jsonResponse([OTIF_ETAP]));
+        }
+      }
+      return base(url, init) as Promise<Response>;
+    });
+  }
+
+  /** The settings row of a metric, by its name. */
+  function rowOf(name: string): HTMLElement {
+    const row = screen
+      .getAllByRole('listitem')
+      .find((item) => item.querySelector('span')?.textContent?.startsWith(name));
+    if (!row) throw new Error(`No row for ${name}`);
+    return row;
+  }
+
+  it('a derivation is set on the settings page', async () => {
+    // Scenario: A derivation is set on the settings page.
+    metrics = [OTIF, BPW, CKBIR];
+    serveDerivation((url, init) => {
+      if (url.endsWith('/metric-otif') && init.method === 'PATCH') {
+        metrics = [
+          {
+            ...OTIF,
+            derivation: {
+              kind: 'mean',
+              sources: [
+                { team: platform, metric: { id: BPW.id, name: BPW.name } },
+                { team: platform, metric: { id: CKBIR.id, name: CKBIR.name } },
+              ],
+            },
+          },
+          BPW,
+          CKBIR,
+        ];
+        return jsonResponse(metrics[0]);
+      }
+      return undefined;
+    });
+    const user = userEvent.setup();
+    await renderSettings();
+
+    await user.click(screen.getByRole('button', { name: 'Edit: OTIF E' }));
+    const form = within(rowOf('OTIF E'));
+    await user.selectOptions(form.getByLabelText(en.metrics.derivationKindLabel), 'mean');
+    for (const [position, name] of [
+      [1, 'OTIF E: BPW'],
+      [2, 'OTIF E: CKBiR'],
+    ] as const) {
+      await user.click(form.getByRole('button', { name: en.metrics.addSource }));
+      // A new source starts on the board's own team, its metrics loaded.
+      expect(form.getByLabelText(`Source ${position}: team`)).toHaveValue(TEAM_ID);
+      const source = form.getByLabelText(`Source ${position}: metric`);
+      await within(source).findByRole('option', { name });
+      // The metric being changed is never offered as its own source.
+      expect(within(source).queryByRole('option', { name: 'OTIF E' })).not.toBeInTheDocument();
+      await user.selectOptions(source, within(source).getByRole('option', { name }));
+    }
+    await user.click(form.getByRole('button', { name: en.metrics.save }));
+
+    const [url, init] = writes()[0] ?? [];
+    expect([url, init?.method]).toEqual([`/api/teams/${TEAM_ID}/metrics/metric-otif`, 'PATCH']);
+    expect(lastBody()).toMatchObject({
+      derivation: {
+        kind: 'mean',
+        sources: [
+          { team_id: TEAM_ID, metric_id: BPW.id },
+          { team_id: TEAM_ID, metric_id: CKBIR.id },
+        ],
+      },
+    });
+    await waitFor(() => expect(rowOf('OTIF E')).toHaveTextContent('Mean of 2 metrics'));
+    await user.click(within(rowOf('OTIF E')).getByText('Mean of 2 metrics'));
+    expect(
+      within(within(rowOf('OTIF E')).getByRole('list'))
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['OTIF E: BPW', 'OTIF E: CKBiR']);
+  });
+
+  it('a source from another team', async () => {
+    // Scenario: A source from another team.
+    const created: Metric = {
+      ...metric({ id: 'metric-ckip', name: 'OTIF E: CKI-P', unit: '%', group: null }),
+      derivation: {
+        kind: 'mean',
+        sources: [{ team: ckip, metric: { id: OTIF_ETAP.id, name: 'OTIF-Etap' } }],
+      },
+    };
+    serveDerivation((_url, init) => {
+      if (init.method === 'POST') {
+        metrics = [...metrics, created];
+        return jsonResponse(created, 201);
+      }
+      return undefined;
+    });
+    const user = userEvent.setup();
+    await renderSettings();
+
+    await user.click(screen.getByRole('button', { name: en.metrics.create }));
+    const dialog = within(screen.getByRole('dialog', { name: en.metrics.create }));
+    await user.type(dialog.getByLabelText(en.metrics.nameLabel), 'OTIF E: CKI-P');
+    await user.selectOptions(dialog.getByLabelText(en.metrics.derivationKindLabel), 'mean');
+    await user.click(dialog.getByRole('button', { name: en.metrics.addSource }));
+    const team = dialog.getByLabelText('Source 1: team');
+    // Every team, the board's own first.
+    await within(team).findByRole('option', { name: 'CKI-P' });
+    expect(optionNames(team)).toEqual([en.metrics.chooseTeam, 'Platform', 'CKI-P']);
+    await user.selectOptions(team, CKIP);
+    const source = dialog.getByLabelText('Source 1: metric');
+    await within(source).findByRole('option', { name: 'OTIF-Etap' });
+    expect(within(source).queryByRole('option', { name: 'Revenue' })).not.toBeInTheDocument();
+    await user.selectOptions(source, OTIF_ETAP.id);
+    await user.click(dialog.getByRole('button', { name: en.metrics.add }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(lastBody()).toEqual({
+      name: 'OTIF E: CKI-P',
+      unit: '',
+      decimals: 0,
+      direction: 'higher_is_better',
+      group_id: null,
+      owner_employee_id: null,
+      hidden: false,
+      derivation: { kind: 'mean', sources: [{ team_id: CKIP, metric_id: OTIF_ETAP.id }] },
+    });
+    await waitFor(() => expect(rowOf('OTIF E: CKI-P')).toHaveTextContent('Mean of 1 metric'));
+    const row = within(rowOf('OTIF E: CKI-P'));
+    await user.click(row.getByText('Mean of 1 metric'));
+    expect(row.getByRole('list')).toHaveTextContent(/^OTIF-Etap \(CKI-P\)$/);
+  });
+
+  it('a viewer who may not configure the board', async () => {
+    // Scenario: A viewer who may not configure the board.
+    metrics = [
+      {
+        ...OTIF,
+        derivation: {
+          kind: 'mean',
+          sources: [
+            { team: platform, metric: { id: BPW.id, name: BPW.name } },
+            { team: ckip, metric: { id: OTIF_ETAP.id, name: 'OTIF-Etap' } },
+          ],
+        },
+      },
+      BPW,
+    ];
+    serveDerivation(() => undefined);
+    const user = userEvent.setup();
+    await renderSettings('en', { email: MEMBER });
+
+    const row = within(rowOf('OTIF E'));
+    expect(rowOf('OTIF E')).toHaveTextContent('Mean of 2 metrics');
+    await user.click(row.getByText('Mean of 2 metrics'));
+    expect(
+      within(row.getByRole('list'))
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['OTIF E: BPW', 'OTIF-Etap (CKI-P)']);
+    expect(screen.queryByRole('button', { name: /^Edit:/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(en.metrics.derivationKindLabel)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: en.metrics.addSource })).not.toBeInTheDocument();
+  });
+
+  it('reads a derivation in Polish, a change since the previous meeting by its source', async () => {
+    metrics = [
+      {
+        ...OTIF,
+        derivation: {
+          kind: 'mean',
+          sources: [
+            { team: platform, metric: { id: BPW.id, name: BPW.name } },
+            { team: platform, metric: { id: CKBIR.id, name: CKBIR.name } },
+          ],
+        },
+      },
+      {
+        ...metric({ id: 'metric-delta', name: 'Zatrudnienie delta', group: null }),
+        derivation: {
+          kind: 'delta',
+          sources: [{ team: ckip, metric: { id: OTIF_ETAP.id, name: 'OTIF-Etap' } }],
+        },
+      },
+    ];
+    serveDerivation(() => undefined);
+    await renderSettings('pl', { email: MEMBER });
+
+    expect(rowOf('OTIF E')).toHaveTextContent('Średnia z 2 wskaźników');
+    expect(rowOf('Zatrudnienie delta')).toHaveTextContent(
+      'Zmiana od poprzedniego spotkania: OTIF-Etap (CKI-P)',
+    );
+  });
+
+  it('caps a change since the previous meeting at one source, and removes a derivation', async () => {
+    metrics = [
+      {
+        ...OTIF,
+        derivation: {
+          kind: 'sum',
+          sources: [
+            { team: platform, metric: { id: BPW.id, name: BPW.name } },
+            { team: platform, metric: { id: CKBIR.id, name: CKBIR.name } },
+          ],
+        },
+      },
+      BPW,
+      CKBIR,
+    ];
+    serveDerivation(() => undefined);
+    const user = userEvent.setup();
+    await renderSettings();
+
+    await user.click(screen.getByRole('button', { name: 'Edit: OTIF E' }));
+    let form = within(rowOf('OTIF E'));
+    // The sources are reordered, and the order is what is sent.
+    await user.click(form.getByRole('button', { name: 'Move source 2 up' }));
+    expect(form.getByLabelText('Source 1: metric')).toHaveValue(CKBIR.id);
+    await user.selectOptions(form.getByLabelText(en.metrics.derivationKindLabel), 'delta');
+    expect(form.queryByLabelText('Source 2: metric')).not.toBeInTheDocument();
+    expect(form.queryByRole('button', { name: en.metrics.addSource })).not.toBeInTheDocument();
+    expect(form.getByText(en.metrics.deltaHint)).toBeInTheDocument();
+    await user.click(form.getByRole('button', { name: en.metrics.save }));
+    expect(lastBody()).toMatchObject({
+      derivation: { kind: 'delta', sources: [{ team_id: TEAM_ID, metric_id: CKBIR.id }] },
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Edit: OTIF E' }));
+    form = within(rowOf('OTIF E'));
+    await user.selectOptions(form.getByLabelText(en.metrics.derivationKindLabel), '');
+    await user.click(form.getByRole('button', { name: en.metrics.save }));
+    expect(lastBody()).toMatchObject({ derivation: null });
+  });
+
+  it('sends nothing for a source without its metric, and shows the API’s error against a source', async () => {
+    metrics = [OTIF, BPW];
+    serveDerivation(() => errorResponse(422, 'derivation.sources[0]', 'derivation_source.self'));
+    const user = userEvent.setup();
+    await renderSettings('pl');
+
+    await user.click(screen.getByRole('button', { name: `${pl.metrics.edit}: OTIF E` }));
+    const form = within(rowOf('OTIF E'));
+    await user.selectOptions(form.getByLabelText(pl.metrics.derivationKindLabel), 'mean');
+    await user.click(form.getByRole('button', { name: pl.metrics.addSource }));
+    await user.click(form.getByRole('button', { name: pl.metrics.save }));
+    expect(writes()).toEqual([]);
+    expect(form.getByRole('alert')).toHaveTextContent(pl.metrics.derivationIncomplete);
+
+    const source = form.getByLabelText('Źródło 1: wskaźnik');
+    await within(source).findByRole('option', { name: 'OTIF E: BPW' });
+    await user.selectOptions(source, BPW.id);
+    await user.click(form.getByRole('button', { name: pl.metrics.save }));
+
+    const alert = await form.findByRole('alert');
+    expect(alert).toHaveTextContent(pl.errors['derivation_source.self']);
+    expect(alert.closest('li')).toBe(source.closest('li'));
+  });
+
+  it('says why a source cannot be deleted', async () => {
+    metrics = [BPW];
+    serveDerivation(() => errorResponse(409, null, 'metric.derivation_source'));
+    const user = userEvent.setup();
+    await renderSettings();
+
+    await user.click(screen.getByRole('button', { name: 'Delete: OTIF E: BPW' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      en.errors['metric.derivation_source'],
+    );
+  });
+
+  it('offers no derivation for an included global metric', async () => {
+    metrics = [UPTIME];
+    serveDerivation(() => undefined);
+    const user = userEvent.setup();
+    await renderSettings();
+
+    await user.click(screen.getByRole('button', { name: 'Edit placement: Uptime' }));
+    expect(screen.getByLabelText(en.metrics.ownerLabel)).toBeInTheDocument();
+    expect(screen.queryByLabelText(en.metrics.derivationKindLabel)).not.toBeInTheDocument();
   });
 });

@@ -79,6 +79,21 @@ def test_a_retired_metric_is_listed_as_retired(client: TestClient) -> None:
     assert {m["name"]: m["retired"] for m in metrics} == {"Active": False, "Retired": True}
 
 
+def test_a_hidden_metric_is_listed_as_hidden(client: TestClient) -> None:
+    """Scenario: A hidden metric is listed as hidden."""
+    team = register(client)
+    add_metric(client, team["id"], "Zatrudnienie delta")
+    hidden = add_metric(client, team["id"], "Zatrudnienie")
+    client.patch(f"/teams/{team['id']}/metrics/{hidden['id']}", json={"hidden": True})
+
+    metrics = metrics_of(client, team["id"])
+
+    assert [(m["name"], m["hidden"], m["retired"]) for m in metrics] == [
+        ("Zatrudnienie delta", False, False),
+        ("Zatrudnienie", True, False),
+    ]
+
+
 def test_own_and_global_metrics_are_listed_together(
     client: TestClient, session: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:

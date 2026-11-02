@@ -32,3 +32,26 @@ def test_recording_is_partly_done(client: TestClient, monkeypatch: pytest.Monkey
         {"metric_id": owned["id"], "name": "Owned", "owner": {"id": owner, "email": OWNER}},
         {"metric_id": unowned["id"], "name": "Unowned", "owner": None},
     ]
+
+
+def test_a_hidden_metric_counts_towards_completeness(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scenario: A hidden metric counts towards completeness."""
+    freeze_today(monkeypatch)
+    team = register(client)
+    meeting = open_meeting(client, team["id"], "2026-10-14")
+    for name in ("Revenue", "Costs", "Margin"):
+        shown = add_metric(client, team["id"], name)
+        record(client, team["id"], meeting["id"], shown["id"], value="1")
+    hidden = add_metric(client, team["id"], "Zatrudnienie", hidden=True)
+
+    board = board_of(client, team["id"], meeting["id"])
+
+    completeness = board["completeness"]
+    assert (completeness["recorded"], completeness["total"]) == (3, 4)
+    assert completeness["missing"] == [
+        {"metric_id": hidden["id"], "name": "Zatrudnienie", "owner": None}
+    ]
+    # The board still returns it, marked, for the recording view to list.
+    assert [m["metric"]["hidden"] for m in board["metrics"]].count(True) == 1

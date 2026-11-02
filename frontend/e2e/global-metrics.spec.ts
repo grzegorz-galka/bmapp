@@ -59,14 +59,22 @@ test('a global metric is defined, included in a board and recorded there', async
     name: caption(en.metrics.thresholdHeading, { name }),
   });
   await dialog.getByLabel(en.metrics.effectiveFromLabel).fill('2026-01-01');
-  await dialog.getByLabel(en.metrics.greenFrom, { exact: true }).fill('99');
-  await dialog.getByLabel(en.metrics.amberFrom, { exact: true }).fill('95');
+  // A target value with tolerances: green from 99 %, amber from 95 %.
+  await dialog.getByLabel(en.metrics.targetValueLabel, { exact: true }).fill('100');
+  await dialog.getByLabel(en.metrics.greenPctLabel, { exact: true }).fill('1');
+  await dialog.getByLabel(en.metrics.amberPctLabel, { exact: true }).fill('5');
+  await expect(dialog).toContainText(
+    caption(en.metrics.preview, {
+      threshold: caption(en.threshold.higher_is_better, { green: '99.0 %', amber: '95.0 %' }),
+    }),
+  );
   await dialog.getByLabel(en.metrics.reasonLabel).fill('Company plan');
   await dialog.getByRole('button', { name: en.metrics.recordThreshold }).click();
   await expect(dialog).toBeHidden();
-  const threshold = caption(en.threshold.higher_is_better, {
-    green: '99.0 %',
-    amber: '95.0 %',
+  const threshold = caption(en.threshold.target_higher_is_better, {
+    target: '100.0 %',
+    green: '1',
+    amber: '5',
   });
   await expect(row).toContainText(threshold);
 

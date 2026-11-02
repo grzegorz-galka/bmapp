@@ -349,6 +349,11 @@ export const en = {
     higher_is_better: 'Green from {{green}}, amber from {{amber}}',
     lower_is_better: 'Green up to {{green}}, amber up to {{amber}}',
     within_band: 'Green {{greenLo}} to {{greenHi}}, amber {{amberLo}} to {{amberHi}}',
+    // A version with a target value: its tolerances, signed by the side that
+    // is worse - short of it, over it, or either way for a band.
+    target_higher_is_better: 'Target value {{target}} · green −{{green}}% · amber −{{amber}}%',
+    target_lower_is_better: 'Target value {{target}} · green +{{green}}% · amber +{{amber}}%',
+    target_within_band: 'Target value {{target}} · green ±{{green}}% · amber ±{{amber}}%',
     none: 'No threshold',
     effectiveFrom: 'Effective from {{date}}',
   },
@@ -438,6 +443,15 @@ export const en = {
     saving: 'Saving…',
     notANumber: 'Enter a number, such as {{example}}.',
     readOnly: 'This meeting can no longer be edited, so its values are shown read-only.',
+    // A derived metric's number, worked out from its sources and then saved as typed.
+    derive: 'Derive',
+    deriveLabel: 'Derive: {{name}}',
+    deriving: 'Deriving…',
+    derivedNote_mean: 'Mean of {{n}}: {{values}}',
+    derivedNote_sum: 'Sum of {{n}}: {{values}}',
+    derivedNote_delta: 'Change: {{value}} on {{date}} minus {{previous}} on {{previousDate}}',
+    sourceMissing: '{{name}} has no number for that week.',
+    previousMissing: '{{name}} has no number at its team’s previous meeting.',
   },
   detail: {
     close: 'Close',
@@ -484,6 +498,11 @@ export const en = {
     saving: 'Saving…',
     cancel: 'Cancel',
     retired: 'Retired',
+    // A metric recorded and counted at every meeting, but given no tile on the board.
+    hiddenMark: 'Hidden',
+    hidden: 'Hidden on board',
+    hiddenLabel: 'Hidden on board: {{name}}',
+    hiddenHint: 'It is still recorded and counted, but the board shows no tile for it.',
     owner: 'Owner: {{email}}',
     decimals: 'Decimals: {{count}}',
     // The captions repeat on every row; the labels name the metric too, and
@@ -508,6 +527,17 @@ export const en = {
     amberUpTo: 'Amber up to',
     greenTo: 'Green to',
     amberTo: 'Amber to',
+    targetValueLabel: 'Target value',
+    greenPctLabel: 'Green tolerance (%)',
+    amberPctLabel: 'Amber tolerance (%)',
+    toleranceHint_higher_is_better:
+      'Tolerances are per cent of the target value that a value may fall short of it.',
+    toleranceHint_lower_is_better:
+      'Tolerances are per cent of the target value that a value may go over it.',
+    toleranceHint_within_band:
+      'Tolerances are per cent of the target value that a value may be off it either way.',
+    boundsHint: 'A target value of 0 has no share to take, so give the boundaries instead.',
+    preview: 'Amounts to: {{threshold}}',
     reasonLabel: 'Reason',
     recordThreshold: 'Record threshold',
     // A global metric: one definition from the company-wide catalogue, placed
@@ -564,6 +594,35 @@ export const en = {
     moveGroupDownLabel: 'Move group down: {{name}}',
     metricMoved: '{{name}} moved to {{group}}, position {{position}} of {{count}}.',
     groupMoved: 'Group {{name}} moved to position {{position}} of {{count}}.',
+    // A board's own metric worked out from other metrics in the same week.
+    derivationHeading: 'Derivation',
+    derivationKindLabel: 'Derived as',
+    derivationNone: 'Not derived',
+    kind_mean: 'Mean',
+    kind_sum: 'Sum',
+    kind_delta: 'Change since previous meeting',
+    derivationHint:
+      '“Derive” in the recording view works the number out from the sources’ numbers in the same week. It is then saved as a typed number.',
+    deltaHint: 'A change since the previous meeting takes exactly one source.',
+    sourcesLabel: 'Sources',
+    sourceTeamLabel: 'Source {{position}}: team',
+    sourceMetricLabel: 'Source {{position}}: metric',
+    addSource: 'Add source',
+    removeSource: 'Remove',
+    removeSourceLabel: 'Remove source {{position}}',
+    sourceUpLabel: 'Move source {{position}} up',
+    sourceDownLabel: 'Move source {{position}} down',
+    derivationIncomplete: 'Choose a metric for every source.',
+    sourceOfTeam: '{{metric}} ({{team}})',
+    derived_mean_one: 'Mean of {{count}} metric',
+    derived_mean_few: 'Mean of {{count}} metrics',
+    derived_mean_many: 'Mean of {{count}} metrics',
+    derived_mean_other: 'Mean of {{count}} metrics',
+    derived_sum_one: 'Sum of {{count}} metric',
+    derived_sum_few: 'Sum of {{count}} metrics',
+    derived_sum_many: 'Sum of {{count}} metrics',
+    derived_sum_other: 'Sum of {{count}} metrics',
+    derived_delta: 'Change since previous meeting of {{source}}',
   },
   globalMetrics: {
     heading: 'Global metrics',
@@ -701,6 +760,7 @@ export const en = {
     'metric.has_values': 'Values are recorded for this metric. Retire it instead of deleting it.',
     'threshold.order_invalid': 'The amber zone must include the green zone.',
     'threshold_reason.blank': 'Give a reason for the threshold.',
+    'threshold_tolerance.negative': 'A tolerance cannot be below 0.',
     'metric_value.out_of_range':
       'A value must be under 1,000,000,000,000,000 and have at most 6 decimal places.',
     'metric_value.comment_required': 'A colour set by hand needs a comment.',
@@ -708,6 +768,16 @@ export const en = {
     'metric_value_reason.blank': 'Give a reason for the correction.',
     'global_metric.read_only':
       'A global metric’s definition and thresholds are set in the catalogue of global metrics, not on a board.',
+    'derivation.source_count':
+      'A mean or a sum takes one or more sources; a change since the previous meeting takes exactly one.',
+    'derivation_source.not_found': 'This metric is not on the chosen team’s board.',
+    'derivation_source.self': 'A metric cannot be derived from itself.',
+    'derivation_source.duplicate': 'This source is already in the list.',
+    'metric.derivation_source':
+      'Another metric on this board is derived from this one. Change that derivation first.',
+    'derivation.source_missing': 'A source has no number for that week.',
+    'derivation.previous_missing': 'The source has no number at its team’s previous meeting.',
+    'derivation.none': 'This metric is not derived.',
     'global_metric.already_included': 'This board already includes this global metric.',
     'metric_copy.source_global':
       'A global metric cannot be copied. Include it in the board instead.',
