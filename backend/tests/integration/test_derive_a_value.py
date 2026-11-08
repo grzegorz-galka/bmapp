@@ -66,6 +66,98 @@ def test_a_sum(client: TestClient, team: str) -> None:
     ]
 
 
+def _weighted_mean(
+    client: TestClient,
+    team: str,
+    meeting: dict[str, Any],
+    name: str,
+    weights: list[str],
+    numbers: list[str],
+) -> tuple[Any, list[str]]:
+    """A weighted mean of new metrics, with these numbers recorded at the meeting.
+
+    Returns the derived metric and its sources' ids in order.
+    """
+    units = [add_metric(client, team, f"{name}: {unit}")["id"] for unit in UNITS[: len(weights)]]
+    metric = derived_metric(
+        client,
+        team,
+        name,
+        "weighted_mean",
+        *((team, unit, weight) for unit, weight in zip(units, weights, strict=True)),
+    )
+    for unit, number in zip(units, numbers, strict=True):
+        record(client, team, meeting["id"], unit, value=number)
+    return metric, units
+
+
+def test_a_weighted_mean(client: TestClient, team: str) -> None:
+    """Scenario: A weighted mean."""
+    meeting = open_meeting(client, team, "2026-10-14")
+    otif, _ = _weighted_mean(client, team, meeting, "OTIF E", ["3", "1", "1"], ["90", "97", "87"])
+
+    result = derived(client, team, meeting["id"], otif["id"])
+
+    assert (result["value"], result["kind"]) == ("90.8", "weighted_mean")
+    assert [
+        (s["metric"]["name"], s["date"], s["value"], s["weight"], s["previous"])
+        for s in result["sources"]
+    ] == [
+        (f"OTIF E: {unit}", "2026-10-14", number, weight, None)
+        for unit, number, weight in zip(UNITS, ["90", "97", "87"], ["3", "1", "1"], strict=False)
+    ]
+    assert tile(board_of(client, team, meeting["id"]), otif["id"])["value"] is None
+
+
+def test_a_weighted_mean_is_rounded_half_to_even(client: TestClient, team: str) -> None:
+    """Scenario: A weighted mean is rounded half to even."""
+    meeting = open_meeting(client, team, "2026-10-14")
+    metric, _ = _weighted_mean(client, team, meeting, "Weighted", ["1", "2"], ["10", "20"])
+
+    result = derived(client, team, meeting["id"], metric["id"])
+
+    assert result["value"] == "16.666667"
+
+
+def test_weights_need_not_add_up_to_one(client: TestClient, team: str) -> None:
+    """Scenario: Weights need not add up to one."""
+    numbers = ["90", "97", "87"]
+    meeting = open_meeting(client, team, "2026-10-14")
+    fractions, _ = _weighted_mean(
+        client, team, meeting, "Fractions", ["0.6", "0.2", "0.2"], numbers
+    )
+    wholes, _ = _weighted_mean(client, team, meeting, "Wholes", ["3", "1", "1"], numbers)
+
+    by_fractions = derived(client, team, meeting["id"], fractions["id"])
+    by_wholes = derived(client, team, meeting["id"], wholes["id"])
+
+    assert by_fractions["value"] == by_wholes["value"] == "90.8"
+
+
+def test_a_weighted_mean_with_a_source_missing_is_refused(client: TestClient, team: str) -> None:
+    """Scenario: A weighted mean with a source missing is refused."""
+    meeting = open_meeting(client, team, "2026-10-14")
+    _, (first, _, third) = _weighted_mean(
+        client, team, meeting, "OTIF E", ["3", "1", "1"], ["90", "97", "87"]
+    )
+    unrecorded = add_metric(client, team, "Unrecorded")
+    gap = derived_metric(
+        client,
+        team,
+        "With a gap",
+        "weighted_mean",
+        (team, first, "3"),
+        (team, unrecorded["id"], "1"),
+        (team, third, "1"),
+    )
+
+    response = derive(client, team, meeting["id"], gap["id"])
+
+    assert response.status_code == 409
+    assert errors_of(response) == [("sources[1]", "derivation.source_missing")]
+    assert tile(board_of(client, team, meeting["id"]), gap["id"])["value"] is None
+
+
 def test_a_delta(client: TestClient, team: str) -> None:
     """Scenario: A delta."""
     headcount = add_metric(client, team, "Zatrudnienie")

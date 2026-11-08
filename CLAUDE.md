@@ -67,7 +67,7 @@ Glossary (use these exact terms in code, UI and tests):
 - **Global metric** (*wskaźnik globalny*) — a metric defined once by an administrator in the company-wide catalogue at `/global-metrics`, with its thresholds, and **included** in any number of boards. A board sets only its placement (group, position, owner, hidden) and may remove or retire it there; its definition and thresholds are read-only on the board. Each team still records its own values for it. A board's own metric can be **copied** onto another board with its thresholds; the copy is independent.
 - **Threshold** (*próg*) — one version of what green and amber mean for a metric, from an effective date on, with a reason. Versions are append-only and may be back-dated; a value is judged against the version in force on its meeting's date. A version carries a **target value** and green and amber **tolerances** (*tolerancja*) in per cent of it; only the worse side counts (falling short, going over, or either way for a band). A target value of 0 takes absolute boundaries instead. Versions recorded before target values existed have none and are read as boundaries. `bounds_of` resolves a version into boundaries; `status_of` judges against them.
 - **Target value** (*wartość docelowa*) — the number a metric aims at from a threshold version's effective date, e.g. 72.3 for utilisation. Code `target_value`. Not a **Target**.
-- **Derived metric** (*wskaźnik wyliczany*) — a board's own metric whose number "Derive" in the recording view works out from other metrics in the same ISO week, on the same team or others: a `mean`, a `sum`, or a `delta` (the change since the source team's previous meeting, never reaching further back). The result is saved as an ordinary value of the meeting, a snapshot; it is never computed when read. Global metrics are never derived but may be sources.
+- **Derived metric** (*wskaźnik wyliczany*) — a board's own metric whose number "Derive" in the recording view works out from other metrics in the same ISO week, on the same team or others: a `mean`, a `sum`, a `weighted_mean` (each source with a weight above 0, the weights need not add up to 1), or a `delta` (the change since the source team's previous meeting, never reaching further back). The result is saved as an ordinary value of the meeting, a snapshot; it is never computed when read. Global metrics are never derived but may be sources.
 - **Metric value** — one number, recorded at one meeting, for one metric. Its date is the meeting's date; it has none of its own. It may carry a comment and a **colour set by hand**, which needs the comment.
 - **Status** — green, amber, red, no data or no threshold. Computed when read by `status_of`, never stored; boundaries count as the better zone.
 - **Target** — a declaration in prose, *not* a numeric range: what the company or the team is aiming at. Company-wide targets appear on every board; a team may add **custom targets**. A colour never comes from a target — only from the metric's threshold, whose number is a **target value**, a different thing.
@@ -325,7 +325,12 @@ file, verified against every recorded value's status (see README).
 settings page, and the recording view's "Derive" fills and saves its number
 from `GET …/meetings/:meetingId/metrics/:metricId/derivation`, naming each
 missing source instead when one has no number that week. A metric that is a
-source cannot be deleted, nor an included global source removed.
+source cannot be deleted, nor an included global source removed. The metric
+detail of a derived metric has a collapsed "Sources" section that derives the
+shown meeting's number again, recording nothing, and says when it no longer
+matches the recorded one. The recording view lists the metrics under their
+groups at the board's full width, without the problems and tasks column, each
+row's message on a line of its own under it.
 
 `pulse-check` is implemented: each member answers the weekly pulse check for a
 meeting (`PUT …/meetings/:meetingId/pulse/me`, only ever one's own answer), and

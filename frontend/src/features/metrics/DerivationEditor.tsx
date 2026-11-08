@@ -9,10 +9,10 @@ import {
   DERIVATION_KINDS,
   type Derivation,
   type DerivationKind,
-  type DerivationSourceWrite,
   type DerivationWrite,
 } from '../../api/metrics';
 import { describeFieldFailure } from '../../i18n/apiErrors';
+import { useFormat } from '../../i18n/format';
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -27,33 +27,84 @@ import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
 import styles from './metrics.module.css';
 
+/**
+ * One source as the editor holds it. `weight` is the field's text as typed, in
+ * the active language's format, and is there only on a weighted mean's source.
+ */
+export interface DerivationSourceDraft {
+  team_id: string;
+  metric_id: string;
+  weight?: string;
+}
+
 /** What the editor holds: no kind for a metric that is typed in. */
 export interface DerivationDraft {
   kind: DerivationKind | null;
-  sources: DerivationSourceWrite[];
+  sources: DerivationSourceDraft[];
+}
+
+/** Reading and writing a weight in the active language: `useFormat()` provides both. */
+export interface DecimalText {
+  parseDecimal: (text: string) => string | null;
+  editableDecimal: (value: string | null) => string;
 }
 
 export const NO_DERIVATION: DerivationDraft = { kind: null, sources: [] };
 
-export function toDerivationDraft(derivation: Derivation | null): DerivationDraft {
+/** The weight a weighted mean's new source starts at: every source counts alike. */
+const FIRST_WEIGHT = '1';
+
+export function toDerivationDraft(
+  derivation: Derivation | null,
+  numbers: DecimalText,
+): DerivationDraft {
   if (!derivation) return NO_DERIVATION;
+  const weighted = derivation.kind === 'weighted_mean';
   return {
     kind: derivation.kind,
     sources: derivation.sources.map((source) => ({
       team_id: source.team.id,
       metric_id: source.metric.id,
+      ...(weighted ? { weight: numbers.editableDecimal(source.weight ?? FIRST_WEIGHT) } : {}),
     })),
   };
 }
 
-/** The request's form of a draft: null for none. */
-export function toDerivationWrite(draft: DerivationDraft): DerivationWrite | null {
-  return draft.kind === null ? null : { kind: draft.kind, sources: draft.sources };
+/**
+ * The request's form of a draft: null for none. A weight goes as the canonical
+ * decimal, and only on a weighted mean; one that cannot be read is held back
+ * by `hasUnreadableWeight` before this is sent.
+ */
+export function toDerivationWrite(
+  draft: DerivationDraft,
+  numbers: DecimalText,
+): DerivationWrite | null {
+  if (draft.kind === null) return null;
+  const weighted = draft.kind === 'weighted_mean';
+  return {
+    kind: draft.kind,
+    sources: draft.sources.map(({ team_id, metric_id, weight = '' }) => ({
+      team_id,
+      metric_id,
+      ...(weighted ? { weight: numbers.parseDecimal(weight) ?? weight } : {}),
+    })),
+  };
 }
 
 /** A source still waiting for its metric to be chosen; it cannot be sent. */
 export function isIncomplete(draft: DerivationDraft): boolean {
   return draft.kind !== null && draft.sources.some((source) => source.metric_id === '');
+}
+
+/**
+ * A weighted mean's weight that is not a number at all. A number of 0 or less
+ * is sent, and the API says why it is refused.
+ */
+export function hasUnreadableWeight(draft: DerivationDraft, numbers: DecimalText): boolean {
+  return (
+    draft.kind === 'weighted_mean' &&
+    draft.sources.some((source) => numbers.parseDecimal(source.weight ?? '') === null)
+  );
 }
 
 /** The fields the API reports a derivation's errors against. */
@@ -62,7 +113,10 @@ export function derivationFields(draft: DerivationDraft): string[] {
     'derivation',
     'derivation.kind',
     'derivation.sources',
-    ...draft.sources.map((_, index) => `derivation.sources[${index}]`),
+    ...draft.sources.flatMap((_, index) => [
+      `derivation.sources[${index}]`,
+      `derivation.sources[${index}].weight`,
+    ]),
   ];
 }
 
@@ -77,10 +131,15 @@ export function sourceName(
     : t('metrics.sourceOfTeam', { metric: source.metric.name, team: source.team.name });
 }
 
-/** A delta takes one source; anything past it is dropped. */
+/**
+ * A delta takes one source; anything past it is dropped. A weighted mean gives
+ * every source without a weight the first one, and any other kind drops them.
+ */
 function withKind(draft: DerivationDraft, kind: DerivationKind | null): DerivationDraft {
-  if (kind === null) return { ...draft, kind };
-  const sources = kind === 'delta' ? draft.sources.slice(0, 1) : draft.sources;
+  const kept = kind === 'delta' ? draft.sources.slice(0, 1) : draft.sources;
+  const sources = kept.map(({ weight, ...source }) =>
+    kind === 'weighted_mean' ? { ...source, weight: weight ?? FIRST_WEIGHT } : source,
+  );
   return { kind, sources };
 }
 
@@ -94,7 +153,8 @@ function moved<T>(items: T[], from: number, to: number): T[] {
 /**
  * The kind, then the ordered sources, each a team and then a metric of that
  * team's board. `metricId` is the metric being changed, never offered as its
- * own source; `incomplete` says a source was left without its metric.
+ * own source; `stopped` says a save was held back by the editor's own checks:
+ * a source without its metric, or a weight that is not a number.
  */
 export function DerivationEditor({
   idPrefix,
@@ -103,7 +163,7 @@ export function DerivationEditor({
   value,
   onChange,
   error,
-  incomplete,
+  stopped,
 }: {
   idPrefix: string;
   teamId: string;
@@ -111,9 +171,11 @@ export function DerivationEditor({
   value: DerivationDraft;
   onChange: (draft: DerivationDraft) => void;
   error: Error | null;
-  incomplete: boolean;
+  stopped: boolean;
 }) {
   const { t } = useTranslation();
+  const format = useFormat();
+  const weighted = value.kind === 'weighted_mean';
   const id = (field: string) => `${idPrefix}-derivation-${field}`;
   const kindError =
     describeFieldFailure(t, error, 'derivation') ??
@@ -121,7 +183,7 @@ export function DerivationEditor({
   const countError = describeFieldFailure(t, error, 'derivation.sources');
   const full = value.kind === 'delta' && value.sources.length >= 1;
 
-  function setSource(index: number, source: DerivationSourceWrite) {
+  function setSource(index: number, source: DerivationSourceDraft) {
     onChange({ ...value, sources: value.sources.map((s, i) => (i === index ? source : s)) });
   }
 
@@ -176,6 +238,13 @@ export function DerivationEditor({
                 }
                 onMove={(to) => onChange({ ...value, sources: moved(value.sources, index, to) })}
                 error={describeFieldFailure(t, error, `derivation.sources[${index}]`)}
+                weightError={
+                  !weighted
+                    ? undefined
+                    : stopped && format.parseDecimal(source.weight ?? '') === null
+                      ? t('metrics.weightUnreadable', { example: format.exactDecimal('0.5') })
+                      : describeFieldFailure(t, error, `derivation.sources[${index}].weight`)
+                }
               />
             ))}
           </ol>
@@ -188,7 +257,14 @@ export function DerivationEditor({
                 onClick={() =>
                   onChange({
                     ...value,
-                    sources: [...value.sources, { team_id: teamId, metric_id: '' }],
+                    sources: [
+                      ...value.sources,
+                      {
+                        team_id: teamId,
+                        metric_id: '',
+                        ...(weighted ? { weight: FIRST_WEIGHT } : {}),
+                      },
+                    ],
                   })
                 }
               >
@@ -202,7 +278,7 @@ export function DerivationEditor({
               {countError}
             </p>
           )}
-          {incomplete && (
+          {stopped && isIncomplete(value) && (
             <p role="alert" className={teamStyles.error}>
               {t('metrics.derivationIncomplete')}
             </p>
@@ -213,7 +289,10 @@ export function DerivationEditor({
   );
 }
 
-/** One source: every team, the board's own first, then that team's placed metrics. */
+/**
+ * One source: every team, the board's own first, then that team's placed
+ * metrics, and on a weighted mean the source's weight.
+ */
 function SourceRow({
   idPrefix,
   position,
@@ -225,17 +304,19 @@ function SourceRow({
   onRemove,
   onMove,
   error,
+  weightError,
 }: {
   idPrefix: string;
   position: number;
   count: number;
   teamId: string;
   metricId?: string;
-  source: DerivationSourceWrite;
-  onChange: (source: DerivationSourceWrite) => void;
+  source: DerivationSourceDraft;
+  onChange: (source: DerivationSourceDraft) => void;
   onRemove: () => void;
   onMove: (to: number) => void;
   error: string | undefined;
+  weightError: string | undefined;
 }) {
   const { t } = useTranslation();
   const teams = useTeams();
@@ -257,7 +338,7 @@ function SourceRow({
         className={`${meetingStyles.select} ${styles.sourceSelect}`}
         aria-label={t('metrics.sourceTeamLabel', { position })}
         value={source.team_id}
-        onChange={(event) => onChange({ team_id: event.target.value, metric_id: '' })}
+        onChange={(event) => onChange({ ...source, team_id: event.target.value, metric_id: '' })}
       >
         <option value="">{t('metrics.chooseTeam')}</option>
         {ordered.map((team) => (
@@ -282,6 +363,17 @@ function SourceRow({
           </option>
         ))}
       </select>
+      {source.weight !== undefined && (
+        <input
+          id={`${idPrefix}-weight`}
+          className={`${teamStyles.input} ${styles.weight}`}
+          inputMode="decimal"
+          aria-label={t('metrics.sourceWeightLabel', { position })}
+          value={source.weight}
+          aria-invalid={weightError !== undefined}
+          onChange={(event) => onChange({ ...source, weight: event.target.value })}
+        />
+      )}
       <span className={teamStyles.actions}>
         {index > 0 ? (
           <button
@@ -324,6 +416,11 @@ function SourceRow({
           {error}
         </p>
       )}
+      {weightError && (
+        <p role="alert" className={teamStyles.error}>
+          {weightError}
+        </p>
+      )}
     </li>
   );
 }
@@ -342,7 +439,14 @@ export function DerivationReading({
   idPrefix: string;
 }) {
   const { t } = useTranslation();
-  const names = derivation.sources.map((source) => sourceName(t, source, teamId));
+  const format = useFormat();
+  // A weighted mean's sources read with their weights; no other kind has one.
+  const names = derivation.sources.map((source) => {
+    const name = sourceName(t, source, teamId);
+    return derivation.kind === 'weighted_mean' && source.weight != null
+      ? t('metrics.sourceWithWeight', { source: name, weight: format.exactDecimal(source.weight) })
+      : name;
+  });
   const listId = `${idPrefix}-sources`;
 
   // A change since the previous meeting has one source, named in the reading itself.

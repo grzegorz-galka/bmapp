@@ -13,6 +13,7 @@ import { en } from '../../i18n/en';
 import { pl } from '../../i18n/pl';
 import type { Language } from '../../i18n/languages';
 import controls from '../../styles/controls.module.css';
+import styles from './board.module.css';
 import type { BoardMetric } from '../../api/metrics';
 import {
   board,
@@ -849,6 +850,29 @@ describe('the recording view has its own address', () => {
     expect(
       screen.queryByRole('region', { name: /Values at the meeting on/ }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe('the problems and tasks column is wider', () => {
+  // jsdom lays nothing out: the widths are pinned by the stylesheet and the
+  // e2e suite, and here by which grid the board draws.
+  const LAYOUT = styles.layout!;
+
+  it('The recording view takes the full width', async () => {
+    const user = userEvent.setup();
+    await renderBoard();
+    const lists = await screen.findByRole('complementary', { name: en.items.listsLabel });
+    expect(lists.parentElement).toHaveClass(LAYOUT);
+
+    await user.click(screen.getByRole('button', { name: en.board.record }));
+
+    const view = await screen.findByRole('region', { name: /Values at the meeting on/ });
+    expect(
+      screen.queryByRole('complementary', { name: en.items.listsLabel }),
+    ).not.toBeInTheDocument();
+    // No two-column grid around the listing: its column is the board's width.
+    expect(view.closest(`.${LAYOUT}`)).toBeNull();
+    expect(document.querySelector(`.${LAYOUT}`)).toBeNull();
   });
 });
 

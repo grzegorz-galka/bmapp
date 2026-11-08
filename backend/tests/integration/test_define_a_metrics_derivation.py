@@ -12,6 +12,7 @@ from tests.integration.derivations_api import (
     errors_of,
     named_sources,
     set_derivation,
+    weights_of,
 )
 from tests.integration.meetings_api import open_meeting
 from tests.integration.metrics_api import (
@@ -62,6 +63,8 @@ def test_a_mean_of_six_metrics(
     assert named_sources(read) == [("Zarząd", f"OTIF E: {unit}") for unit in UNITS]
     assert [s["metric"]["id"] for s in read["derivation"]["sources"]] == units
     assert {s["team"]["id"] for s in read["derivation"]["sources"]} == {zarzad}
+    # Only a weighted mean's sources carry a weight.
+    assert weights_of(read) == [None] * len(UNITS)
     [listed] = [m for m in metrics_of(client, zarzad) if m["id"] == otif["id"]]
     assert listed["derivation"] == read["derivation"]
     meeting = open_meeting(client, zarzad, "2026-10-14")
@@ -105,6 +108,38 @@ def test_a_metric_added_with_a_derivation(
     assert listed == added
 
 
+def test_a_weighted_mean_of_three_metrics(
+    client: TestClient, client_as: Callable[[str], TestClient], zarzad: str
+) -> None:
+    """Scenario: A weighted mean of three metrics."""
+    names = ["BPW", "CKBiR", "CKI-S"]
+    units = [add_metric(client, zarzad, f"OTIF E: {unit}")["id"] for unit in names]
+    otif = add_metric(client, zarzad, "OTIF E")
+
+    response = set_derivation(
+        client_as(LEADER),
+        zarzad,
+        otif["id"],
+        derivation(
+            "weighted_mean",
+            *((zarzad, unit, weight) for unit, weight in zip(units, ["3", "1", "1"], strict=True)),
+        ),
+    )
+
+    assert response.status_code == 200, response.json()
+    read = response.json()
+    assert read["derivation"]["kind"] == "weighted_mean"
+    assert named_sources(read) == [("Zarząd", f"OTIF E: {unit}") for unit in names]
+    assert weights_of(read) == ["3", "1", "1"]
+    [listed] = [m for m in metrics_of(client, zarzad) if m["id"] == otif["id"]]
+    assert listed["derivation"] == read["derivation"]
+    meeting = open_meeting(client, zarzad, "2026-10-14")
+    assert (
+        tile(board_of(client, zarzad, meeting["id"]), otif["id"])["metric"]["derivation"]
+        == read["derivation"]
+    )
+
+
 def test_a_derivation_is_removed(client: TestClient, zarzad: str) -> None:
     """Scenario: A derivation is removed."""
     source = add_metric(client, zarzad, "Orders")
@@ -143,7 +178,10 @@ def test_a_derivation_is_changed(client: TestClient, zarzad: str) -> None:
     assert [p["value"] for p in trend_of(client, zarzad, total["id"])["points"]] == ["12"]
 
 
-@pytest.mark.parametrize(("kind", "count"), [("delta", 2), ("delta", 0), ("mean", 0), ("sum", 0)])
+@pytest.mark.parametrize(
+    ("kind", "count"),
+    [("delta", 2), ("delta", 0), ("mean", 0), ("sum", 0), ("weighted_mean", 0)],
+)
 def test_wrong_number_of_sources(client: TestClient, zarzad: str, kind: str, count: int) -> None:
     """Scenario: Wrong number of sources."""
     first = add_metric(client, zarzad, "First")

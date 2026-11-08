@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from tests.integration.derivations_api import derive, derived_metric, errors_of
+from tests.integration.derivations_api import derive, derived_metric, errors_of, weighted
 from tests.integration.global_metrics_seed import include, seed_global_metric
 from tests.integration.meetings_api import open_meeting
 from tests.integration.metrics_api import add_metric, freeze_today, metrics_of, record
@@ -22,12 +22,20 @@ def team(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> str:
     return str(register(client, "Zarząd", LEADER)["id"])
 
 
+@pytest.mark.parametrize("kind", ["delta", "weighted_mean"])
 def test_deleting_a_source_is_refused(
-    client: TestClient, client_as: Callable[[str], TestClient], team: str
+    client: TestClient, client_as: Callable[[str], TestClient], team: str, kind: str
 ) -> None:
     """Scenario: Deleting a source is refused."""
     source = add_metric(client, team, "Zatrudnienie")
-    delta = derived_metric(client, team, "Zatrudnienie delta", "delta", (team, source["id"]))
+    pair = (team, source["id"])
+    delta = derived_metric(
+        client,
+        team,
+        "Zatrudnienie delta",
+        kind,
+        *(weighted(pair) if kind == "weighted_mean" else [pair]),
+    )
     before = metrics_of(client, team)
 
     response = client_as(LEADER).delete(f"/teams/{team}/metrics/{source['id']}")
@@ -84,11 +92,19 @@ def test_a_retired_source_leaves_the_derivation_missing_a_number(
     assert errors_of(response) == [("sources[1]", "derivation.source_missing")]
 
 
-def test_a_copy_has_no_derivation(client: TestClient, team: str) -> None:
+@pytest.mark.parametrize("kind", ["sum", "weighted_mean"])
+def test_a_copy_has_no_derivation(client: TestClient, team: str, kind: str) -> None:
     """Scenario: A copy has no derivation."""
     other = register(client, "CKI-P", "lead.ckip@pse.pl")["id"]
     source = add_metric(client, team, "Source")
-    total = derived_metric(client, team, "Total", "sum", (team, source["id"]))
+    pair = (team, source["id"])
+    total = derived_metric(
+        client,
+        team,
+        "Total",
+        kind,
+        *(weighted(pair, weight="3") if kind == "weighted_mean" else [pair]),
+    )
 
     response = client.post(f"/teams/{other}/metrics/copies", json={"source_metric_id": total["id"]})
 

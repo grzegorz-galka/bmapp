@@ -232,12 +232,17 @@ The system SHALL return a team's problems and, separately, its tasks, either the
 
 ### Requirement: The board shows the active problems and tasks
 
-The board page SHALL show, beside the metrics of the meeting shown, the team's active problems and its active tasks as two lists, in the order the system returns them. Each entry SHALL show its summary, its responsible person, its due date with an overdue mark, and its stage. Entries raised at the meeting shown SHALL be marked new, and the count of items closed at it SHALL be shown.
+The board page SHALL show, beside the tiles of the meeting shown, the team's active problems and its active tasks as two lists, in the order the system returns them. While the meeting's values are listed, recorded or corrected, the lists SHALL NOT be shown. Each entry SHALL show its summary, its responsible person, its due date with an overdue mark, and its stage. Entries raised at the meeting shown SHALL be marked new, and the count of items closed at it SHALL be shown.
 
 #### Scenario: The lists are shown
 
 - **WHEN** a team's board is opened and the team has two active problems and three active tasks
 - **THEN** both lists are shown beside the metrics, with each entry's summary, responsible person, due date and stage
+
+#### Scenario: The lists are not shown while values are listed
+
+- **WHEN** a member opens the recording view of a meeting, or a visitor lists the values of a frozen meeting, or an administrator corrects them
+- **THEN** neither the problems list nor the tasks list is shown, and leaving for the tiles shows both again
 
 #### Scenario: The overdue mark and the stage are not colour alone
 
@@ -323,7 +328,7 @@ The system SHALL log at INFO when an item is raised, when its stage changes and 
 
 ### Requirement: The board's lists can be reached from an address
 
-The system SHALL let an address of a team's board name its problems list or its tasks list, and SHALL bring the named list into view when the board is displayed.
+The system SHALL let an address of a team's board name its problems list or its tasks list, and SHALL bring the named list into view when the board is displayed. An address that names a list and also asks for the recording view SHALL display the tiles with the named list in view.
 
 #### Scenario: The tasks list is brought into view
 
@@ -334,3 +339,8 @@ The system SHALL let an address of a team's board name its problems list or its 
 
 - **WHEN** a visitor opens the address of a team's board naming its problems list
 - **THEN** the board is displayed with its problems list in view
+
+#### Scenario: A list named while the recording view is asked for
+
+- **WHEN** a visitor opens the address of a team's board asking for the recording view and naming its tasks list
+- **THEN** the board is displayed with the tiles and its tasks list in view, and the address no longer asks for the recording view

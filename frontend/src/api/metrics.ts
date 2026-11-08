@@ -82,17 +82,24 @@ export interface MetricLayout {
 
 /**
  * How a board's own metric is worked out from other metrics recorded in the
- * same ISO week: their mean, their sum, or the change of one since its team's
- * previous meeting. Deriving fills the number field; what is saved is an
- * ordinary value.
+ * same ISO week: their mean, their sum, their mean weighted per source, or the
+ * change of one since its team's previous meeting. Deriving fills the number
+ * field; what is saved is an ordinary value.
  */
-export type DerivationKind = 'mean' | 'sum' | 'delta';
-export const DERIVATION_KINDS: readonly DerivationKind[] = ['mean', 'sum', 'delta'];
+export type DerivationKind = 'mean' | 'sum' | 'weighted_mean' | 'delta';
+export const DERIVATION_KINDS: readonly DerivationKind[] = [
+  'mean',
+  'sum',
+  'weighted_mean',
+  'delta',
+];
 
 /** One source as sent: a metric on a named team's board. */
 export interface DerivationSourceWrite {
   team_id: string;
   metric_id: string;
+  /** An exact decimal greater than 0 on a `weighted_mean`'s source; absent or null otherwise. */
+  weight?: string | null;
 }
 
 /** A derivation as sent: `delta` takes exactly one source, the others one or more. */
@@ -105,6 +112,8 @@ export interface DerivationWrite {
 export interface DerivationSource {
   team: { id: string; name: string };
   metric: { id: string; name: string };
+  /** A canonical decimal on a `weighted_mean`'s source, null on any other kind. */
+  weight: string | null;
 }
 
 export interface Derivation {
@@ -278,6 +287,8 @@ export interface DerivedSource extends DerivedReading {
   team: { id: string; name: string };
   metric: { id: string; name: string };
   previous: DerivedReading | null;
+  /** The source's weight on a `weighted_mean`, null on any other kind. */
+  weight: string | null;
 }
 
 /** A derived number and the numbers it was worked out from. Nothing is recorded. */

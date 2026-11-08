@@ -105,3 +105,30 @@ def test_each_kind_computes_its_number(
     )
 
     assert result == Decimal(expected)
+
+
+@pytest.mark.parametrize(
+    ("weights", "numbers", "expected"),
+    [
+        (["3", "1", "1"], ["90", "97", "87"], "90.8"),
+        # 50/3: kept to 6 places.
+        (["1", "2"], ["10", "20"], "16.666667"),
+        # The weights need not add up to 1: these give the same as 3/1/1.
+        (["0.6", "0.2", "0.2"], ["90", "97", "87"], "90.8"),
+        # Half to even at the sixth place, as a mean: 0.0000005 down, 0.0000015 up.
+        (["1", "1"], ["0.000001", "0"], "0.000000"),
+        (["1", "1"], ["0.000003", "0"], "0.000002"),
+        (["2.5"], ["95"], "95"),
+    ],
+)
+def test_a_weighted_mean_computes_its_number(
+    weights: list[str], numbers: list[str], expected: str
+) -> None:
+    result = derive(
+        DerivationKind.WEIGHTED_MEAN,
+        [Decimal(n) for n in numbers],
+        None,
+        [Decimal(w) for w in weights],
+    )
+
+    assert result == Decimal(expected)

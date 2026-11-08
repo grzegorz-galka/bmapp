@@ -107,7 +107,8 @@ test('a member records values in Polish and sees them judged', async ({ page, re
   // however long each metric's name and unit.
   await page.setViewportSize({ width: 1280, height: 900 });
   const recording = page.getByRole('table');
-  await expect(recording.getByRole('columnheader')).toHaveCount(5);
+  // Five columns in the header row; each group's heading spans them all.
+  await expect(recording.locator('thead').getByRole('columnheader')).toHaveCount(5);
   const lefts = await Promise.all(
     ['Przychód', 'Otwarte błędy'].map(async (name) => {
       const box = await recording.getByRole('textbox', { name: `Wartość: ${name}` }).boundingBox();
@@ -277,7 +278,8 @@ test('a member derives a mean from two recorded values', async ({ page, request 
   await expect(page.getByRole('button', { name: /^Wylicz: / })).toHaveCount(1);
   await page.getByRole('button', { name: 'Wylicz: OTIF E', exact: true }).click();
   await expect(field('OTIF E')).toHaveValue('93,5');
-  await expect(row('OTIF E')).toContainText('Średnia z 2: 90 · 97');
+  // The numbers it used are the row's message, on a line of its own under it.
+  await expect(page.getByText('Średnia z 2: 90 · 97')).toBeVisible();
   await expect(row('OTIF E').getByText(pl.recording.saved)).toBeVisible();
 
   // On the board, the derived number is a value like any other, judged by its threshold.
@@ -289,4 +291,127 @@ test('a member derives a mean from two recorded values', async ({ page, request 
   await expect(tile.locator('[role="img"][tabindex="0"]')).toHaveAccessibleName(
     new RegExp(`^${pl.status.amber}\\. `),
   );
+});
+
+/*
+ * A weighted mean, in a real browser at 1280 x 800: the recording view lists
+ * the metrics under their groups at the board's full width, with no problems
+ * and tasks column, keeps a metric's threshold and previous number on one
+ * line, and keeps "Wylicz" on the number field's line. The derived value's
+ * sources are then read back in the metric detail.
+ */
+test('a member derives a weighted mean in the full-width recording view', async ({
+  page,
+  request,
+}) => {
+  const suffix = uniqueSuffix();
+  const leader = `e2e.lead.${suffix}@example.com`;
+  const member = `e2e.member.${suffix}@example.com`;
+  const today = organizationToday();
+  const admin = await apiAs(request, ADMIN_EMAIL);
+  const team = await admin.registerTeam(`E2E Weighted ${suffix}`, leader);
+  await admin.addMember(team.id, member);
+  const held = await admin.openMeeting(team.id, addDays(today, -7));
+  await admin.openMeeting(team.id, addDays(today, 3));
+  const delivery = await admin.addGroup(team.id, 'Dostawa');
+  const quality = await admin.addGroup(team.id, 'Jakość');
+  const metric = (name: string, groupId: string | null) => ({
+    name,
+    unit: '%',
+    decimals: 1,
+    direction: 'higher_is_better',
+    group_id: groupId,
+  });
+  const bpw = await admin.addMetric(team.id, metric('OTIF E: BPW', delivery.id));
+  const ckbir = await admin.addMetric(team.id, metric('OTIF E: CKBiR', delivery.id));
+  const otif = await admin.addMetric(team.id, {
+    ...metric('OTIF E', quality.id),
+    derivation: {
+      kind: 'weighted_mean',
+      sources: [
+        { team_id: team.id, metric_id: bpw.id, weight: '2' },
+        { team_id: team.id, metric_id: ckbir.id, weight: '1' },
+      ],
+    },
+  });
+  await admin.addMetric(team.id, metric('Uwagi klientów', null));
+  await admin.addThreshold(team.id, otif.id, {
+    effective_from: '2026-01-01',
+    reason: 'Plan',
+    target_value: '100',
+    green_pct: '5',
+    amber_pct: '15',
+  });
+  // A previous number, so the metric's details carry both parts.
+  await admin.recordValue(team.id, held.id, otif.id, '88.5');
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.addInitScript(
+    ([key, value]) => window.localStorage.setItem(key!, value!),
+    [LANGUAGE_STORAGE_KEY, 'pl'],
+  );
+  await signInAs(page, member);
+  await page.goto(`/teams/${team.id}`);
+  await page.getByRole('button', { name: pl.board.record }).click();
+
+  // The groups head their metrics, in the board's order, the ungrouped last.
+  const recording = page.getByRole('table');
+  await expect(recording.locator('th[scope="rowgroup"]')).toHaveText([
+    'Dostawa',
+    'Jakość',
+    pl.board.noGroup,
+  ]);
+  // No problems and tasks column: the table takes the board's width.
+  await expect(page.getByRole('complementary', { name: pl.items.listsLabel })).toHaveCount(0);
+  await expect(page.locator('[class*="_layout_"]')).toHaveCount(0);
+
+  const field = (name: string) =>
+    page.getByRole('textbox', { name: `Wartość: ${name}`, exact: true });
+  const row = (name: string) => page.getByRole('row').filter({ has: field(name) });
+  for (const [name, value] of [
+    ['OTIF E: BPW', '90'],
+    ['OTIF E: CKBiR', '96'],
+  ] as const) {
+    await field(name).fill(value);
+    await field(name).blur();
+    await expect(row(name).getByText(pl.recording.saved)).toBeVisible();
+  }
+
+  // A metric's details stay on one line: its threshold and previous number,
+  // at least 60 characters, laid out as a single line box.
+  const meta = row('OTIF E').locator('[class*="_metricMeta_"]');
+  expect(((await meta.textContent()) ?? '').length).toBeGreaterThanOrEqual(60);
+  const lines = await meta.evaluate((node) => {
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    return new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size;
+  });
+  expect(lines).toBe(1);
+
+  // "Wylicz" sits on the number field's line, not wrapped under it.
+  const derive = page.getByRole('button', { name: 'Wylicz: OTIF E', exact: true });
+  const middle = async (locator: typeof derive) => {
+    const box = await locator.boundingBox();
+    return box ? box.y + box.height / 2 : -1;
+  };
+  expect(Math.abs((await middle(derive)) - (await middle(field('OTIF E'))))).toBeLessThan(2);
+
+  // (2 x 90 + 1 x 96) / 3 = 92, saved like a typed number, the weights named.
+  await derive.click();
+  await expect(field('OTIF E')).toHaveValue(/^92(,0+)?$/);
+  await expect(page.getByText(/^Średnia ważona z 2: /)).toBeVisible();
+  await expect(row('OTIF E').getByText(pl.recording.saved)).toBeVisible();
+
+  // The detail lists the sources the value came from, with their weights.
+  await page.getByRole('button', { name: pl.board.showTiles }).click();
+  await page.getByRole('button', { name: 'Szczegóły: OTIF E', exact: true }).click();
+  const detail = page.getByRole('dialog', { name: 'OTIF E' });
+  await detail.getByText(pl.detail.sourcesHeading, { exact: true }).click();
+  const sources = detail.getByRole('table', { name: 'Źródła wskaźnika OTIF E' });
+  await expect(sources.getByRole('row')).toHaveCount(3);
+  const bpwSource = sources.getByRole('row').filter({ hasText: 'OTIF E: BPW' });
+  await expect(bpwSource.getByRole('cell')).toContainText(['E2E Weighted', '', '90', '2']);
+  await expect(detail).toContainText(/Wyliczono: 92(,0+)?\s%/);
+  // The value recorded is the one its sources give now.
+  await expect(detail).not.toContainText('Źródła zmieniły się');
 });

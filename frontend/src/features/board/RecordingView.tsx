@@ -9,11 +9,11 @@ import {
   type MeetingBoard,
   type MetricValueWrite,
 } from '../../api/metrics';
-import { ApiError } from '../../api/client';
-import { describeFailure, translateErrorCode } from '../../i18n/apiErrors';
+import { describeFailure } from '../../i18n/apiErrors';
 import { useFormat } from '../../i18n/format';
 import { describeThreshold, StatusBadge } from '../metrics/display';
-import { sourceName } from '../metrics/DerivationEditor';
+import { notDerivedMessage } from './derivationMessages';
+import { groupMetrics } from './groupMetrics';
 import { useDeriveValue, useRecordValue } from './useBoard';
 import controls from '../../styles/controls.module.css';
 import teamStyles from '../teams/teams.module.css';
@@ -26,6 +26,9 @@ import styles from './board.module.css';
  * - `readOnly`: everyone else, who sees the values and no fields.
  */
 export type RecordingMode = 'edit' | 'correct' | 'readOnly';
+
+/** Metric, value, status, comment and the row's state: what a full-width row spans. */
+const COLUMNS = 5;
 
 /**
  * Every active metric at one meeting, one table row each, with fields for its
@@ -91,31 +94,43 @@ export function RecordingView({
           </p>
         </div>
       )}
-      <table className={styles.recordTable}>
-        <thead>
-          <tr>
-            <th scope="col">{t('recording.metricColumn')}</th>
-            <th scope="col">{t('recording.value')}</th>
-            <th scope="col">{t('recording.status')}</th>
-            <th scope="col">{t('recording.comment')}</th>
-            <th scope="col">
-              <span className="visually-hidden">{t('recording.stateColumn')}</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {board.metrics.map((entry) => (
-            <RecordingRow
-              key={entry.metric.id}
-              teamId={teamId}
-              meetingId={board.meeting.id}
-              entry={entry}
-              mode={mode}
-              reason={reason}
-            />
+      {/* Its own sideways scroll: a long metric line never widens the page. */}
+      <div className={styles.recordScroll}>
+        <table className={styles.recordTable}>
+          <thead>
+            <tr>
+              <th scope="col">{t('recording.metricColumn')}</th>
+              <th scope="col">{t('recording.value')}</th>
+              <th scope="col">{t('recording.status')}</th>
+              <th scope="col">{t('recording.comment')}</th>
+              <th scope="col">
+                <span className="visually-hidden">{t('recording.stateColumn')}</span>
+              </th>
+            </tr>
+          </thead>
+          {/* One body per group under the one header, so the columns line up
+            across groups; a hidden metric still takes a value, so it is listed. */}
+          {groupMetrics(board, { hidden: true }).map(({ key, group, entries }) => (
+            <tbody key={key}>
+              <tr className={styles.groupRow}>
+                <th colSpan={COLUMNS} scope="rowgroup">
+                  {group?.name ?? t('board.noGroup')}
+                </th>
+              </tr>
+              {entries.map((entry) => (
+                <RecordingRow
+                  key={entry.metric.id}
+                  teamId={teamId}
+                  meetingId={board.meeting.id}
+                  entry={entry}
+                  mode={mode}
+                  reason={reason}
+                />
+              ))}
+            </tbody>
           ))}
-        </tbody>
-      </table>
+        </table>
+      </div>
     </section>
   );
 }
@@ -147,37 +162,19 @@ function derivedNote(t: TFunction, format: Format, derived: DerivedValue): strin
       previousDate: source?.previous ? format.meetingDate(source.previous.date) : '',
     });
   }
+  // A weighted mean names each number with the weight it was given.
+  const weighted = derived.kind === 'weighted_mean';
   return t(`recording.derivedNote_${derived.kind}`, {
     n: derived.sources.length,
-    values: derived.sources.map((source) => format.exactDecimal(source.value)).join(' · '),
+    values: derived.sources
+      .map((source) => {
+        const value = format.exactDecimal(source.value);
+        return weighted && source.weight != null
+          ? t('recording.weightedValue', { value, weight: format.exactDecimal(source.weight) })
+          : value;
+      })
+      .join(' · '),
   });
-}
-
-/**
- * Why deriving was refused, one sentence per missing piece, each source named
- * from the metric's own derivation by its place in the list.
- */
-function notDerivedMessage(t: TFunction, entry: BoardMetric, error: Error | null): string {
-  if (!(error instanceof ApiError) || error.errors.length === 0) {
-    return describeFailure(t, error) ?? t('errors.generic');
-  }
-  const sources = entry.metric.derivation?.sources ?? [];
-  const nameAt = (field: string | null) => {
-    const index = Number(/^sources\[(\d+)\]$/.exec(field ?? '')?.[1] ?? 0);
-    const source = sources[index];
-    return source ? sourceName(t, source, entry.metric.team_id) : '';
-  };
-  return error.errors
-    .map((failure) => {
-      if (failure.code === 'derivation.source_missing') {
-        return t('recording.sourceMissing', { name: nameAt(failure.field) });
-      }
-      if (failure.code === 'derivation.previous_missing') {
-        return t('recording.previousMissing', { name: nameAt(failure.field) });
-      }
-      return translateErrorCode(t, failure);
-    })
-    .join(' ');
 }
 
 function RecordingRow({
@@ -270,7 +267,7 @@ function RecordingRow({
         {metric.unit && (
           <span className={teamStyles.itemMeta}>{t('recording.unit', { unit: metric.unit })}</span>
         )}
-        <span className={teamStyles.itemMeta}>
+        <span className={`${teamStyles.itemMeta} ${styles.metricMeta}`}>
           {thresholdText} · {previous}
         </span>
       </span>
@@ -304,78 +301,93 @@ function RecordingRow({
           ? notDerivedMessage(t, entry, derive.error)
           : undefined;
 
+  // The row's message, on a line of its own as wide as the table, so a refusal
+  // naming several sources does not stretch any one column (D4).
+  const hasMessage = Boolean(note) || Boolean(message);
+
   return (
-    <tr>
-      {metricCell}
-      <td data-label={captions.value}>
-        <input
-          id={id('number')}
-          aria-label={t('recording.valueLabel', { name: metric.name })}
-          inputMode="decimal"
-          size={10}
-          className={`${teamStyles.input} ${styles.valueInput}`}
-          value={value}
-          onChange={(event) => {
-            setValue(event.target.value);
-            // Typed over, the number is no longer the one the note names.
-            setNote(null);
-          }}
-          onBlur={() => save()}
-          aria-invalid={state === 'notANumber'}
-        />
-        {metric.derivation && (
-          <button
-            type="button"
-            className={`${controls.button} ${styles.deriveButton}`}
-            aria-label={t('recording.deriveLabel', { name: metric.name })}
-            disabled={derive.isPending}
-            onClick={handleDerive}
-          >
-            {derive.isPending ? t('recording.deriving') : t('recording.derive')}
-          </button>
-        )}
-        {note && <p className={styles.derivedNote}>{note}</p>}
-      </td>
-      <td data-label={captions.status}>
-        <div className={styles.statusField}>
-          <select
-            id={id('status')}
-            aria-label={t('recording.statusLabel', { name: metric.name })}
-            className={`${teamStyles.input} ${styles.statusSelect} ${COLOUR_CLASS[colour] ?? ''}`}
-            value={colour}
-            onChange={(event) => setColour(event.target.value as Colour | '')}
+    <>
+      <tr className={hasMessage ? styles.rowWithMessage : undefined}>
+        {metricCell}
+        <td data-label={captions.value}>
+          <div className={styles.valueField}>
+            <input
+              id={id('number')}
+              aria-label={t('recording.valueLabel', { name: metric.name })}
+              aria-describedby={hasMessage ? id('message') : undefined}
+              inputMode="decimal"
+              size={10}
+              className={`${teamStyles.input} ${styles.valueInput}`}
+              value={value}
+              onChange={(event) => {
+                setValue(event.target.value);
+                // Typed over, the number is no longer the one the note names.
+                setNote(null);
+              }}
+              onBlur={() => save()}
+              aria-invalid={state === 'notANumber'}
+            />
+            {metric.derivation && (
+              <button
+                type="button"
+                className={`${controls.button} ${styles.deriveButton}`}
+                aria-label={t('recording.deriveLabel', { name: metric.name })}
+                disabled={derive.isPending}
+                onClick={handleDerive}
+              >
+                {derive.isPending ? t('recording.deriving') : t('recording.derive')}
+              </button>
+            )}
+          </div>
+        </td>
+        <td data-label={captions.status}>
+          <div className={styles.statusField}>
+            <select
+              id={id('status')}
+              aria-label={t('recording.statusLabel', { name: metric.name })}
+              className={`${teamStyles.input} ${styles.statusSelect} ${COLOUR_CLASS[colour] ?? ''}`}
+              value={colour}
+              onChange={(event) => setColour(event.target.value as Colour | '')}
+              onBlur={() => save()}
+            >
+              {(['', ...COLOURS] as const).map((option) => (
+                <option key={option || 'automatic'} value={option} className={COLOUR_CLASS[option]}>
+                  {option ? t(`status.${option}`) : t('recording.automatic')}
+                </option>
+              ))}
+            </select>
+            <StatusBadge status={entry.status} setByHand={entry.set_by_hand} />
+          </div>
+        </td>
+        <td data-label={captions.comment} className={styles.commentCell}>
+          <input
+            id={id('comment')}
+            aria-label={t('recording.commentLabel', { name: metric.name })}
+            className={teamStyles.input}
+            value={comment}
+            onChange={(event) => setComment(event.target.value)}
             onBlur={() => save()}
-          >
-            {(['', ...COLOURS] as const).map((option) => (
-              <option key={option || 'automatic'} value={option} className={COLOUR_CLASS[option]}>
-                {option ? t(`status.${option}`) : t('recording.automatic')}
-              </option>
-            ))}
-          </select>
-          <StatusBadge status={entry.status} setByHand={entry.set_by_hand} />
-        </div>
-      </td>
-      <td data-label={captions.comment}>
-        <input
-          id={id('comment')}
-          aria-label={t('recording.commentLabel', { name: metric.name })}
-          className={teamStyles.input}
-          value={comment}
-          onChange={(event) => setComment(event.target.value)}
-          onBlur={() => save()}
-        />
-      </td>
-      <td data-label={captions.state} className={styles.rowState}>
-        <span aria-live="polite">
-          {state === 'saving' && t('recording.saving')}
-          {state === 'saved' && t('recording.saved')}
-        </span>
-        {message && (
-          <p role="alert" className={teamStyles.itemError}>
-            {message}
-          </p>
-        )}
-      </td>
-    </tr>
+          />
+        </td>
+        <td data-label={captions.state} className={styles.rowState}>
+          <span aria-live="polite">
+            {state === 'saving' && t('recording.saving')}
+            {state === 'saved' && t('recording.saved')}
+          </span>
+        </td>
+      </tr>
+      {hasMessage && (
+        <tr className={styles.messageRow}>
+          <td id={id('message')} colSpan={COLUMNS}>
+            {note && <p className={styles.derivedNote}>{note}</p>}
+            {message && (
+              <p role="alert" className={teamStyles.itemError}>
+                {message}
+              </p>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
   );
 }

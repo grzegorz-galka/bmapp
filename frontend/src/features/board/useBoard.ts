@@ -3,6 +3,7 @@ import {
   getBoard,
   getDerivedValue,
   putValue,
+  type DerivedValue,
   type MeetingBoard,
   type MetricValueWrite,
 } from '../../api/metrics';
@@ -39,5 +40,26 @@ export function useRecordValue(teamId: string, meetingId: string) {
 export function useDeriveValue(teamId: string, meetingId: string) {
   return useMutation({
     mutationFn: (metricId: string) => getDerivedValue(teamId, meetingId, metricId),
+  });
+}
+
+/**
+ * A derived metric's number worked out again at a meeting, to explain where a
+ * recorded value comes from. A cached query, asked for only once `enabled`:
+ * the detail's sources section opens it, and reopening it reuses the answer.
+ * Keyed under the team's metrics, so recording a value asks again.
+ */
+export function useDerivation(
+  teamId: string,
+  meetingId: string,
+  metricId: string,
+  enabled: boolean,
+) {
+  return useQuery<DerivedValue>({
+    queryKey: [...metricsQueryKey(teamId), metricId, 'derivation', meetingId],
+    queryFn: () => getDerivedValue(teamId, meetingId, metricId),
+    enabled,
+    // A refusal (a source with no number) is an answer, not a failure to retry.
+    retry: false,
   });
 }

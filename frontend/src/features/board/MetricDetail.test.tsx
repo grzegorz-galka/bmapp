@@ -13,15 +13,23 @@ import { en } from '../../i18n/en';
 import { pl } from '../../i18n/pl';
 import type { Language } from '../../i18n/languages';
 import { stubDialog } from '../auth/dialogStub';
-import type { MetricTrend } from '../../api/metrics';
+import type {
+  DerivationKind,
+  DerivedValue,
+  MetricDefinition,
+  MetricTrend,
+} from '../../api/metrics';
+import { sameDecimal } from './derivationMessages';
 import {
   definition,
+  errorResponse,
   jsonResponse,
   LEADER_NAME,
   serveBoard,
   TEAM_ID,
   threshold,
   TREND,
+  writesOf,
   type Fixtures,
 } from './boardFixture';
 
@@ -269,5 +277,264 @@ describe('the metric detail', () => {
     await user.click(close);
 
     expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
+/*
+ * "The metric detail lists a derived value's sources", from
+ * specs/derived-metrics: a collapsed section for the meeting the board shows,
+ * derived again when opened, compared with the recorded number exactly.
+ */
+describe('the metric detail lists a derived value’s sources', () => {
+  const UNITS = ['BPW', 'CKBiR', 'CKI-P', 'CKI-W', 'ODM', 'CKI-S'];
+  const NUMBERS = ['90', '97', '87', '83', '105', '101'];
+  const PLATFORM = { id: TEAM_ID, name: 'Platform' };
+  const SHOWN = { id: 'm-2026-11-04', date: '2026-11-04' };
+
+  function otif(kind: DerivationKind = 'mean') {
+    return definition({
+      id: 'metric-otif',
+      name: 'OTIF E',
+      derivation: {
+        kind,
+        sources: UNITS.map((unit) => ({
+          team: PLATFORM,
+          metric: { id: `metric-${unit}`, name: `OTIF E: ${unit}` },
+          weight: null,
+        })),
+      },
+    });
+  }
+
+  function derived(overrides: Partial<DerivedValue> = {}): DerivedValue {
+    return {
+      value: '93.833333',
+      kind: 'mean',
+      sources: UNITS.map((unit, index) => ({
+        team: PLATFORM,
+        metric: { id: `metric-${unit}`, name: `OTIF E: ${unit}` },
+        meeting_id: SHOWN.id,
+        date: SHOWN.date,
+        value: NUMBERS[index]!,
+        previous: null,
+        weight: null,
+      })),
+      ...overrides,
+    };
+  }
+
+  function deriveUrls(): string[] {
+    return (fetchMock.mock.calls as [string][])
+      .map(([url]) => url)
+      .filter((url) => url.endsWith('/derivation'));
+  }
+
+  async function renderSources(
+    metric: MetricDefinition = otif(),
+    recorded: string | null = '93.833333',
+    language: Language = 'en',
+  ) {
+    await renderWithLanguage(
+      <MetricDetail
+        teamId={TEAM_ID}
+        metric={metric}
+        onClose={() => {}}
+        meeting={SHOWN}
+        recorded={recorded}
+      />,
+      language,
+    );
+    const dialog = screen.getByRole('dialog', { name: metric.name });
+    // The trend has loaded, so anything the detail asks for on opening has been asked.
+    await within(dialog).findByRole('img', { name: /OTIF E|Revenue/ });
+    return dialog;
+  }
+
+  async function openSources(dialog: HTMLElement, heading: string = en.detail.sourcesHeading) {
+    const user = userEvent.setup();
+    await user.click(within(dialog).getByText(heading));
+    return user;
+  }
+
+  const text = (element: Element | null) => element?.textContent?.replace(/\u00a0/g, ' ') ?? '';
+
+  function sourceRows(dialog: HTMLElement): string[][] {
+    const table = within(dialog).getByRole('table', { name: 'The sources of OTIF E' });
+    return within(table)
+      .getAllByRole('row')
+      .map((row) => Array.from(row.children).map((cell) => text(cell)));
+  }
+
+  beforeEach(() => {
+    fixtures.derive = () => jsonResponse(derived());
+  });
+
+  it('The sources are listed', async () => {
+    const dialog = await renderSources();
+
+    await openSources(dialog);
+
+    expect(await within(dialog).findByText(/^Derived:/)).toBeInTheDocument();
+    expect(deriveUrls()).toEqual([
+      `/api/teams/${TEAM_ID}/meetings/${SHOWN.id}/metrics/metric-otif/derivation`,
+    ]);
+    expect(sourceRows(dialog)).toEqual([
+      ['Team', 'Metric', 'Meeting', 'Number'],
+      ...UNITS.map((unit, index) => [
+        'Platform',
+        `OTIF E: ${unit}`,
+        'Wed, 4 Nov 2026',
+        NUMBERS[index]!,
+      ]),
+    ]);
+    expect(text(within(dialog).getByText(/^Derived:/))).toBe('Derived: 93.833333 %');
+    expect(within(dialog).getByText(/Worked out again/)).toHaveTextContent('Wed, 4 Nov 2026');
+    // Nothing is recorded.
+    expect(writesOf(fetchMock)).toEqual([]);
+  });
+
+  it('lists a weighted mean’s weights', async () => {
+    fixtures.derive = () =>
+      jsonResponse(
+        derived({
+          kind: 'weighted_mean',
+          value: '90.8',
+          sources: derived()
+            .sources.slice(0, 3)
+            .map((source, index) => ({ ...source, weight: ['3', '1', '0.5'][index]! })),
+        }),
+      );
+    const dialog = await renderSources(otif('weighted_mean'), null, 'pl');
+
+    await openSources(dialog, pl.detail.sourcesHeading);
+    await within(dialog).findByText(/^Wyliczono:/);
+
+    const table = within(dialog).getByRole('table', { name: 'Źródła wskaźnika OTIF E' });
+    expect(
+      within(table)
+        .getAllByRole('row')
+        .map((row) => text(row.lastElementChild)),
+    ).toEqual([pl.detail.sourceWeight, '3', '1', '0,5']);
+  });
+
+  it('lists a delta’s previous number and date', async () => {
+    fixtures.derive = () =>
+      jsonResponse(
+        derived({
+          kind: 'delta',
+          value: '4',
+          sources: [
+            {
+              ...derived().sources[0]!,
+              value: '94',
+              previous: { meeting_id: 'm-2026-10-28', date: '2026-10-28', value: '90' },
+            },
+          ],
+        }),
+      );
+    const dialog = await renderSources(otif('delta'), '4');
+
+    await openSources(dialog);
+    await within(dialog).findByText(/^Derived:/);
+
+    expect(sourceRows(dialog)).toEqual([
+      ['Team', 'Metric', 'Meeting', 'Number', 'Previous'],
+      ['Platform', 'OTIF E: BPW', 'Wed, 4 Nov 2026', '94', '90 on Wed, 28 Oct 2026'],
+    ]);
+  });
+
+  it('Nothing is derived until the section is opened', async () => {
+    const dialog = await renderSources();
+
+    expect(within(dialog).getByText(en.detail.sourcesHeading)).toBeInTheDocument();
+    expect(within(dialog).queryByRole('table', { name: 'The sources of OTIF E' })).toBeNull();
+    expect(deriveUrls()).toEqual([]);
+
+    // Opened, closed and opened again: derived once, the answer kept.
+    const user = await openSources(dialog);
+    await within(dialog).findByText(/^Derived:/);
+    await user.click(within(dialog).getByText(en.detail.sourcesHeading));
+    await user.click(within(dialog).getByText(en.detail.sourcesHeading));
+    expect(deriveUrls()).toHaveLength(1);
+  });
+
+  it('The sources have changed since the value was recorded', async () => {
+    fixtures.derive = () =>
+      jsonResponse(
+        derived({
+          value: '94.333333',
+          sources: derived().sources.map((source, index) =>
+            index === 5 ? { ...source, value: '104' } : source,
+          ),
+        }),
+      );
+    const dialog = await renderSources(otif(), '93.833333');
+
+    await openSources(dialog);
+
+    expect(text(await within(dialog).findByText(/^Derived:/))).toBe('Derived: 94.333333 %');
+    expect(sourceRows(dialog).at(-1)).toEqual([
+      'Platform',
+      'OTIF E: CKI-S',
+      'Wed, 4 Nov 2026',
+      '104',
+    ]);
+    expect(text(within(dialog).getByText(/have changed/))).toBe(
+      'The sources have changed since the value was recorded: 93.833333 % was recorded, they now give 94.333333 %.',
+    );
+    expect(writesOf(fetchMock)).toEqual([]);
+  });
+
+  it('The value matches its sources', async () => {
+    // A recorded NUMERIC(21, 6) travels with its six places; a sum is exact.
+    fixtures.derive = () => jsonResponse(derived({ kind: 'sum', value: '19.5' }));
+    const dialog = await renderSources(otif('sum'), '19.500000');
+
+    await openSources(dialog);
+
+    expect(text(await within(dialog).findByText(/^Derived:/))).toBe('Derived: 19.5 %');
+    expect(within(dialog).queryByText(/have changed/)).not.toBeInTheDocument();
+  });
+
+  it('No value recorded yet', async () => {
+    const dialog = await renderSources(otif(), null);
+
+    await openSources(dialog);
+
+    expect(text(await within(dialog).findByText(/^Derived:/))).toBe('Derived: 93.833333 %');
+    expect(sourceRows(dialog)).toHaveLength(1 + UNITS.length);
+    expect(within(dialog).queryByText(/have changed/)).not.toBeInTheDocument();
+  });
+
+  it('A source is missing now', async () => {
+    fixtures.derive = () =>
+      errorResponse(409, `sources[${UNITS.indexOf('CKI-S')}]`, 'derivation.source_missing');
+    const dialog = await renderSources();
+
+    await openSources(dialog);
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'OTIF E: CKI-S has no number for that week.',
+    );
+    expect(within(dialog).queryByText(/^Derived:/)).not.toBeInTheDocument();
+  });
+
+  it('A metric that is not derived', async () => {
+    const dialog = await renderSources(definition(), '91');
+
+    expect(within(dialog).queryByText(en.detail.sourcesHeading)).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('group')).not.toBeInTheDocument();
+    expect(deriveUrls()).toEqual([]);
+  });
+});
+
+describe('sameDecimal', () => {
+  it('compares decimal strings exactly, never through a float', () => {
+    expect(sameDecimal('19.500000', '19.5')).toBe(true);
+    expect(sameDecimal('0.000000', '-0')).toBe(true);
+    expect(sameDecimal('007', '7.0')).toBe(true);
+    expect(sameDecimal('-1.5', '1.5')).toBe(false);
+    // Beyond a float's precision: Number would call these equal.
+    expect(sameDecimal('123456789012345.000001', '123456789012345.000002')).toBe(false);
   });
 });

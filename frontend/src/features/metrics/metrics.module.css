@@ -153,6 +153,11 @@
   max-width: 100%;
 }
 
+/* A weight is a short number: "3", "0,25". */
+.source .weight {
+  width: 6rem;
+}
+
 .sourceList {
   margin: var(--sp-1) 0 0;
   padding-left: var(--sp-5);
