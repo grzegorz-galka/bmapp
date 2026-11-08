@@ -127,13 +127,17 @@ class DerivationSourceWrite(BaseModel):
 
     team_id: uuid.UUID
     metric_id: uuid.UUID
+    #: A weighted mean's weight, above 0; given for no other kind. Checked by
+    #: the service, against the kind, so the error names this source.
+    weight: ExactDecimal | None = None
 
 
 class DerivationWrite(BaseModel):
     """How a board's own metric is worked out: a kind over sources, in order.
 
-    How many sources the kind takes, and whether each is on its board, is
-    checked by the service, which knows the boards.
+    How many sources the kind takes, whether each is on its board and whether
+    it carries the weight its kind asks for, is checked by the service, which
+    knows the boards.
     """
 
     kind: DerivationKind
@@ -516,6 +520,8 @@ class DerivationSourceRead(BaseModel):
 
     team: NamedRead
     metric: NamedRead
+    #: A weighted mean's weight for this source; none for every other kind.
+    weight: ExactDecimal | None = None
 
 
 class DerivationRead(BaseModel):
@@ -598,6 +604,8 @@ class DerivedSource(DerivedReading):
     metric: NamedRead
     #: For a delta, the number at the source team's previous meeting; else none.
     previous: DerivedReading | None
+    #: For a weighted mean, the weight this source's number was given; else none.
+    weight: ExactDecimal | None = None
 
 
 class DerivedValue(BaseModel):

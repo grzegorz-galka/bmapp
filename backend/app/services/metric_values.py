@@ -286,6 +286,8 @@ class _Source:
     metric: NamedRead
     #: Retired on its board or in the catalogue: it gives no number.
     retired: bool
+    #: A weighted mean's weight for this source; none for every other kind.
+    weight: Decimal | None
 
 
 def derive_value(
@@ -346,12 +348,16 @@ def derive_value(
                     date=at.date,
                     value=number,
                     previous=previous,
+                    weight=source.weight,
                 )
             )
     if missing:
         raise DerivationIncompleteError(missing)
     value = derive(
-        kind, [entry.value for entry in used], used[0].previous.value if used[0].previous else None
+        kind,
+        [entry.value for entry in used],
+        used[0].previous.value if used[0].previous else None,
+        [entry.weight for entry in used if entry.weight is not None],
     )
     if not fits_a_stored_number(value):
         raise DerivedValueOutOfRangeError()
@@ -362,7 +368,13 @@ def _derivation_sources(session: Session, metric_id: uuid.UUID) -> list[_Source]
     """A derived metric's sources in order, named, and whether each is retired. One statement."""
     rows = session.execute(
         select(
-            Team.id, Team.name, Metric.id, Metric.name, Metric.retired, Placement.retired_on_board
+            Team.id,
+            Team.name,
+            Metric.id,
+            Metric.name,
+            Metric.retired,
+            Placement.retired_on_board,
+            MetricDerivationSource.weight,
         )
         .select_from(MetricDerivationSource)
         .join(Team, Team.id == MetricDerivationSource.source_team_id)
@@ -382,8 +394,9 @@ def _derivation_sources(session: Session, metric_id: uuid.UUID) -> list[_Source]
             team=NamedRead(id=team, name=team_name),
             metric=NamedRead(id=metric, name=metric_name),
             retired=in_catalogue or on_board is not False,
+            weight=weight,
         )
-        for team, team_name, metric, metric_name, in_catalogue, on_board in rows
+        for team, team_name, metric, metric_name, in_catalogue, on_board, weight in rows
     ]
 
 

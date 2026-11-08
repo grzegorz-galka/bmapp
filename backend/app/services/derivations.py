@@ -23,11 +23,13 @@ from app.core.exceptions import (
     DerivationSourceDuplicateError,
     DerivationSourceNotFoundError,
     DerivationSourceSelfError,
+    DerivationSourceWeightInvalidError,
+    DerivationSourceWeightRequiredError,
     MetricDerivationSourceError,
 )
 from app.core.metric_enums import DerivationKind
 from app.models import BoardMetric, Metric, MetricDerivationSource
-from app.schemas.metric import DerivationWrite
+from app.schemas.metric import DerivationWrite, fits_a_stored_number
 
 #: A mean is kept to the scale a number is stored at, rounding half to even.
 MEAN_QUANTUM = Decimal("0.000001")
@@ -67,15 +69,28 @@ def previous_meeting[M: Dated](meeting: M, team_meetings: Iterable[M]) -> M | No
     return max(earlier, key=lambda m: m.date, default=None)
 
 
-def derive(kind: DerivationKind, numbers: Sequence[Decimal], previous: Decimal | None) -> Decimal:
+def derive(
+    kind: DerivationKind,
+    numbers: Sequence[Decimal],
+    previous: Decimal | None,
+    weights: Sequence[Decimal] = (),
+) -> Decimal:
     """The number a derivation of this kind gives from its sources' numbers.
 
-    A mean is quantised to 6 places, half to even; a sum and a delta are
-    exact. `previous` is a delta's earlier number and is ignored otherwise.
+    A mean and a weighted mean are quantised to 6 places, half to even; a sum
+    and a delta are exact. `previous` is a delta's earlier number and
+    `weights` a weighted mean's, one per number in the same order; each is
+    ignored by the other kinds.
     """
     if kind is DerivationKind.DELTA:
         assert previous is not None and len(numbers) == 1  # the caller found both
         return numbers[0] - previous
+    if kind is DerivationKind.WEIGHTED_MEAN:
+        assert len(weights) == len(numbers)  # checked when the derivation was set
+        weighted = sum((w * x for w, x in zip(weights, numbers, strict=True)), Decimal(0))
+        return (weighted / sum(weights, Decimal(0))).quantize(
+            MEAN_QUANTUM, rounding=ROUND_HALF_EVEN
+        )
     total = sum(numbers, Decimal(0))
     if kind is DerivationKind.SUM:
         return total
@@ -91,7 +106,8 @@ def check_derivation(
     """Refuse a derivation with the wrong number of sources, or a source that cannot be.
 
     Each source is checked in order - on its board, not the metric itself,
-    not given before - and the first that fails is reported against itself.
+    not given before, weighted if and only if the kind is a weighted mean -
+    and the first that fails is reported against itself.
     `metric_id` is none for a metric not yet added, which cannot name itself.
     One statement however many sources there are.
     """
@@ -115,6 +131,19 @@ def check_derivation(
         if pair in seen:
             raise DerivationSourceDuplicateError(index)
         seen.add(pair)
+        _check_weight(derivation.kind, index, sources[index].weight)
+
+
+def _check_weight(kind: DerivationKind, index: int, weight: Decimal | None) -> None:
+    """A weighted mean's source needs a storable weight above 0; any other kind's, none."""
+    if kind is not DerivationKind.WEIGHTED_MEAN:
+        if weight is not None:
+            raise DerivationSourceWeightInvalidError(index)
+        return
+    if weight is None:
+        raise DerivationSourceWeightRequiredError(index)
+    if weight <= 0 or not fits_a_stored_number(weight):
+        raise DerivationSourceWeightInvalidError(index)
 
 
 def set_derivation(session: Session, metric: Metric, derivation: DerivationWrite | None) -> None:
@@ -132,7 +161,10 @@ def set_derivation(session: Session, metric: Metric, derivation: DerivationWrite
     metric.derivation_kind = derivation.kind
     metric.derivation_sources.extend(
         MetricDerivationSource(
-            position=position, source_team_id=source.team_id, source_metric_id=source.metric_id
+            position=position,
+            source_team_id=source.team_id,
+            source_metric_id=source.metric_id,
+            weight=source.weight,
         )
         for position, source in enumerate(derivation.sources)
     )

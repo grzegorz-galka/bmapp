@@ -9,10 +9,12 @@ import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { BoardPage } from '../BoardPage';
 import { renderWithLanguage } from '../../../test/render';
+import { AddressProbe } from '../../../test/AddressProbe';
 import { en } from '../../../i18n/en';
 import { pl } from '../../../i18n/pl';
 import type { Language } from '../../../i18n/languages';
 import {
+  ADMIN,
   board,
   jsonResponse,
   LEADER,
@@ -53,17 +55,34 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function renderBoard(query = '', language: Language = 'en') {
+async function renderBoard(
+  query = '',
+  language: Language = 'en',
+  auth: { email?: string; isAdmin?: boolean } = { email: MEMBER },
+) {
   await renderWithLanguage(
     <Routes>
-      <Route path="/teams/:teamId" element={<BoardPage />} />
+      <Route
+        path="/teams/:teamId"
+        element={
+          <>
+            <BoardPage />
+            <AddressProbe />
+          </>
+        }
+      />
     </Routes>,
     language,
-    { route: `/teams/${TEAM_ID}${query}`, auth: { email: MEMBER } },
+    { route: `/teams/${TEAM_ID}${query}`, auth },
   );
   // The first render of a file loads the whole board; under a busy machine that
   // alone can pass the default second, so the first wait is given longer.
-  await screen.findByRole('heading', { name: 'Revenue' }, { timeout: 5000 });
+  // The values listed have no tile headings; a list named in the address
+  // turns the board back to its tiles.
+  const listing = query.includes('mode=record') && !query.includes('#');
+  await (listing
+    ? screen.findByRole('region', { name: /Values at the meeting on/ }, { timeout: 5000 })
+    : screen.findByRole('heading', { name: 'Revenue' }, { timeout: 5000 }));
 }
 
 function listOf(heading: string) {
@@ -150,6 +169,35 @@ describe('the board shows the active problems and tasks', () => {
     expect(tasks[2]).toHaveTextContent(en.pdca.check);
     // Beside the metrics, not instead of them.
     expect(screen.getByRole('heading', { name: 'Revenue' })).toBeInTheDocument();
+  });
+
+  it('The lists are not shown while values are listed', async () => {
+    const user = userEvent.setup();
+    fixtures.items!.tasks.active = [task({ summary: 'Update the agenda' })];
+    const lists = () => screen.queryByRole('complementary', { name: en.items.listsLabel });
+
+    // A member recording the coming meeting.
+    await renderBoard('?meeting=m-2026-10-14&mode=record');
+    expect(lists()).not.toBeInTheDocument();
+    expect(screen.queryByText('Update the agenda')).not.toBeInTheDocument();
+
+    // Back to the tiles, both lists are there again.
+    await user.click(screen.getByRole('button', { name: en.board.showTiles }));
+    expect(
+      await within(listOf(en.items.tasksHeading)).findByText('Update the agenda'),
+    ).toBeVisible();
+    expect(listOf(en.items.problemsHeading)).toBeInTheDocument();
+  });
+
+  it.each([
+    ['a visitor lists a frozen meeting', { email: 'visitor@example.com' }],
+    ['an administrator corrects it', { email: ADMIN, isAdmin: true }],
+  ])('The lists are not shown while values are listed: %s', async (_, auth) => {
+    await renderBoard('?meeting=m-2026-09-30&mode=record', 'en', auth);
+
+    expect(
+      screen.queryByRole('complementary', { name: en.items.listsLabel }),
+    ).not.toBeInTheDocument();
   });
 
   it('New at this meeting', async () => {
@@ -249,6 +297,27 @@ describe('the board’s lists can be reached from an address', () => {
     await waitFor(() => expect(scrolled).toHaveLength(1));
     expect(scrolled[0]).toBe(listOf(en.items.tasksHeading));
     expect(scrolled[0]).toHaveAttribute('id', 'tasks');
+  });
+
+  it('A list named while the recording view is asked for', async () => {
+    await renderBoard('?meeting=m-2026-10-14&mode=record#tasks');
+
+    release();
+
+    await within(listOf(en.items.tasksHeading)).findByText('Split the test database');
+    await waitFor(() => expect(scrolled).toEqual([listOf(en.items.tasksHeading)]));
+    // The tiles, not the recording view, and an address no longer asking for it.
+    expect(screen.getByRole('heading', { name: 'Revenue' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: /Values at the meeting on/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('address')).toHaveTextContent(
+      `/teams/${TEAM_ID}?meeting=m-2026-10-14#tasks`,
+    );
+    expect(screen.getByRole('button', { name: en.board.record })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
   });
 
   it('The problems list is brought into view', async () => {

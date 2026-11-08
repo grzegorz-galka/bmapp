@@ -158,7 +158,7 @@ class Metric(Base):
         return Derivation(
             self.derivation_kind,
             [
-                DerivationSourceRef(source.source_team, source.source_metric)
+                DerivationSourceRef(source.source_team, source.source_metric, source.weight)
                 for source in self.derivation_sources
             ],
         )
@@ -170,6 +170,8 @@ class DerivationSourceRef:
 
     team: Team
     metric: Metric
+    #: A weighted mean's weight for this source; none for every other kind.
+    weight: Decimal | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,6 +201,11 @@ class MetricDerivationSource(Base):
         ),
         # Whether a metric is a source of anything, asked before it is removed.
         Index("ix_metric_derivation_sources_source", "source_metric_id", "source_team_id"),
+        # Behind the service's check: a zero weight would let a weighted mean
+        # divide by zero.
+        CheckConstraint(
+            "weight IS NULL OR weight > 0", name="ck_metric_derivation_sources_weight_positive"
+        ),
     )
 
     #: The derived metric.
@@ -213,6 +220,8 @@ class MetricDerivationSource(Base):
     source_metric_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("metrics.id", ondelete="RESTRICT"), nullable=False
     )
+    #: Set for a weighted mean's sources only, and then above 0.
+    weight: Mapped[Decimal | None] = mapped_column(_number(), nullable=True)
 
     source_team: Mapped[Team] = relationship(lazy="joined")
     source_metric: Mapped[Metric] = relationship(foreign_keys=[source_metric_id], lazy="joined")

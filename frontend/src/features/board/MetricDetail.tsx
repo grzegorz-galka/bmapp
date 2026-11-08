@@ -1,13 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts';
-import type { MetricDefinition, Status, TrendPoint } from '../../api/metrics';
+import type { DerivedValue, MetricDefinition, Status, TrendPoint } from '../../api/metrics';
 import { describeFailure } from '../../i18n/apiErrors';
 import { useFormat } from '../../i18n/format';
 import { describeThreshold, GlobalMark, StatusBadge, ThresholdList } from '../metrics/display';
 import { useThresholds, useTrend } from '../metrics/useMetrics';
 import { Modal } from '../../components/Modal';
+import { notDerivedMessage, sameDecimal } from './derivationMessages';
 import { StatusDot } from './Sparkline';
+import { useDerivation } from './useBoard';
 import controls from '../../styles/controls.module.css';
 import styles from './board.module.css';
 
@@ -58,18 +60,25 @@ const BOUND_LINES = [
  * stepped line and the target value as one of its own, and beneath it the
  * recent values, the threshold history and the corrections. Shown over the
  * board, so the board's Hide names holds here too: who recorded a threshold or
- * corrected a value is left out.
+ * corrected a value is left out. A derived metric also has its sources for
+ * the meeting the board shows, worked out again when asked for.
  */
 export function MetricDetail({
   teamId,
   metric,
   onClose,
   hideNames = false,
+  meeting,
+  recorded = null,
 }: {
   teamId: string;
   metric: MetricDefinition;
   onClose: () => void;
   hideNames?: boolean;
+  /** The meeting the board shows; the sources section is about it alone. */
+  meeting?: { id: string; date: string };
+  /** The number recorded for the metric at that meeting, if any. */
+  recorded?: string | null;
 }) {
   const { t } = useTranslation();
   const format = useFormat();
@@ -97,6 +106,10 @@ export function MetricDetail({
             {t('detail.close')}
           </button>
         </header>
+
+        {metric.derivation && meeting && (
+          <SourcesSection teamId={teamId} metric={metric} meeting={meeting} recorded={recorded} />
+        )}
 
         {trend.isPending ? (
           <p>{t('detail.loading')}</p>
@@ -186,6 +199,124 @@ export function MetricDetail({
         )}
       </section>
     </Modal>
+  );
+}
+
+/**
+ * Where a derived value comes from, collapsed until opened. Opening it derives
+ * the number again - nothing is recorded - so it shows the sources as they are
+ * now, and says so when they no longer give the number recorded.
+ */
+function SourcesSection({
+  teamId,
+  metric,
+  meeting,
+  recorded,
+}: {
+  teamId: string;
+  metric: MetricDefinition;
+  meeting: { id: string; date: string };
+  recorded: string | null;
+}) {
+  const { t } = useTranslation();
+  const format = useFormat();
+  // Once opened, the answer is kept: closing and reopening asks nothing again.
+  const [opened, setOpened] = useState(false);
+  const derivation = useDerivation(teamId, meeting.id, metric.id, opened);
+
+  return (
+    <details
+      className={styles.detailSources}
+      onToggle={(event) => {
+        if (event.currentTarget.open) setOpened(true);
+      }}
+    >
+      <summary className={styles.detailSourcesSummary}>{t('detail.sourcesHeading')}</summary>
+      <p className={styles.muted}>
+        {t('detail.sourcesIntro', { date: format.meetingDate(meeting.date) })}
+      </p>
+      {!opened ? null : derivation.isPending ? (
+        <p>{t('detail.sourcesLoading')}</p>
+      ) : derivation.isError ? (
+        <p role="alert">{notDerivedMessage(t, { metric }, derivation.error)}</p>
+      ) : (
+        <SourcesTable metric={metric} derived={derivation.data} recorded={recorded} />
+      )}
+    </details>
+  );
+}
+
+function SourcesTable({
+  metric,
+  derived,
+  recorded,
+}: {
+  metric: MetricDefinition;
+  derived: DerivedValue;
+  recorded: string | null;
+}) {
+  const { t } = useTranslation();
+  const format = useFormat();
+  const weighted = derived.sources.some((source) => source.weight !== null);
+  const delta = derived.kind === 'delta';
+  // Every place the number has, never rounded to the metric's decimals: a
+  // difference in the sixth place is still a difference.
+  const exact = (value: string) =>
+    metric.unit ? `${format.exactDecimal(value)}\u00a0${metric.unit}` : format.exactDecimal(value);
+
+  return (
+    <>
+      <div className={styles.gridScroll}>
+        <table
+          className={styles.valuesGrid}
+          aria-label={t('detail.sourcesLabel', { name: metric.name })}
+        >
+          <thead>
+            <tr>
+              <th scope="col">{t('detail.sourceTeam')}</th>
+              <th scope="col">{t('detail.sourceMetric')}</th>
+              <th scope="col">{t('detail.sourceMeeting')}</th>
+              <th scope="col">{t('detail.sourceNumber')}</th>
+              {weighted && <th scope="col">{t('detail.sourceWeight')}</th>}
+              {delta && <th scope="col">{t('detail.sourcePrevious')}</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {derived.sources.map((source) => (
+              <tr key={`${source.team.id}/${source.metric.id}`}>
+                <td>{source.team.name}</td>
+                <th scope="row">{source.metric.name}</th>
+                <td className={styles.gridDate}>{format.meetingDate(source.date)}</td>
+                <td className={styles.gridNumber}>{format.exactDecimal(source.value)}</td>
+                {weighted && (
+                  <td className={styles.gridNumber}>
+                    {source.weight === null ? '' : format.exactDecimal(source.weight)}
+                  </td>
+                )}
+                {delta && (
+                  <td className={styles.gridNumber}>
+                    {source.previous
+                      ? t('detail.sourcePreviousValue', {
+                          value: format.exactDecimal(source.previous.value),
+                          date: format.meetingDate(source.previous.date),
+                        })
+                      : ''}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className={styles.detailDerived}>
+        {t('detail.derivedValue', { value: exact(derived.value) })}
+      </p>
+      {recorded !== null && !sameDecimal(recorded, derived.value) && (
+        <p className={styles.detailSourcesChanged}>
+          {t('detail.sourcesChanged', { recorded: exact(recorded), derived: exact(derived.value) })}
+        </p>
+      )}
+    </>
   );
 }
 

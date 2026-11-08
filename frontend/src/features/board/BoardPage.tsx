@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation, useParams, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import type { Meeting } from '../../api/meetings';
 import type { BoardMetric, MeetingBoard, MetricDefinition } from '../../api/metrics';
 import { describeFailure, isNotFound } from '../../i18n/apiErrors';
@@ -15,6 +15,7 @@ import { GlobalMark } from '../metrics/display';
 import { useMetrics } from '../metrics/useMetrics';
 import { teamAuthority } from '../teams/teamAuthority';
 import { useTeam } from '../teams/useTeams';
+import { groupMetrics } from './groupMetrics';
 import { MetricDetail } from './MetricDetail';
 import { organizationToday } from './organizationDate';
 import { ReadinessPanel, showsReadiness } from './ReadinessPanel';
@@ -86,7 +87,25 @@ export function BoardPage() {
   // A mode the view does not have is ignored; whether it can be used is
   // decided where the view is drawn.
   const mode = search.get('mode');
+  // An address naming a list wants that list in view, and the lists are not
+  // drawn while the values are listed: the list wins and the mode is dropped,
+  // replacing the entry so going back does not return to the conflict (D5).
+  const namesList = location.hash === '#problems' || location.hash === '#tasks';
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!namesList || mode !== 'record') return;
+    const next = new URLSearchParams(search);
+    next.delete('mode');
+    void navigate(
+      { search: next.toString(), hash: location.hash },
+      { replace: true, state: location.state },
+    );
+  }, [namesList, mode, search, navigate, location.hash, location.state]);
   const board = useBoard(teamId, shown?.id);
+  // Whether the metrics view lists the values (recorded, corrected or read)
+  // rather than showing tiles. Not with a list named, which the effect above
+  // is about to settle, nor for a board with no metrics to list.
+  const listing = mode === 'record' && !namesList && board.data?.metrics.length !== 0;
   // What an item may be linked to; independent of the meeting shown.
   const boardMetrics = useMetrics(teamId);
   // Fetched whichever view is open: the switch shows how many have answered.
@@ -331,7 +350,9 @@ export function BoardPage() {
           ) : view === 'archived' ? (
             <ArchivedView teamId={teamId} hideNames={hideNames} />
           ) : (
-            <div className={styles.layout}>
+            // While the values are listed they take the board's full width:
+            // the lists stand beside the tiles only (D5).
+            <div className={listing ? undefined : styles.layout}>
               <div className={styles.layoutMain}>
                 {board.isPending ? (
                   <p>{t('board.loading')}</p>
@@ -354,21 +375,31 @@ export function BoardPage() {
                       mayConfigure={mayConfigure}
                       mayRecord={mayRecord}
                       isAdmin={isAdmin}
-                      listing={mode === 'record'}
-                      onListing={(listing) => setMode(shown, listing ? 'record' : null)}
+                      listing={listing}
+                      onListing={(next) => setMode(shown, next ? 'record' : null)}
                       onDetail={setDetail}
                       hideNames={hideNames}
                     />
                   </>
                 )}
               </div>
-              {lists}
+              {!listing && lists}
             </div>
           )}
         </>
       )}
       {detail && (
-        <MetricDetail teamId={teamId} metric={detail} onClose={closeDetail} hideNames={hideNames} />
+        <MetricDetail
+          teamId={teamId}
+          metric={detail}
+          onClose={closeDetail}
+          hideNames={hideNames}
+          // The sources section explains the value of the meeting the board shows.
+          meeting={board.data?.meeting}
+          recorded={
+            board.data?.metrics.find((entry) => entry.metric.id === detail.id)?.value ?? null
+          }
+        />
       )}
     </main>
   );
@@ -452,9 +483,8 @@ function BoardBody({
 
 /**
  * The metrics under the board's groups, in the board's order, the ungrouped
- * ones last, a metric hidden on the board left out. A group with no metric to
- * show has nothing here and is left out; the settings page is where an empty
- * group is seen.
+ * ones last. A metric hidden on the board is recorded and counted but has no
+ * tile, so a group of hidden metrics only is left out like an empty one.
  */
 function Tiles({
   board,
@@ -464,39 +494,22 @@ function Tiles({
   onDetail: (metric: MetricDefinition) => void;
 }) {
   const { t } = useTranslation();
-  const groups = new Map<string, { label: string; order: number; entries: BoardMetric[] }>();
-  // A hidden metric is recorded and counted but has no tile, so a group of
-  // hidden metrics only is left out like an empty one.
-  for (const entry of board.metrics.filter((shown) => !shown.metric.hidden)) {
-    const { group } = entry.metric;
-    const key = group?.id ?? '';
-    const section = groups.get(key) ?? {
-      label: group?.name ?? t('board.noGroup'),
-      order: group?.position ?? Number.POSITIVE_INFINITY,
-      entries: [],
-    };
-    groups.set(key, { ...section, entries: [...section.entries, entry] });
-  }
-  const sections = [...groups]
-    .sort(([, a], [, b]) => a.order - b.order)
-    .map(([key, section]) => ({
-      key,
-      ...section,
-      entries: [...section.entries].sort((a, b) => a.metric.position - b.metric.position),
-    }));
 
   return (
     <>
-      {sections.map(({ key, label, entries }) => (
-        <section key={key} className={styles.group} aria-label={label}>
-          <h2 className={meetingStyles.subheading}>{label}</h2>
-          <ul className={styles.tiles}>
-            {entries.map((entry) => (
-              <Tile key={entry.metric.id} entry={entry} onDetail={onDetail} />
-            ))}
-          </ul>
-        </section>
-      ))}
+      {groupMetrics(board, { hidden: false }).map(({ key, group, entries }) => {
+        const label = group?.name ?? t('board.noGroup');
+        return (
+          <section key={key} className={styles.group} aria-label={label}>
+            <h2 className={meetingStyles.subheading}>{label}</h2>
+            <ul className={styles.tiles}>
+              {entries.map((entry) => (
+                <Tile key={entry.metric.id} entry={entry} onDetail={onDetail} />
+              ))}
+            </ul>
+          </section>
+        );
+      })}
     </>
   );
 }

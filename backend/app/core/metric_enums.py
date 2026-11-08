@@ -48,5 +48,7 @@ class DerivationKind(StrEnum):
     MEAN = auto()
     #: The sum of one or more sources.
     SUM = auto()
+    #: One or more sources, each with a weight above 0: sum(weight * number) / sum(weights).
+    WEIGHTED_MEAN = auto()
     #: Exactly one source: its number minus its number at the team's previous meeting.
     DELTA = auto()

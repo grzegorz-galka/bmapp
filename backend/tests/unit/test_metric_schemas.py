@@ -267,9 +267,10 @@ def test_a_metric_reads_with_no_derivation_unless_it_has_one() -> None:
         )
     )
 
+    # Only a weighted mean's sources carry a weight; every other kind reads it as null.
     assert read.model_dump(mode="json")["derivation"] == {
         "kind": "mean",
-        "sources": [{"team": named, "metric": named}],
+        "sources": [{"team": named, "metric": named, "weight": None}],
     }
 
 

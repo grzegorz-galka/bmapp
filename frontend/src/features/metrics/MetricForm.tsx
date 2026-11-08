@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { DIRECTIONS, type Direction, type MetricCreate, type MetricGroup } from '../../api/metrics';
 import type { Member } from '../../api/teams';
 import { describeFieldFailure, describeOtherFailure } from '../../i18n/apiErrors';
+import { useFormat } from '../../i18n/format';
 import controls from '../../styles/controls.module.css';
 import teamStyles from '../teams/teams.module.css';
 import meetingStyles from '../meetings/meetings.module.css';
@@ -10,6 +11,7 @@ import styles from './metrics.module.css';
 import {
   DerivationEditor,
   derivationFields,
+  hasUnreadableWeight,
   isIncomplete,
   type DerivationDraft,
 } from './DerivationEditor';
@@ -74,7 +76,8 @@ export function MetricForm({
   };
 }) {
   const { t } = useTranslation();
-  const [incomplete, setIncomplete] = useState(false);
+  const format = useFormat();
+  const [stopped, setStopped] = useState(false);
   const shown = [
     ...(definition ? DEFINITION_FIELDS : []),
     ...(placement ? PLACEMENT_FIELDS : []),
@@ -133,9 +136,11 @@ export function MetricForm({
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    const stopped = derivation !== undefined && isIncomplete(derivation.value);
-    setIncomplete(stopped);
-    if (stopped) {
+    const held =
+      derivation !== undefined &&
+      (isIncomplete(derivation.value) || hasUnreadableWeight(derivation.value, format));
+    setStopped(held);
+    if (held) {
       event.preventDefault();
       return;
     }
@@ -219,11 +224,11 @@ export function MetricForm({
           metricId={derivation.metricId}
           value={derivation.value}
           onChange={(next) => {
-            setIncomplete(false);
+            setStopped(false);
             derivation.onChange(next);
           }}
           error={error}
-          incomplete={incomplete}
+          stopped={stopped}
         />
       )}
       <span className={`${teamStyles.actions} ${teamStyles.submit}`}>

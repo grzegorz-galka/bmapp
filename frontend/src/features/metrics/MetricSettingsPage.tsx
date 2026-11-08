@@ -4,6 +4,7 @@ import { useParams } from 'react-router';
 import type { MetricCreate, MetricGroup } from '../../api/metrics';
 import type { Member } from '../../api/teams';
 import { isNotFound } from '../../i18n/apiErrors';
+import { useFormat } from '../../i18n/format';
 import { useAuth } from '../auth/AuthProvider';
 import { useIsAdmin } from '../auth/useCurrentUser';
 import { teamAuthority } from '../teams/teamAuthority';
@@ -170,6 +171,7 @@ function CreateMetricDialog({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const format = useFormat();
   const addMetric = useAddMetric(teamId);
   const [draft, setDraft] = useState<MetricCreate>(BLANK_METRIC);
   const [derivation, setDerivation] = useState<DerivationDraft>(NO_DERIVATION);
@@ -177,7 +179,7 @@ function CreateMetricDialog({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     // Sent only when there is one: a metric is typed in unless it says otherwise.
-    const derived = toDerivationWrite(derivation);
+    const derived = toDerivationWrite(derivation, format);
     // A rejection keeps the dialog open with what was typed.
     addMetric.mutate(derived ? { ...draft, derivation: derived } : draft, { onSuccess: onClose });
   }

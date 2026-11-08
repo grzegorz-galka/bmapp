@@ -262,9 +262,13 @@
 }
 
 /*
- * One row per metric, one column per field. The comment takes what width is
- * left; the other columns size to their content.
+ * One row per metric, one column per field, under a heading row per group.
+ * The columns size to their content; the comment field fills what is left.
  */
+.recordScroll {
+  overflow-x: auto;
+}
+
 .recordTable {
   width: 100%;
   border-collapse: collapse;
@@ -285,8 +289,11 @@
   white-space: nowrap;
 }
 
-.recordTable td:nth-child(4) {
-  width: 100%;
+.recordTable .groupRow th {
+  padding-top: var(--sp-4);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .metricCell {
@@ -294,18 +301,54 @@
   font-weight: normal;
 }
 
+/*
+ * Where the board is wide enough, the threshold and previous number stay on
+ * one line; narrower, they wrap rather than push the table past the page.
+ */
+@media (min-width: 75rem) {
+  .metricCell .metricMeta {
+    white-space: nowrap;
+  }
+}
+
+/* The row's message is drawn as part of the row above it: one rule under both. */
+.recordTable .rowWithMessage > th,
+.recordTable .rowWithMessage > td {
+  border-bottom: 0;
+}
+
+.recordTable .messageRow > td {
+  padding-top: 0;
+}
+
+.messageRow p {
+  margin: 0;
+}
+
+/* The numbers a derived value used, then why it could not be saved. */
+.messageRow p + p {
+  margin-top: var(--sp-1);
+}
+
 /* Ten characters and the field's padding: no wider than a number needs. */
 .recordTable .valueInput {
   width: 12ch;
 }
 
-/* "Derive" beside a derived metric's number, and the numbers it used beneath. */
+/* "Derive" beside a derived metric's number, never wrapped under it. */
+.valueField {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
 .deriveButton {
-  margin-left: var(--sp-2);
+  flex: none;
+  white-space: nowrap;
 }
 
 .derivedNote {
-  margin: var(--sp-1) 0 0;
   font-size: var(--fs-sm);
   color: var(--ink-2);
 }
@@ -348,14 +391,19 @@
 
 .rowState {
   min-width: 5rem;
-  max-width: 14rem;
   font-size: var(--fs-sm);
   color: var(--ink-2);
+  white-space: nowrap;
 }
 
 .recordTable .readValue {
   font-family: var(--font-mono);
   white-space: nowrap;
+}
+
+/* The comment field takes the width the other columns leave, never less than this. */
+.commentCell {
+  min-width: 12rem;
 }
 
 .recordTable .rowComment {
@@ -398,8 +446,21 @@
     border-bottom: 0;
   }
 
-  .recordTable td:nth-child(4) {
-    width: auto;
+  /* A group's heading reads as a heading above its cards, not as a card. */
+  .recordTable .groupRow,
+  .recordTable .messageRow {
+    margin-bottom: var(--sp-3);
+    padding: 0;
+    border: 0;
+  }
+
+  .recordTable .groupRow th {
+    padding: var(--sp-2) 0 0;
+  }
+
+  /* The message follows its card; the card above keeps its own margin. */
+  .recordTable .rowWithMessage {
+    margin-bottom: var(--sp-1);
   }
 
   .recordTable td::before {
@@ -410,8 +471,9 @@
     color: var(--ink-2);
   }
 
-  /* The row's name is its heading, and "Saved" needs no caption. */
-  .recordTable .rowState::before {
+  /* The row's name is its heading; "Saved" and the message need no caption. */
+  .recordTable .rowState::before,
+  .recordTable .messageRow td::before {
     content: none;
   }
 
@@ -424,7 +486,7 @@
   }
 
   .rowState {
-    max-width: none;
+    white-space: normal;
   }
 }
 
@@ -630,4 +692,28 @@
   .layout {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* The metric detail's sources section, collapsed until opened. */
+
+.detailSources {
+  margin-top: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.detailSourcesSummary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.detailDerived {
+  margin: var(--sp-3) 0 0;
+  font-weight: 600;
+}
+
+.detailSourcesChanged {
+  margin: var(--sp-2) 0 0;
+  color: var(--warn);
 }

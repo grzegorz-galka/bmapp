@@ -477,7 +477,7 @@ class MetricDerivationSourceError(DomainError):
 class DerivationSourceCountError(DomainError):
     """Raised when a derivation has the wrong number of sources for its kind.
 
-    `mean` and `sum` take one or more, `delta` exactly one.
+    `mean`, `sum` and `weighted_mean` take one or more, `delta` exactly one.
     """
 
     status_code = 422
@@ -522,6 +522,37 @@ class DerivationSourceDuplicateError(DomainError):
     def __init__(self, index: int) -> None:
         super().__init__(
             "This metric on this team is already a source.", f"derivation.sources[{index}]"
+        )
+
+
+class DerivationSourceWeightRequiredError(DomainError):
+    """Raised when a source of a weighted mean carries no weight."""
+
+    status_code = 422
+    code = "derivation_source.weight_required"
+
+    def __init__(self, index: int) -> None:
+        super().__init__(
+            "Every source of a weighted mean needs a weight.",
+            f"derivation.sources[{index}].weight",
+        )
+
+
+class DerivationSourceWeightInvalidError(DomainError):
+    """Raised when a weight is not above 0 or not storable, or is given to another kind.
+
+    A weight on a mean, sum or delta is refused rather than ignored, so the
+    client and the server never disagree about what was saved.
+    """
+
+    status_code = 422
+    code = "derivation_source.weight_invalid"
+
+    def __init__(self, index: int) -> None:
+        super().__init__(
+            "A weight is a number above 0, under 10^15 with at most 6 decimal places, "
+            "and only a weighted mean's sources take one.",
+            f"derivation.sources[{index}].weight",
         )
 
 

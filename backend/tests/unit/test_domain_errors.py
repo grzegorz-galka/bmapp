@@ -15,6 +15,8 @@ from app.core.exceptions import (
     DerivationSourceMissingError,
     DerivationSourceNotFoundError,
     DerivationSourceSelfError,
+    DerivationSourceWeightInvalidError,
+    DerivationSourceWeightRequiredError,
     DerivedValueOutOfRangeError,
     DevPasswordTooShortError,
     DevPasswordUnchangedError,
@@ -124,6 +126,18 @@ SOME_ID = uuid.uuid4()
             422,
             "derivation.sources[2]",
             "derivation_source.duplicate",
+        ),
+        (
+            DerivationSourceWeightRequiredError(1),
+            422,
+            "derivation.sources[1].weight",
+            "derivation_source.weight_required",
+        ),
+        (
+            DerivationSourceWeightInvalidError(0),
+            422,
+            "derivation.sources[0].weight",
+            "derivation_source.weight_invalid",
         ),
         (DerivationNoneError(SOME_ID), 404, None, "derivation.none"),
         (

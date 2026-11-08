@@ -13,7 +13,7 @@ import styles from './board.module.css';
 import { renderWithLanguage } from '../../test/render';
 import { en } from '../../i18n/en';
 import { formatMeetingDate } from '../../i18n/format';
-import type { DerivedValue, MetricDefinition } from '../../api/metrics';
+import type { BoardMetric, DerivedValue, MetricDefinition } from '../../api/metrics';
 import { pl } from '../../i18n/pl';
 import type { Language } from '../../i18n/languages';
 import {
@@ -91,6 +91,12 @@ async function chooseStatus(user: UserEvent, metric: string, option: string) {
 function chosenStatus(metric: string): string | undefined {
   const list = statusList(metric);
   return list.selectedOptions[0]?.textContent ?? undefined;
+}
+
+/** The table's column headers, the head row's only: a group's heading spans them all. */
+function columnHeaders(table: HTMLElement): HTMLElement[] {
+  const [head] = within(table).getAllByRole('rowgroup');
+  return within(head!).getAllByRole('columnheader');
 }
 
 function lastWrite(): { url: string; body: unknown } {
@@ -254,11 +260,7 @@ describe('the recording view', () => {
     );
 
     const table = screen.getByRole('table');
-    expect(
-      within(table)
-        .getAllByRole('columnheader')
-        .map((header) => header.textContent),
-    ).toEqual([
+    expect(columnHeaders(table).map((header) => header.textContent)).toEqual([
       en.recording.metricColumn,
       en.recording.value,
       en.recording.status,
@@ -318,7 +320,7 @@ describe('the recording view', () => {
     );
 
     const table = screen.getByRole('table');
-    expect(within(table).getAllByRole('columnheader')).toHaveLength(5);
+    expect(columnHeaders(table)).toHaveLength(5);
     const row = within(table).getByRole('row', { name: /Revenue/ });
     const cells = within(row).getAllByRole('cell');
     expect(cells).toHaveLength(4);
@@ -541,13 +543,115 @@ describe('the recording view', () => {
     expect(screen.getByRole('textbox', { name: 'Value: Revenue' })).toHaveValue('90');
     expect(screen.getByRole('textbox', { name: 'Value: NPS' })).toBeInTheDocument();
   });
+
+  /** Each group body's heading and the metrics listed under it, in order. */
+  function listedGroups(): [string, string[]][] {
+    const [, ...bodies] = within(screen.getByRole('table')).getAllByRole('rowgroup');
+    return bodies.map((body) => [
+      within(body).getAllByRole('rowheader')[0]?.textContent ?? '',
+      within(body)
+        .getAllByRole('textbox', { name: /^Value: / })
+        .map((field) => field.getAttribute('aria-label')!.replace('Value: ', '')),
+    ]);
+  }
+
+  function recordingOf(metrics: BoardMetric[]) {
+    return renderWithLanguage(
+      <RecordingView teamId={TEAM_ID} mode="edit" board={board('2026-10-14', { metrics })} />,
+      'en',
+    );
+  }
+
+  const DELIVERY = { id: 'g-delivery', name: 'Delivery', position: 0 };
+  const QUALITY = { id: 'g-quality', name: 'Quality', position: 1 };
+  const at = (
+    name: string,
+    group: typeof DELIVERY | null,
+    position: number,
+    hidden = false,
+  ): BoardMetric =>
+    tile({ metric: definition({ id: `metric-${name}`, name, group, position, hidden }) });
+
+  it('The metrics are listed under their groups', async () => {
+    await recordingOf([
+      at('Morale', null, 0),
+      at('Escapes', QUALITY, 1),
+      at('Lead time', DELIVERY, 0),
+      at('Bugs', QUALITY, 0),
+      at('Deploys', DELIVERY, 1),
+    ]);
+
+    expect(listedGroups()).toEqual([
+      ['Delivery', ['Lead time', 'Deploys']],
+      ['Quality', ['Bugs', 'Escapes']],
+      [en.board.noGroup, ['Morale']],
+    ]);
+    // Each heading spans the table's columns as the heading of its group.
+    const heading = screen.getByRole('rowheader', { name: 'Delivery' });
+    expect(heading).toHaveAttribute('scope', 'rowgroup');
+    expect(heading).toHaveAttribute('colspan', '5');
+  });
+
+  it('A hidden metric is listed under its group', async () => {
+    await recordingOf([at('Bugs', QUALITY, 0), at('Escapes', QUALITY, 1, true)]);
+
+    expect(listedGroups()).toEqual([['Quality', ['Bugs', 'Escapes']]]);
+  });
+
+  it('A group with only hidden metrics', async () => {
+    await recordingOf([at('Lead time', DELIVERY, 0), at('Base', QUALITY, 0, true)]);
+
+    expect(listedGroups()).toEqual([
+      ['Delivery', ['Lead time']],
+      ['Quality', ['Base']],
+    ]);
+  });
+
+  it("A row's message spans the table", async () => {
+    const user = await openRecording();
+    const field = screen.getByRole('textbox', { name: 'Value: Revenue' });
+    const row = within(screen.getByRole('table')).getByRole('row', { name: /Revenue/ });
+    const widths = within(row)
+      .getAllByRole('cell')
+      .map((cell) => cell.className);
+
+    await user.clear(field);
+    await user.type(field, 'ninety');
+    await user.tab();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Enter a number, such as 95.3.');
+    // Not in the row: on the line under it, one cell as wide as the table.
+    expect(row).not.toContainElement(alert);
+    const line = alert.closest('tr')!;
+    expect(line.previousElementSibling).toBe(row);
+    const [cell, ...others] = within(line).getAllByRole('cell');
+    expect(others).toEqual([]);
+    expect(cell).toHaveAttribute('colspan', '5');
+    expect(field).toHaveAccessibleDescription('Enter a number, such as 95.3.');
+    // The row keeps its cells as they were, the state cell holding no message.
+    expect(
+      within(row)
+        .getAllByRole('cell')
+        .map((cell) => cell.className),
+    ).toEqual(widths);
+    expect(within(row).getAllByRole('cell').at(-1)).toHaveTextContent('');
+  });
+
+  it('shows no message line for a row with nothing to say', async () => {
+    await openRecording();
+
+    const table = screen.getByRole('table');
+    // The head, one group heading and the one metric's row.
+    expect(within(table).getAllByRole('row')).toHaveLength(3);
+  });
 });
 
 /*
  * "Derive in the recording view", from specs/derived-metrics: a derived
  * metric's number worked out from its sources, filled in and saved as typed.
  */
-describe('deriving a number in the recording view', () => {
+describe('derive in the recording view', () => {
   const UNITS = ['BPW', 'CKBiR', 'CKI-P', 'CKI-W', 'ODM', 'CKI-S'];
   const NUMBERS = ['90', '97', '87', '83', '105', '101'];
   const PLATFORM = { id: TEAM_ID, name: 'Platform' };
@@ -570,6 +674,7 @@ describe('deriving a number in the recording view', () => {
       sources: UNITS.map((unit) => ({
         team: PLATFORM,
         metric: { id: `metric-${unit}`, name: `OTIF E: ${unit}` },
+        weight: null,
       })),
     };
   }
@@ -585,6 +690,7 @@ describe('deriving a number in the recording view', () => {
         date: '2026-10-14',
         value: NUMBERS[index]!,
         previous: null,
+        weight: null,
       })),
     };
   }
@@ -635,6 +741,40 @@ describe('deriving a number in the recording view', () => {
     expect(screen.getByText('Średnia z 6: 90,5 · 97 · 87 · 83 · 105 · 101')).toBeInTheDocument();
   });
 
+  it('Deriving a weighted mean names the weights', async () => {
+    // Scenario: Deriving a weighted mean names the weights.
+    const WEIGHTS = ['3', '1', '1'];
+    const sources = UNITS.slice(0, 3).map((unit, index) => ({
+      team: PLATFORM,
+      metric: { id: `metric-${unit}`, name: `OTIF E: ${unit}` },
+      weight: WEIGHTS[index]!,
+    }));
+    fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
+      metrics: [otif({ kind: 'weighted_mean', sources })],
+    });
+    fixtures.derive = () =>
+      jsonResponse({
+        value: '90.8',
+        kind: 'weighted_mean',
+        sources: sources.map((source, index) => ({
+          ...source,
+          meeting_id: 'm-2026-10-14',
+          date: '2026-10-14',
+          value: NUMBERS[index]!,
+          previous: null,
+        })),
+      } satisfies DerivedValue);
+    const user = await openRecording('pl', { email: MEMBER }, 'm-2026-10-14', pl.board.record);
+
+    await user.click(screen.getByRole('button', { name: 'Wylicz: OTIF E' }));
+
+    expect(screen.getByRole('textbox', { name: 'Wartość: OTIF E' })).toHaveValue('90,8');
+    expect(lastWrite().body).toEqual({ value: '90.8', manual_status: null, comment: null });
+    expect(
+      screen.getByText('Średnia ważona z 3: 90 (waga 3) · 97 (waga 1) · 87 (waga 1)'),
+    ).toBeInTheDocument();
+  });
+
   it('a derived number can be changed', async () => {
     // Scenario: A derived number can be changed.
     const user = await openRecording();
@@ -676,8 +816,8 @@ describe('deriving a number in the recording view', () => {
         otif({
           kind: 'mean',
           sources: [
-            { team: CKIP, metric: { id: 'metric-otif-etap', name: 'OTIF-Etap' } },
-            { team: PLATFORM, metric: { id: 'metric-bpw', name: 'OTIF E: BPW' } },
+            { team: CKIP, metric: { id: 'metric-otif-etap', name: 'OTIF-Etap' }, weight: null },
+            { team: PLATFORM, metric: { id: 'metric-bpw', name: 'OTIF E: BPW' }, weight: null },
           ],
         }),
       ],
@@ -716,7 +856,13 @@ describe('deriving a number in the recording view', () => {
       metrics: [
         otif({
           kind: 'delta',
-          sources: [{ team: PLATFORM, metric: { id: 'metric-staff', name: 'Zatrudnienie' } }],
+          sources: [
+            {
+              team: PLATFORM,
+              metric: { id: 'metric-staff', name: 'Zatrudnienie' },
+              weight: null,
+            },
+          ],
         }),
       ],
     });
@@ -732,6 +878,7 @@ describe('deriving a number in the recording view', () => {
             date: '2026-10-14',
             value: '391',
             previous: { meeting_id: 'm-2026-09-30', date: '2026-09-30', value: '395' },
+            weight: null,
           },
         ],
       } satisfies DerivedValue);
@@ -766,6 +913,63 @@ describe('deriving a number in the recording view', () => {
     const view = screen.getByRole('region', { name: /Values at the meeting on/ });
     expect(view).toHaveTextContent(en.recording.readOnly);
     expect(within(view).queryByRole('button', { name: /Derive/ })).not.toBeInTheDocument();
+  });
+
+  it('Derive sits beside the number field', async () => {
+    await openRecording();
+
+    const field = screen.getByRole('textbox', { name: 'Value: OTIF E' });
+    const derive = screen.getByRole('button', { name: 'Derive: OTIF E' });
+    // One container that does not wrap holds both, so they share a line.
+    const holder = field.parentElement!;
+    expect(holder).toHaveClass(styles.valueField!);
+    expect(holder).toContainElement(derive);
+    expect(holder.children).toHaveLength(2);
+  });
+
+  it("Several missing sources fit the row's width", async () => {
+    fixtures.derive = () =>
+      jsonResponse(
+        {
+          errors: ['BPW', 'CKBiR', 'CKI-S'].map((unit) => ({
+            field: `sources[${UNITS.indexOf(unit)}]`,
+            code: 'derivation.source_missing',
+            message: 'x',
+          })),
+        },
+        409,
+      );
+    const user = await openRecording();
+
+    await user.click(screen.getByRole('button', { name: 'Derive: OTIF E' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      'OTIF E: BPW has no number for that week. ' +
+        'OTIF E: CKBiR has no number for that week. ' +
+        'OTIF E: CKI-S has no number for that week.',
+    );
+    const row = screen.getByRole('textbox', { name: 'Value: OTIF E' }).closest('tr')!;
+    // Under the row and as wide as the table, not in the state column.
+    expect(row).not.toContainElement(alert);
+    const line = alert.closest('tr')!;
+    expect(line.previousElementSibling).toBe(row);
+    expect(alert.closest('td')).toHaveAttribute('colspan', '5');
+    expect(within(row).getAllByRole('cell').at(-1)).toHaveTextContent('');
+  });
+
+  it("notes the numbers used on the row's message line", async () => {
+    const user = await openRecording();
+
+    await user.click(screen.getByRole('button', { name: 'Derive: OTIF E' }));
+
+    const note = await screen.findByText('Mean of 6: 90 · 97 · 87 · 83 · 105 · 101');
+    const row = screen.getByRole('row', { name: /OTIF E/ });
+    expect(row).not.toContainElement(note);
+    expect(note.closest('tr')!.previousElementSibling).toBe(row);
+    expect(note.closest('td')).toHaveAttribute('colspan', '5');
+    // The state column says only whether the row was saved.
+    expect(await within(row).findByText(en.recording.saved)).toBeInTheDocument();
   });
 
   it('derives in an administrator’s correction, the save carrying the reason', async () => {

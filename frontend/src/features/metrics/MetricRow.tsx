@@ -58,7 +58,7 @@ export function MetricRow({
   const [panel, setPanel] = useState<Panel>('none');
   const [draft, setDraft] = useState<MetricCreate>(() => toDraft(metric));
   const [derivation, setDerivation] = useState<DerivationDraft>(() =>
-    toDerivationDraft(metric.derivation),
+    toDerivationDraft(metric.derivation, format),
   );
   const name = metric.name;
   // A global metric's definition and thresholds are the catalogue's: the
@@ -70,7 +70,7 @@ export function MetricRow({
     deleteMetric.reset();
     if (next === 'edit') {
       setDraft(toDraft(metric));
-      setDerivation(toDerivationDraft(metric.derivation));
+      setDerivation(toDerivationDraft(metric.derivation, format));
     }
     setPanel(panel === next ? 'none' : next);
   }
@@ -81,10 +81,10 @@ export function MetricRow({
     // The group changes on the layout, by dragging or the move controls.
     const placement = { owner_employee_id: draft.owner_employee_id };
     // The derivation is sent only when it changed: left out, it is left alone.
-    const derived = toDerivationWrite(derivation);
+    const derived = toDerivationWrite(derivation, format);
     const unchanged =
       JSON.stringify(derived) ===
-      JSON.stringify(toDerivationWrite(toDerivationDraft(metric.derivation)));
+      JSON.stringify(toDerivationWrite(toDerivationDraft(metric.derivation, format), format));
     const change = global
       ? placement
       : {

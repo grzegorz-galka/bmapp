@@ -29,6 +29,9 @@ export async function apiAs(request: APIRequestContext, email: string) {
       call('put', `/teams/${teamId}/schedule`, { weekday, time }),
     openMeeting: (teamId: string, date: string) =>
       call<{ id: string }>('post', `/teams/${teamId}/meetings`, { date, time: '13:00' }),
+    /** A group of the board's own, after its other groups. */
+    addGroup: (teamId: string, name: string) =>
+      call<{ id: string }>('post', `/teams/${teamId}/metric-groups`, { name }),
     addMetric: (teamId: string, metric: Record<string, unknown>) =>
       call<{ id: string }>('post', `/teams/${teamId}/metrics`, metric),
     addThreshold: (teamId: string, metricId: string, threshold: Record<string, unknown>) =>

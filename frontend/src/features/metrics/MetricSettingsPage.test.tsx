@@ -13,7 +13,7 @@ import { AddressProbe } from '../../test/AddressProbe';
 import { en } from '../../i18n/en';
 import { pl } from '../../i18n/pl';
 import type { Language } from '../../i18n/languages';
-import type { Metric, MetricGroup, MetricLayout, Threshold } from '../../api/metrics';
+import type { Derivation, Metric, MetricGroup, MetricLayout, Threshold } from '../../api/metrics';
 import type { GlobalMetric } from '../../api/globalMetrics';
 import type { Team, TeamDetail } from '../../api/teams';
 import controls from '../../styles/controls.module.css';
@@ -1575,8 +1575,8 @@ describe('a metric’s derivation on the settings page', () => {
             derivation: {
               kind: 'mean',
               sources: [
-                { team: platform, metric: { id: BPW.id, name: BPW.name } },
-                { team: platform, metric: { id: CKBIR.id, name: CKBIR.name } },
+                { team: platform, metric: { id: BPW.id, name: BPW.name }, weight: null },
+                { team: platform, metric: { id: CKBIR.id, name: CKBIR.name }, weight: null },
               ],
             },
           },
@@ -1634,7 +1634,7 @@ describe('a metric’s derivation on the settings page', () => {
       ...metric({ id: 'metric-ckip', name: 'OTIF E: CKI-P', unit: '%', group: null }),
       derivation: {
         kind: 'mean',
-        sources: [{ team: ckip, metric: { id: OTIF_ETAP.id, name: 'OTIF-Etap' } }],
+        sources: [{ team: ckip, metric: { id: OTIF_ETAP.id, name: 'OTIF-Etap' }, weight: null }],
       },
     };
     serveDerivation((_url, init) => {
@@ -1688,8 +1688,8 @@ describe('a metric’s derivation on the settings page', () => {
         derivation: {
           kind: 'mean',
           sources: [
-            { team: platform, metric: { id: BPW.id, name: BPW.name } },
-            { team: ckip, metric: { id: OTIF_ETAP.id, name: 'OTIF-Etap' } },
+            { team: platform, metric: { id: BPW.id, name: BPW.name }, weight: null },
+            { team: ckip, metric: { id: OTIF_ETAP.id, name: 'OTIF-Etap' }, weight: null },
           ],
         },
       },
@@ -1719,8 +1719,8 @@ describe('a metric’s derivation on the settings page', () => {
         derivation: {
           kind: 'mean',
           sources: [
-            { team: platform, metric: { id: BPW.id, name: BPW.name } },
-            { team: platform, metric: { id: CKBIR.id, name: CKBIR.name } },
+            { team: platform, metric: { id: BPW.id, name: BPW.name }, weight: null },
+            { team: platform, metric: { id: CKBIR.id, name: CKBIR.name }, weight: null },
           ],
         },
       },
@@ -1728,7 +1728,7 @@ describe('a metric’s derivation on the settings page', () => {
         ...metric({ id: 'metric-delta', name: 'Zatrudnienie delta', group: null }),
         derivation: {
           kind: 'delta',
-          sources: [{ team: ckip, metric: { id: OTIF_ETAP.id, name: 'OTIF-Etap' } }],
+          sources: [{ team: ckip, metric: { id: OTIF_ETAP.id, name: 'OTIF-Etap' }, weight: null }],
         },
       },
     ];
@@ -1748,8 +1748,8 @@ describe('a metric’s derivation on the settings page', () => {
         derivation: {
           kind: 'sum',
           sources: [
-            { team: platform, metric: { id: BPW.id, name: BPW.name } },
-            { team: platform, metric: { id: CKBIR.id, name: CKBIR.name } },
+            { team: platform, metric: { id: BPW.id, name: BPW.name }, weight: null },
+            { team: platform, metric: { id: CKBIR.id, name: CKBIR.name }, weight: null },
           ],
         },
       },
@@ -1827,5 +1827,180 @@ describe('a metric’s derivation on the settings page', () => {
     await user.click(screen.getByRole('button', { name: 'Edit placement: Uptime' }));
     expect(screen.getByLabelText(en.metrics.ownerLabel)).toBeInTheDocument();
     expect(screen.queryByLabelText(en.metrics.derivationKindLabel)).not.toBeInTheDocument();
+  });
+
+  /* A weighted mean's weights: the scenarios added by refine-derived-metric-recording. */
+  describe('the settings page edits a derivation', () => {
+    const bpw = { team: platform, metric: { id: BPW.id, name: BPW.name } };
+    const ckbir = { team: platform, metric: { id: CKBIR.id, name: CKBIR.name } };
+
+    /** "OTIF E" derived from BPW and CKBiR as `kind`, with `weights` when there are any. */
+    function otifAs(kind: Derivation['kind'], weights: [string, string] | null = null): Metric {
+      return {
+        ...OTIF,
+        derivation: {
+          kind,
+          sources: [
+            { ...bpw, weight: weights?.[0] ?? null },
+            { ...ckbir, weight: weights?.[1] ?? null },
+          ],
+        },
+      };
+    }
+
+    /** The listed sources of a metric's derivation, once its reading is expanded. */
+    async function listedSources(user: ReturnType<typeof userEvent.setup>, reading: string) {
+      await user.click(within(rowOf('OTIF E')).getByText(reading));
+      return within(within(rowOf('OTIF E')).getByRole('list'))
+        .getAllByRole('listitem')
+        .map((item) => item.textContent);
+    }
+
+    it('A weighted mean is set on the settings page', async () => {
+      // Scenario: A weighted mean is set on the settings page.
+      metrics = [OTIF, BPW, CKBIR];
+      serveDerivation((url, init) => {
+        if (url.endsWith('/metric-otif') && init.method === 'PATCH') {
+          metrics = [otifAs('weighted_mean', ['3', '1']), BPW, CKBIR];
+          return jsonResponse(metrics[0]);
+        }
+        return undefined;
+      });
+      const user = userEvent.setup();
+      await renderSettings();
+
+      await user.click(screen.getByRole('button', { name: 'Edit: OTIF E' }));
+      const form = within(rowOf('OTIF E'));
+      await user.selectOptions(
+        form.getByLabelText(en.metrics.derivationKindLabel),
+        'weighted_mean',
+      );
+      for (const [position, name] of [
+        [1, 'OTIF E: BPW'],
+        [2, 'OTIF E: CKBiR'],
+      ] as const) {
+        await user.click(form.getByRole('button', { name: en.metrics.addSource }));
+        const source = form.getByLabelText(`Source ${position}: metric`);
+        await within(source).findByRole('option', { name });
+        await user.selectOptions(source, within(source).getByRole('option', { name }));
+      }
+      const weight = form.getByLabelText('Source 1: weight');
+      await user.clear(weight);
+      await user.type(weight, '3');
+      await user.click(form.getByRole('button', { name: en.metrics.save }));
+
+      expect(lastBody()).toMatchObject({
+        derivation: {
+          kind: 'weighted_mean',
+          sources: [
+            { team_id: TEAM_ID, metric_id: BPW.id, weight: '3' },
+            { team_id: TEAM_ID, metric_id: CKBIR.id, weight: '1' },
+          ],
+        },
+      });
+      await waitFor(() => expect(rowOf('OTIF E')).toHaveTextContent('Weighted mean of 2 metrics'));
+      expect(await listedSources(user, 'Weighted mean of 2 metrics')).toEqual([
+        'OTIF E: BPW · weight 3',
+        'OTIF E: CKBiR · weight 1',
+      ]);
+    });
+
+    it('A weight starts at one', async () => {
+      // Scenario: A weight starts at one.
+      metrics = [otifAs('mean'), BPW, CKBIR];
+      serveDerivation(() => undefined);
+      const user = userEvent.setup();
+      await renderSettings();
+
+      await user.click(screen.getByRole('button', { name: 'Edit: OTIF E' }));
+      const form = within(rowOf('OTIF E'));
+      expect(form.queryByLabelText('Source 1: weight')).not.toBeInTheDocument();
+      await user.selectOptions(
+        form.getByLabelText(en.metrics.derivationKindLabel),
+        'weighted_mean',
+      );
+      expect(form.getByLabelText('Source 1: weight')).toHaveValue('1');
+      expect(form.getByLabelText('Source 2: weight')).toHaveValue('1');
+
+      await user.click(form.getByRole('button', { name: en.metrics.addSource }));
+      expect(form.getByLabelText('Source 3: weight')).toHaveValue('1');
+    });
+
+    it('Weights are dropped with the kind', async () => {
+      // Scenario: Weights are dropped with the kind.
+      metrics = [otifAs('weighted_mean', ['0.25', '1']), BPW, CKBIR];
+      serveDerivation((url, init) => {
+        if (url.endsWith('/metric-otif') && init.method === 'PATCH') {
+          metrics = [otifAs('mean'), BPW, CKBIR];
+          return jsonResponse(metrics[0]);
+        }
+        return undefined;
+      });
+      const user = userEvent.setup();
+      await renderSettings('pl');
+
+      await user.click(screen.getByRole('button', { name: `${pl.metrics.edit}: OTIF E` }));
+      const form = within(rowOf('OTIF E'));
+      // A weight reads back in the active language's format.
+      expect(form.getByLabelText('Źródło 1: waga')).toHaveValue('0,25');
+      await user.selectOptions(form.getByLabelText(pl.metrics.derivationKindLabel), 'mean');
+
+      expect(form.queryByLabelText('Źródło 1: waga')).not.toBeInTheDocument();
+      expect(form.queryByLabelText('Źródło 2: waga')).not.toBeInTheDocument();
+      expect(form.getByLabelText('Źródło 1: wskaźnik')).toHaveValue(BPW.id);
+      expect(form.getByLabelText('Źródło 2: wskaźnik')).toHaveValue(CKBIR.id);
+      await user.click(form.getByRole('button', { name: pl.metrics.save }));
+
+      expect((lastBody() as { derivation: unknown }).derivation).toEqual({
+        kind: 'mean',
+        sources: [
+          { team_id: TEAM_ID, metric_id: BPW.id },
+          { team_id: TEAM_ID, metric_id: CKBIR.id },
+        ],
+      });
+      await waitFor(() => expect(rowOf('OTIF E')).toHaveTextContent('Średnia z 2 wskaźników'));
+      expect(await listedSources(user, 'Średnia z 2 wskaźników')).toEqual([
+        'OTIF E: BPW',
+        'OTIF E: CKBiR',
+      ]);
+    });
+
+    it('A weight that is not a number greater than zero', async () => {
+      // Scenario: A weight that is not a number greater than zero.
+      metrics = [otifAs('weighted_mean', ['3', '1']), BPW, CKBIR];
+      serveDerivation(() =>
+        errorResponse(422, 'derivation.sources[0].weight', 'derivation_source.weight_invalid'),
+      );
+      const user = userEvent.setup();
+      await renderSettings('pl');
+
+      await user.click(screen.getByRole('button', { name: `${pl.metrics.edit}: OTIF E` }));
+      const form = within(rowOf('OTIF E'));
+      const weight = form.getByLabelText('Źródło 1: waga');
+
+      // Text that is no number at all is not sent.
+      await user.clear(weight);
+      await user.type(weight, 'trzy');
+      await user.click(form.getByRole('button', { name: pl.metrics.save }));
+      expect(writes()).toEqual([]);
+      expect(weight).toHaveAttribute('aria-invalid', 'true');
+      expect(form.getByRole('alert')).toHaveTextContent(
+        pl.metrics.weightUnreadable.replace('{{example}}', '0,5'),
+      );
+
+      await user.clear(weight);
+      await user.type(weight, '0');
+      await user.click(form.getByRole('button', { name: pl.metrics.save }));
+
+      expect(lastBody()).toMatchObject({
+        derivation: { sources: [{ weight: '0' }, { weight: '1' }] },
+      });
+      const alert = await form.findByRole('alert');
+      expect(alert).toHaveTextContent(pl.errors['derivation_source.weight_invalid']);
+      expect(alert.closest('li')).toBe(weight.closest('li'));
+      expect(weight).toHaveAttribute('aria-invalid', 'true');
+      // The metric is unchanged: the row still reads as the weighted mean it was.
+      expect(rowOf('OTIF E')).toHaveTextContent('Średnia ważona z 2 wskaźników');
+    });
   });
 });
