@@ -80,6 +80,15 @@ from app.schemas.metric import (
     ThresholdRead,
     TrendPoint,
 )
+from app.schemas.project import (
+    PersonRead,
+    ProductChange,
+    ProductCreate,
+    ProductRead,
+    ProjectChange,
+    ProjectCreate,
+    ProjectRead,
+)
 from app.schemas.pulse import (
     PulseAnswerRead,
     PulseAnswerWrite,
@@ -163,9 +172,16 @@ __all__ = [
     "MissingMetric",
     "NamedRead",
     "OwnerRead",
+    "PersonRead",
     "ProblemChange",
     "ProblemCreate",
     "ProblemRead",
+    "ProductChange",
+    "ProductCreate",
+    "ProductRead",
+    "ProjectChange",
+    "ProjectCreate",
+    "ProjectRead",
     "ProposedMeeting",
     "PulseAnswerRead",
     "PulseAnswerWrite",

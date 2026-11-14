@@ -9,6 +9,7 @@ import {
   type MeetingBoard,
   type MetricValueWrite,
 } from '../../api/metrics';
+import { metricLabel } from '../../api/metricLabel';
 import { describeFailure } from '../../i18n/apiErrors';
 import { useFormat } from '../../i18n/format';
 import { describeThreshold, StatusBadge } from '../metrics/display';
@@ -68,10 +69,10 @@ export function RecordingView({
             .map((metric) =>
               metric.owner && !hideNames
                 ? t('recording.missingOwner', {
-                    name: metric.name,
+                    name: metricLabel(metric),
                     owner: metric.owner.display_name,
                   })
-                : metric.name,
+                : metricLabel(metric),
             )
             .join(', ')}
         </p>
@@ -250,6 +251,7 @@ function RecordingRow({
     });
   }
 
+  const label = metricLabel(metric);
   const thresholdText = describeThreshold(t, format, metric, entry.threshold);
   const previous = t('recording.previous', { value: show(entry.previous) });
   // The column captions, shown before each cell when a narrow screen stacks the row.
@@ -263,7 +265,7 @@ function RecordingRow({
   const metricCell = (
     <th scope="row" data-label={captions.metric} className={styles.metricCell}>
       <span className={teamStyles.itemMain}>
-        <span className={teamStyles.itemName}>{metric.name}</span>
+        <span className={teamStyles.itemName}>{label}</span>
         {metric.unit && (
           <span className={teamStyles.itemMeta}>{t('recording.unit', { unit: metric.unit })}</span>
         )}
@@ -313,7 +315,7 @@ function RecordingRow({
           <div className={styles.valueField}>
             <input
               id={id('number')}
-              aria-label={t('recording.valueLabel', { name: metric.name })}
+              aria-label={t('recording.valueLabel', { name: label })}
               aria-describedby={hasMessage ? id('message') : undefined}
               inputMode="decimal"
               size={10}
@@ -331,7 +333,7 @@ function RecordingRow({
               <button
                 type="button"
                 className={`${controls.button} ${styles.deriveButton}`}
-                aria-label={t('recording.deriveLabel', { name: metric.name })}
+                aria-label={t('recording.deriveLabel', { name: label })}
                 disabled={derive.isPending}
                 onClick={handleDerive}
               >
@@ -344,7 +346,7 @@ function RecordingRow({
           <div className={styles.statusField}>
             <select
               id={id('status')}
-              aria-label={t('recording.statusLabel', { name: metric.name })}
+              aria-label={t('recording.statusLabel', { name: label })}
               className={`${teamStyles.input} ${styles.statusSelect} ${COLOUR_CLASS[colour] ?? ''}`}
               value={colour}
               onChange={(event) => setColour(event.target.value as Colour | '')}
@@ -362,7 +364,7 @@ function RecordingRow({
         <td data-label={captions.comment} className={styles.commentCell}>
           <input
             id={id('comment')}
-            aria-label={t('recording.commentLabel', { name: metric.name })}
+            aria-label={t('recording.commentLabel', { name: label })}
             className={teamStyles.input}
             value={comment}
             onChange={(event) => setComment(event.target.value)}

@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.models import Employee, TeamMember
+from tests.integration.projects_api import add_project
 from tests.integration.teams_api import add, member_id, register
 
 pytestmark = pytest.mark.integration
@@ -80,6 +81,23 @@ def test_an_email_is_malformed(client: TestClient, session: Session, email: str)
     error = response.json()["errors"][0]
     assert (error["field"], error["code"]) == ("email", "employee_email.invalid")
     assert session.query(Employee).count() == 1
+
+
+def test_a_project_manager_is_recorded_on_being_named(client: TestClient, session: Session) -> None:
+    """Scenario: A project manager is recorded on being named."""
+    platform = register(client, "Platform")
+    quality = register(client, "Quality", "quality-lead@example.com")
+
+    project = add_project(client, platform["id"], manager_email="ewa@example.com")
+
+    ewa = session.query(Employee).filter_by(email="ewa@example.com").one()
+    assert project["manager"]["id"] == str(ewa.id)
+    assert session.query(TeamMember).filter_by(employee_id=ewa.id).count() == 0
+
+    detail = add(client, quality["id"], "Ewa@Example.com")
+
+    assert member_id(detail, "ewa@example.com") == str(ewa.id)
+    assert session.query(Employee).filter_by(email="ewa@example.com").count() == 1
 
 
 def test_leaving_a_team_does_not_delete_the_employee(client: TestClient, session: Session) -> None:

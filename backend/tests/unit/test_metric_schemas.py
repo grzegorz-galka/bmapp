@@ -133,8 +133,8 @@ def test_a_property_that_always_has_a_value_cannot_be_cleared(field: str) -> Non
 
 
 def test_a_metric_is_added_shown_unless_asked_to_hide_it() -> None:
-    assert MetricCreate(**_metric()).hidden is False
-    assert MetricCreate(**_metric(hidden=True)).hidden is True
+    assert MetricCreate(**_metric()).hidden_on_arrival is False
+    assert MetricCreate(**_metric(hidden=True)).hidden_on_arrival is True
     assert MetricCopy(source_metric_id=SOURCE).hidden is False  # type: ignore[arg-type]
     assert GlobalMetricInclusion(global_metric_id=SOURCE).hidden is False  # type: ignore[arg-type]
 
@@ -206,7 +206,7 @@ def test_a_copy_and_an_inclusion_take_no_derivation() -> None:
 
 def test_a_derived_value_is_written_as_a_plain_decimal_string() -> None:
     reading = {"meeting_id": SOURCE_A, "date": "2026-10-13", "value": Decimal("391.000000")}
-    named = {"id": TEAM, "name": "CKI-P"}
+    named = {"id": TEAM, "name": "CKI-P", "project": None, "product": None}
     derived = DerivedValue.model_validate(
         {
             "value": Decimal("-4.000000"),
@@ -245,6 +245,8 @@ def _definition(**fields: Any) -> dict[str, Any]:
         "retired": False,
         "hidden": False,
         "retired_in_catalogue": False,
+        "project": None,
+        "product": None,
         **fields,
     }
 
@@ -259,18 +261,19 @@ def test_a_metric_on_a_board_reads_its_scope(scope: str) -> None:
 def test_a_metric_reads_with_no_derivation_unless_it_has_one() -> None:
     assert MetricDefinitionRead.model_validate(_definition(scope="board")).derivation is None
 
-    named = {"id": TEAM, "name": "OTIF-Etap"}
+    team = {"id": TEAM, "name": "OTIF-Etap"}
+    metric = {**team, "project": None, "product": None}
     read = MetricDefinitionRead.model_validate(
         _definition(
             scope="board",
-            derivation={"kind": "mean", "sources": [{"team": named, "metric": named}]},
+            derivation={"kind": "mean", "sources": [{"team": team, "metric": metric}]},
         )
     )
 
     # Only a weighted mean's sources carry a weight; every other kind reads it as null.
     assert read.model_dump(mode="json")["derivation"] == {
         "kind": "mean",
-        "sources": [{"team": named, "metric": named, "weight": None}],
+        "sources": [{"team": team, "metric": metric, "weight": None}],
     }
 
 

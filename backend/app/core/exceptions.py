@@ -784,3 +784,144 @@ class TaskArchivedError(DomainError):
 
     def __init__(self, task_id: object) -> None:
         super().__init__(f"Task {task_id} is closed and archived; it cannot change.")
+
+
+class DuplicateProjectCodeError(DomainError):
+    """Raised when a project code is already in use by any team's project, ignoring case."""
+
+    status_code = 409
+    field = "code"
+    code = "project_code.duplicate"
+
+    def __init__(self, project_code: str) -> None:
+        super().__init__(f"A project with the code {project_code!r} already exists.")
+
+
+class ProjectDatesOrderError(DomainError):
+    """Raised when a change leaves a project ending before it starts.
+
+    A request that gives both dates is refused by its schema; this is for a
+    change that moves only one of them past the other.
+    """
+
+    status_code = 422
+    field = "end_date"
+    code = "project_dates.order"
+
+    def __init__(self) -> None:
+        super().__init__("A project's end date must not be before its start date.")
+
+
+class ProjectNotFoundError(DomainError):
+    """Raised when a project identifier names no project of the team in the path.
+
+    Another team's project is "not found" too, as another team's meeting is.
+    """
+
+    status_code = 404
+    field = "project_id"
+    code = "project.not_found"
+
+    def __init__(self, project_id: object) -> None:
+        super().__init__(f"This team has no project with the identifier {project_id}.")
+
+
+class ProjectHasValuesError(DomainError):
+    """Raised when a project one of whose metrics has a value is deleted; deactivate it."""
+
+    status_code = 409
+    code = "project.has_values"
+
+    def __init__(self, project_id: object) -> None:
+        super().__init__(f"Project {project_id} has recorded metric values; deactivate it.")
+
+
+class DuplicateProductNameError(DomainError):
+    """Raised when the team already has a product of that name, ignoring case."""
+
+    status_code = 409
+    field = "name"
+    code = "product_name.duplicate"
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"This team already has a product named {name!r}.")
+
+
+class ProductNotFoundError(DomainError):
+    """Raised when a product identifier names no product of the team in the path."""
+
+    status_code = 404
+    field = "product_id"
+    code = "product.not_found"
+
+    def __init__(self, product_id: object) -> None:
+        super().__init__(f"This team has no product with the identifier {product_id}.")
+
+
+class ProductHasValuesError(DomainError):
+    """Raised when a product one of whose metrics has a value is deleted; deactivate it."""
+
+    status_code = 409
+    code = "product.has_values"
+
+    def __init__(self, product_id: object) -> None:
+        super().__init__(f"Product {product_id} has recorded metric values; deactivate it.")
+
+
+class MetricProjectAndProductError(DomainError):
+    """Raised when a metric is given both a project and a product; it belongs to one.
+
+    The request schema refuses it first with the same code; this is for a
+    caller that bypasses the schema.
+    """
+
+    status_code = 422
+    field = "project_id"
+    code = "metric.project_and_product"
+
+    def __init__(self) -> None:
+        super().__init__("A metric belongs to a project or a product, not both.")
+
+
+class DerivationProjectMetricError(DomainError):
+    """Raised when a project's metric is given a derivation. It may be a source instead."""
+
+    status_code = 409
+    field = "derivation"
+    code = "derivation.project_metric"
+
+    def __init__(self) -> None:
+        super().__init__("A project's metric is never derived.")
+
+
+class DerivationProductMetricError(DomainError):
+    """Raised when a product's metric is given a derivation. It may be a source instead."""
+
+    status_code = 409
+    field = "derivation"
+    code = "derivation.product_metric"
+
+    def __init__(self) -> None:
+        super().__init__("A product's metric is never derived.")
+
+
+class MetricCopySourceProjectError(DomainError):
+    """Raised when a project's metric is copied onto a board; it stays with its project."""
+
+    status_code = 409
+    field = "source_metric_id"
+    code = "metric_copy.source_project"
+
+    def __init__(self, metric_id: object) -> None:
+        super().__init__(f"Metric {metric_id} belongs to a project and cannot be copied.")
+
+
+class MetricCopySourceProductError(DomainError):
+    """Raised when a product's metric is copied onto a board; it stays with its product."""
+
+    status_code = 409
+    field = "source_metric_id"
+    code = "metric_copy.source_product"
+
+    def __init__(self, metric_id: object) -> None:
+        super().__init__(f"Metric {metric_id} belongs to a product and cannot be copied.")

@@ -9,6 +9,9 @@ import { GlobalMetricsPage } from './features/globalMetrics/GlobalMetricsPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { TeamMeetingsPage } from './features/meetings/TeamMeetingsPage';
 import { MetricSettingsPage } from './features/metrics/MetricSettingsPage';
+import { ProjectsAndProductsPage } from './features/projectsAndProducts/ProjectsAndProductsPage';
+import { ProductPage } from './features/projectsAndProducts/ProductPage';
+import { ProjectPage } from './features/projectsAndProducts/ProjectPage';
 import { MyMeetingsPage } from './features/personal/MyMeetingsPage';
 import { MyPulsePage } from './features/personal/MyPulsePage';
 import { MyTeamsPage } from './features/personal/MyTeamsPage';
@@ -57,6 +60,9 @@ export function AppRoutes({ completeSignIn }: { completeSignIn: () => Promise<bo
           <Route path="teams/:teamId/members" element={<TeamMembersPage />} />
           <Route path="teams/:teamId/meetings" element={<TeamMeetingsPage />} />
           <Route path="teams/:teamId/metrics" element={<MetricSettingsPage />} />
+          <Route path="teams/:teamId/projects-and-products" element={<ProjectsAndProductsPage />} />
+          <Route path="teams/:teamId/projects/:projectId" element={<ProjectPage />} />
+          <Route path="teams/:teamId/products/:productId" element={<ProductPage />} />
           <Route path="global-metrics" element={<GlobalMetricsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

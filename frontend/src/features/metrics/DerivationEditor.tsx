@@ -10,7 +10,9 @@ import {
   type Derivation,
   type DerivationKind,
   type DerivationWrite,
+  type MetricParent,
 } from '../../api/metrics';
+import { metricLabel } from '../../api/metricLabel';
 import { describeFieldFailure } from '../../i18n/apiErrors';
 import { useFormat } from '../../i18n/format';
 import {
@@ -120,15 +122,19 @@ export function derivationFields(draft: DerivationDraft): string[] {
   ];
 }
 
-/** A source by its metric's name, followed by its team's when that is another team. */
+/**
+ * A source by its metric's label, the project or product first, followed by
+ * its team's name when that is another team.
+ */
 export function sourceName(
   t: TFunction,
-  source: { team: { id: string; name: string }; metric: { name: string } },
+  source: { team: { id: string; name: string }; metric: MetricParent & { name: string } },
   ownTeamId: string,
 ): string {
+  const label = metricLabel(source.metric);
   return source.team.id === ownTeamId
-    ? source.metric.name
-    : t('metrics.sourceOfTeam', { metric: source.metric.name, team: source.team.name });
+    ? label
+    : t('metrics.sourceOfTeam', { metric: label, team: source.team.name });
 }
 
 /**
@@ -359,7 +365,9 @@ function SourceRow({
         <option value="">{t('metrics.chooseMetric')}</option>
         {candidates.map((metric) => (
           <option key={metric.id} value={metric.id}>
-            {metric.retired ? t('metrics.retiredOption', { name: metric.name }) : metric.name}
+            {metric.retired
+              ? t('metrics.retiredOption', { name: metricLabel(metric) })
+              : metricLabel(metric)}
           </option>
         ))}
       </select>

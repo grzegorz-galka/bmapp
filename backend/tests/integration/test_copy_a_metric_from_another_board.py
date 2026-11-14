@@ -26,6 +26,8 @@ from tests.integration.metrics_api import (
     tile,
     trend_of,
 )
+from tests.integration.project_metrics_api import add_metric_of
+from tests.integration.projects_api import add_product, add_project
 from tests.integration.teams_api import add, member_id, register
 
 LEADER = "lead@pse.pl"
@@ -295,6 +297,30 @@ def test_a_global_metric_is_not_copied(
     assert response.status_code == 409
     assert error_of(response) == ("source_metric_id", "metric_copy.source_global")
     assert metrics_of(client, team_id) == []
+
+
+def test_a_projects_or_products_metric_is_not_copied(
+    client: TestClient, client_as: Callable[[str], TestClient]
+) -> None:
+    """Scenario: A project's or product's metric is not copied."""
+    team_id, source_id = _boards(client)
+    project = add_project(client, source_id)
+    product = add_product(client, source_id)
+    budget = add_metric_of(client, source_id, "Budget consumed", project_id=project["id"])
+    nps = add_metric_of(client, source_id, "NPS", product_id=product["id"])
+    # Of the leader's own team too: the rule is about the metric, not whose it is.
+    own_project = add_project(client, team_id, code="PRJ-050")
+    own_budget = add_metric_of(client, team_id, "Budget consumed", project_id=own_project["id"])
+
+    from_project = _copy(client_as(LEADER), team_id, budget["id"])
+    from_product = _copy(client_as(LEADER), team_id, nps["id"])
+    from_own = _copy(client_as(LEADER), team_id, own_budget["id"], name="Budget (copy)")
+
+    assert from_project.status_code == from_product.status_code == from_own.status_code == 409
+    assert error_of(from_project) == ("source_metric_id", "metric_copy.source_project")
+    assert error_of(from_product) == ("source_metric_id", "metric_copy.source_product")
+    assert error_of(from_own) == ("source_metric_id", "metric_copy.source_project")
+    assert [m["id"] for m in metrics_of(client, team_id)] == [own_budget["id"]]
 
 
 def test_the_source_does_not_exist(

@@ -64,7 +64,13 @@ def test_a_metric_without_an_owner_adds_no_one(client: TestClient, client_as: Cl
 
     assert owing(client, team["id"], meeting["id"]) == (0, [])
     assert completeness["missing"] == [
-        {"metric_id": unowned["id"], "name": "Lead time", "owner": None}
+        {
+            "metric_id": unowned["id"],
+            "name": "Lead time",
+            "owner": None,
+            "project": None,
+            "product": None,
+        }
     ]
 
 

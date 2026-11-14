@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
+import { metricLabel } from '../../api/metricLabel';
 import type { MeetingBoard } from '../../api/metrics';
 import type { PulseResults } from '../../api/pulse';
 import controls from '../../styles/controls.module.css';
@@ -115,7 +116,7 @@ export function ReadinessPanel({
                 <ul className={styles.readinessList}>
                   {missing.map((metric) => (
                     <li key={metric.metric_id}>
-                      {metric.name}
+                      {metricLabel(metric)}
                       {!hideNames && (
                         <>
                           {' – '}

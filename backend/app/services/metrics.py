@@ -10,23 +10,30 @@ from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from sqlalchemy import exists, func, select, update
+from sqlalchemy import ColumnElement, and_, exists, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, contains_eager
 
 from app.core.exceptions import (
+    DerivationProductMetricError,
+    DerivationProjectMetricError,
     DuplicateMetricGroupNameError,
     DuplicateMetricNameError,
     GlobalMetricAlreadyIncludedError,
     GlobalMetricReadOnlyError,
     MetricCopySourceGlobalError,
+    MetricCopySourceProductError,
+    MetricCopySourceProjectError,
     MetricDirectionImmutableError,
     MetricGroupNotFoundError,
     MetricHasValuesError,
     MetricLayoutStaleError,
     MetricNotFoundError,
     MetricOwnerNotMemberError,
+    MetricProjectAndProductError,
     MetricRetiredError,
+    ProductNotFoundError,
+    ProjectNotFoundError,
     TeamNotFoundError,
 )
 from app.core.metric_enums import Direction, Scope
@@ -37,6 +44,8 @@ from app.models import (
     MetricGroup,
     MetricThreshold,
     MetricValue,
+    Product,
+    Project,
     Team,
     TeamMember,
 )
@@ -62,6 +71,11 @@ from app.services.metric_status import TargetVersion, bounds_of, threshold_in_fo
 logger = logging.getLogger(__name__)
 
 METRIC_NAME_UNIQUE_INDEX = "uq_metrics_team_name_lower"
+#: A project's or product's metric is named uniquely within it instead.
+METRIC_PARENT_NAME_UNIQUE_INDEXES = (
+    "uq_metrics_project_name_lower",
+    "uq_metrics_product_name_lower",
+)
 METRIC_GROUP_NAME_UNIQUE_INDEX = "uq_metric_groups_team_name_lower"
 
 #: The board's order, wherever a board's metrics are listed: its groups in
@@ -71,6 +85,24 @@ BOARD_ORDER = (
     BoardMetric.position,
     func.lower(Metric.name),
 )
+
+
+def active_placement() -> ColumnElement[bool]:
+    """Whether a placement is active on its board, as SQL over `BoardMetric` and `Metric`.
+
+    Not retired on the board, not retired in the catalogue, and not of an
+    inactive project or product. Every reader that counts, shows or chases
+    a board's active metrics filters by this, so they cannot disagree;
+    `BoardMetric.retired` is its Python twin. The parent's status is read,
+    never copied onto the placement, so reactivating a project leaves a
+    metric retired by hand retired.
+    """
+    return and_(
+        BoardMetric.retired_on_board.is_(False),
+        Metric.retired.is_(False),
+        ~exists().where(Project.id == Metric.project_id, Project.active.is_(False)),
+        ~exists().where(Product.id == Metric.product_id, Product.active.is_(False)),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,17 +118,34 @@ def add_metric(
 ) -> BoardMetric:
     """Add a metric of the board's own, with no threshold yet and not retired.
 
-    With a derivation, when one is given.
+    With a derivation, when one is given. A metric of one of the team's
+    projects or products is never derived, arrives hidden unless asked to
+    show, is owned by the manager or product owner when no owner is given
+    and they are a member, and is named uniquely within its project or
+    product rather than on the board.
     """
     if session.get(Team, team_id) is None:
         raise TeamNotFoundError(team_id)
-    _require_member_owner(session, team_id, payload.owner_employee_id)
+    parent = _parent(session, team_id, payload.project_id, payload.product_id)
+    if payload.derivation is not None:
+        _refuse_a_derivation_with_a_parent(payload.project_id, payload.product_id)
+    owner_id = payload.owner_employee_id
+    _require_member_owner(session, team_id, owner_id)
+    if owner_id is None and parent is not None:
+        owner_id = _member_or_none(session, team_id, _parent_person(parent))
     _require_group(session, team_id, payload.group_id)
     if payload.derivation is not None:
         check_derivation(session, team_id, None, payload.derivation)
-    lock_boards_and_check_name(session, [team_id], payload.name)
+    if parent is None:
+        lock_boards_and_check_name(session, [team_id], payload.name)
+    else:
+        # Named within its project or product, where the index decides; the
+        # position is still the board's, so additions take turns.
+        _lock_board(session, team_id)
     metric = Metric(
         team_id=team_id,
+        project_id=payload.project_id,
+        product_id=payload.product_id,
         name=payload.name,
         unit=payload.unit,
         decimals=payload.decimals,
@@ -108,13 +157,63 @@ def add_metric(
         metric=metric,
         group_id=payload.group_id,
         position=_next_position(session, team_id, payload.group_id),
-        owner_employee_id=payload.owner_employee_id,
-        hidden=payload.hidden,
+        owner_employee_id=owner_id,
+        hidden=payload.hidden_on_arrival,
     )
     session.add(placement)
     _commit(session, payload.name)
+    # Set by its column only, so the project or product is read on the way out.
+    session.expire(metric, ["project", "product"])
     logger.info("Metric %s of team %s added by %s", metric.id, team_id, actor_email)
     return placement
+
+
+def _parent(
+    session: Session,
+    team_id: uuid.UUID,
+    project_id: uuid.UUID | None,
+    product_id: uuid.UUID | None,
+) -> Project | Product | None:
+    """The team's project or product a new metric belongs to, or none.
+
+    Another team's is as unknown as a missing one. Both at once is refused
+    by the request schema already; this repeats it for any other caller.
+    """
+    if project_id is not None and product_id is not None:
+        raise MetricProjectAndProductError()
+    if project_id is not None:
+        project = session.get(Project, project_id)
+        if project is None or project.team_id != team_id:
+            raise ProjectNotFoundError(project_id)
+        return project
+    if product_id is not None:
+        product = session.get(Product, product_id)
+        if product is None or product.team_id != team_id:
+            raise ProductNotFoundError(product_id)
+        return product
+    return None
+
+
+def _parent_person(parent: Project | Product) -> uuid.UUID:
+    """The project's manager or the product's owner."""
+    return parent.manager_employee_id if isinstance(parent, Project) else parent.owner_employee_id
+
+
+def _member_or_none(
+    session: Session, team_id: uuid.UUID, employee_id: uuid.UUID
+) -> uuid.UUID | None:
+    """The employee when they are a member of the team now; otherwise no one."""
+    return employee_id if session.get(TeamMember, (team_id, employee_id)) is not None else None
+
+
+def _refuse_a_derivation_with_a_parent(
+    project_id: uuid.UUID | None, product_id: uuid.UUID | None
+) -> None:
+    """A project's or product's metric is never derived, though it may be a source."""
+    if project_id is not None:
+        raise DerivationProjectMetricError()
+    if product_id is not None:
+        raise DerivationProductMetricError()
 
 
 def include_global_metric(
@@ -171,6 +270,10 @@ def copy_metric(
         raise MetricNotFoundError(payload.source_metric_id)
     if source.team_id is None:
         raise MetricCopySourceGlobalError(source.id)
+    if source.project_id is not None:
+        raise MetricCopySourceProjectError(source.id)
+    if source.product_id is not None:
+        raise MetricCopySourceProductError(source.id)
     _require_group(session, team_id, payload.group_id)
     name = payload.name or source.name
     lock_boards_and_check_name(session, [team_id], name)
@@ -293,10 +396,13 @@ def change_metric(
     changing_derivation = "derivation" in changes
     changes.pop("derivation", None)
     if changing_derivation and payload.derivation is not None:
+        _refuse_a_derivation_with_a_parent(metric.project_id, metric.product_id)
         check_derivation(session, team_id, metric_id, payload.derivation)
     if changes.get("owner_employee_id") is not None:
         _require_member_owner(session, team_id, changes["owner_employee_id"])
-    if "name" in changes and changes["name"] != metric.name:
+    has_parent = metric.project_id is not None or metric.product_id is not None
+    if "name" in changes and changes["name"] != metric.name and not has_parent:
+        # A project's or product's metric is named within it, where the index decides.
         lock_boards_and_check_name(session, [team_id], changes["name"], exclude_metric_id=metric_id)
     if "group_id" in changes and changes["group_id"] != placement.group_id:
         # Moved to another group, or out of every group: last there.
@@ -664,7 +770,9 @@ def lock_boards_and_check_name(
 ) -> None:
     """Refuse a name any metric on these boards already has, ignoring case.
 
-    Own and included global metrics alike, retired ones too. The clash of an
+    Own and included global metrics alike, retired ones too, but not a
+    project's or product's metric: it is named within its project or
+    product, and may repeat the board's names. The clash of an
     own metric with a global one spans two tables, so no index can decide
     it; instead every write that could create one locks the boards' team
     rows first, which makes two concurrent writes take turns. Locked in id
@@ -679,7 +787,12 @@ def lock_boards_and_check_name(
     clash = (
         select(BoardMetric.metric_id)
         .join(Metric, Metric.id == BoardMetric.metric_id)
-        .where(BoardMetric.team_id.in_(ids), func.lower(Metric.name) == name.lower())
+        .where(
+            BoardMetric.team_id.in_(ids),
+            func.lower(Metric.name) == name.lower(),
+            Metric.project_id.is_(None),
+            Metric.product_id.is_(None),
+        )
     )
     if exclude_metric_id is not None:
         clash = clash.where(Metric.id != exclude_metric_id)
@@ -706,11 +819,16 @@ def _commit_group(session: Session, name: str) -> None:
 
 
 def _commit(session: Session, name: str) -> None:
-    """Commit, turning a clash on the unique name index into its error."""
+    """Commit, turning a clash on a unique name index into its error.
+
+    The board's index, or a project's or product's.
+    """
     try:
         session.commit()
     except IntegrityError as error:
         session.rollback()
-        if METRIC_NAME_UNIQUE_INDEX in str(error.orig):
+        reason = str(error.orig)
+        indexes = (METRIC_NAME_UNIQUE_INDEX, *METRIC_PARENT_NAME_UNIQUE_INDEXES)
+        if any(index in reason for index in indexes):
             raise DuplicateMetricNameError(name) from error
         raise

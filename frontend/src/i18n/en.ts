@@ -44,6 +44,7 @@ export const en = {
     teamMetrics: 'Back to Team metrics',
     board: 'Back to the board',
     meetings: 'Back to the meetings',
+    projectsAndProducts: 'Back to Projects and products',
   },
   dashboard: {
     loading: 'Loading the dashboard…',
@@ -586,6 +587,8 @@ export const en = {
     globalNote:
       'Its name, unit, direction and thresholds are set in the catalogue, not on this board.',
     retiredInCatalogue: 'Retired in the catalogue: only an administrator can bring it back.',
+    retiredWithProject: 'Retired while its project is inactive: make the project active again.',
+    retiredWithProduct: 'Retired while its product is inactive: make the product active again.',
     editPlacement: 'Edit placement',
     editPlacementLabel: 'Edit placement: {{name}}',
     remove: 'Remove from board',
@@ -775,6 +778,93 @@ export const en = {
     devPasswordSubmitting: 'Saving...',
     passwordMismatch: 'The passwords do not match.',
   },
+  // A team's projects and products: `list` for the team's page listing them,
+  // `detail` for one project's or product's page, `common` for the terms both
+  // share. Nested one level deeper than the other sections, so each page's
+  // keys stay together.
+  projectsAndProducts: {
+    list: {
+      heading: 'Projects and products',
+      title: 'Projects and products of {{name}}',
+      loading: 'Loading the projects and products…',
+      loadFailed: 'Could not load the projects and products.',
+      notFound: 'This team does not exist.',
+      projectsLabel: 'Projects',
+      productsLabel: 'Products',
+      noProjects: 'This team follows no project yet.',
+      noProducts: 'This team follows no product yet.',
+      addProject: 'Add project',
+      addProduct: 'Add product',
+      changeProject: 'Change project',
+      changeProduct: 'Change product',
+      managerEmail: 'Project manager’s email',
+      ownerEmail: 'Product owner’s email',
+      personHint:
+        'Anyone in the company. Naming them makes them no member of the team and gives them no permission.',
+      jiraHint: 'Optional. A full address starting with http:// or https://.',
+      dates: '{{start}} – {{end}}',
+      managedBy: 'Project manager: {{name}}',
+      ownedBy: 'Product owner: {{name}}',
+      save: 'Save',
+      saving: 'Saving…',
+      cancel: 'Cancel',
+      change: 'Change',
+      changeLabel: 'Change: {{name}}',
+      deactivate: 'Make inactive',
+      deactivateLabel: 'Make inactive: {{name}}',
+      reactivate: 'Make active',
+      reactivateLabel: 'Make active: {{name}}',
+      delete: 'Delete',
+      deleteLabel: 'Delete: {{name}}',
+      deleteProjectHeading: 'Delete the project {{name}}?',
+      deleteProductHeading: 'Delete the product {{name}}?',
+      deleteWarning:
+        'Its metrics and their threshold versions are deleted with it. Once a value is recorded for any of them it cannot be deleted; make it inactive instead.',
+      deleting: 'Deleting…',
+    },
+    detail: {
+      jiraLink: 'Jira board',
+      newTab: '(opens in a new tab)',
+      noJira: 'No Jira board',
+      loading: 'Loading…',
+      loadFailed: 'Could not load this page.',
+      projectNotFound: 'This project does not exist.',
+      productNotFound: 'This product does not exist.',
+      projectHeading: '{{code}} · {{name}}',
+      detailsLabel: 'Details',
+      status: 'Status',
+      dates: '{{start}} – {{end}}',
+      projectInactiveNote:
+        'The project is inactive: its metrics are retired on the board, and their history stays readable.',
+      productInactiveNote:
+        'The product is inactive: its metrics are retired on the board, and their history stays readable.',
+      metricsHeading: 'Metrics',
+      noMetrics: 'No metric yet.',
+      addMetric: 'Add metric',
+      recordValues: 'Record values on the board',
+      latest: 'Latest value',
+      latestOn: 'Latest value, meeting on {{date}}',
+      noValue: 'No value recorded yet',
+      trendLoading: 'Loading the trend…',
+    },
+    common: {
+      project: 'Project',
+      projects: 'Projects',
+      product: 'Product',
+      products: 'Products',
+      projectManager: 'Project manager',
+      productOwner: 'Product owner',
+      active: 'Active',
+      inactive: 'Inactive',
+      pastEnd: 'Past its end date',
+      notOnBoard: 'Not on board',
+      code: 'Code',
+      name: 'Name',
+      startDate: 'Start date',
+      endDate: 'End date',
+      jiraBoard: 'Jira board link',
+    },
+  },
   errors: {
     // Keyed by the code the API reports. `generic` covers a code this
     // catalogue does not know, so no untranslated text ever reaches a user.
@@ -869,12 +959,35 @@ export const en = {
     'task.not_found': 'This task no longer exists.',
     'problem.archived': 'This problem is closed and archived, so it cannot be changed.',
     'task.archived': 'This task is closed and archived, so it cannot be changed.',
+    'project_code.blank': 'Enter a project code.',
+    'project_code.too_long': 'A project code can be at most 50 characters.',
+    'project_code.duplicate': 'A project with this code already exists.',
+    'project_name.blank': 'Enter a project name.',
+    'project_name.too_long': 'A project name can be at most 200 characters.',
+    'project_dates.order': 'The end date cannot be before the start date.',
+    'project.not_found': 'This project does not exist on this team.',
+    'project.has_values':
+      'Values are recorded for this project’s metrics. Make it inactive instead of deleting it.',
+    'product_name.blank': 'Enter a product name.',
+    'product_name.too_long': 'A product name can be at most 200 characters.',
+    'product_name.duplicate': 'This team already has a product with this name.',
+    'product_jira_url.invalid': 'Enter a full web address starting with http:// or https://.',
+    'product_jira_url.too_long': 'A link can be at most 2,000 characters.',
+    'product.not_found': 'This product does not exist on this team.',
+    'product.has_values':
+      'Values are recorded for this product’s metrics. Make it inactive instead of deleting it.',
+    'metric.project_and_product': 'A metric belongs to a project or to a product, not to both.',
+    'derivation.project_metric': 'A project’s metric cannot be derived.',
+    'derivation.product_metric': 'A product’s metric cannot be derived.',
+    'metric_copy.source_project': 'A project’s metric cannot be copied to another board.',
+    'metric_copy.source_product': 'A product’s metric cannot be copied to another board.',
   },
 } as const;
 
-/** The shape every catalogue must have. */
-export type Translations = {
-  -readonly [Section in keyof typeof en]: {
-    -readonly [Key in keyof (typeof en)[Section]]: string;
-  };
+/** Every string of a catalogue section, at whatever depth it is nested. */
+type Strings<Section> = {
+  -readonly [Key in keyof Section]: Section[Key] extends string ? string : Strings<Section[Key]>;
 };
+
+/** The shape every catalogue must have. */
+export type Translations = Strings<typeof en>;

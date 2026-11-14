@@ -299,7 +299,7 @@ describe('the metric detail lists a derived value’s sources', () => {
         kind,
         sources: UNITS.map((unit) => ({
           team: PLATFORM,
-          metric: { id: `metric-${unit}`, name: `OTIF E: ${unit}` },
+          metric: { id: `metric-${unit}`, name: `OTIF E: ${unit}`, project: null, product: null },
           weight: null,
         })),
       },
@@ -312,7 +312,7 @@ describe('the metric detail lists a derived value’s sources', () => {
       kind: 'mean',
       sources: UNITS.map((unit, index) => ({
         team: PLATFORM,
-        metric: { id: `metric-${unit}`, name: `OTIF E: ${unit}` },
+        metric: { id: `metric-${unit}`, name: `OTIF E: ${unit}`, project: null, product: null },
         meeting_id: SHOWN.id,
         date: SHOWN.date,
         value: NUMBERS[index]!,

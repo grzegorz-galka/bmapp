@@ -349,6 +349,30 @@ describe('the board page', () => {
     expect(screen.queryByRole('heading', { name: 'Headcount base' })).not.toBeInTheDocument();
   });
 
+  it('a tile names the project', async () => {
+    // Scenario: A tile names the project (projects-and-products).
+    fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
+      metrics: [
+        tile({
+          metric: definition({
+            id: 'metric-budget',
+            name: 'Budget consumed',
+            project: { id: 'prj-1', code: 'PRJ-042', name: 'Billing rewrite', active: true },
+          }),
+        }),
+      ],
+    });
+    await renderBoard();
+
+    const tileHeading = await screen.findByRole('heading', { name: 'PRJ-042 · Budget consumed' });
+    expect(tileHeading).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: en.board.detailsLabel.replace('{{name}}', 'PRJ-042 · Budget consumed'),
+      }),
+    ).toBeInTheDocument();
+  });
+
   it('moves between meetings and remembers which one in the address', async () => {
     const user = userEvent.setup();
     await renderBoard();
@@ -1034,6 +1058,8 @@ describe('names can be hidden across the board', () => {
           {
             metric_id: 'metric-revenue',
             name: 'Revenue',
+            project: null,
+            product: null,
             owner: { id: 'emp-anna', email: LEADER, display_name: 'Anna Nowak' },
           },
         ],

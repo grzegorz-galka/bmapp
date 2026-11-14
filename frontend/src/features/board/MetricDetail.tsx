@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts';
+import { metricLabel } from '../../api/metricLabel';
 import type { DerivedValue, MetricDefinition, Status, TrendPoint } from '../../api/metrics';
 import { describeFailure } from '../../i18n/apiErrors';
 import { useFormat } from '../../i18n/format';
@@ -98,7 +99,7 @@ export function MetricDetail({
         <header className={styles.detailHeader}>
           <span className={styles.detailTitle}>
             <h2 id={headingId} className={styles.detailHeading}>
-              {metric.name}
+              {metricLabel(metric)}
             </h2>
             {metric.scope === 'global' && <GlobalMark />}
           </span>
@@ -118,7 +119,7 @@ export function MetricDetail({
         ) : (
           <>
             <TrendChart
-              name={metric.name}
+              name={metricLabel(metric)}
               rows={trendRows(trend.data.points)}
               dateLabel={format.meetingDate}
             />

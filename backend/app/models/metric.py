@@ -12,6 +12,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     Numeric,
@@ -28,6 +29,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.db import Base
 from app.core.metric_enums import Colour, DerivationKind, Direction, Scope
 from app.models.employee import EMAIL_MAX_LENGTH, Employee, person_display_name
+from app.models.project import Product, Project
 from app.models.team import Team
 
 METRIC_NAME_MAX_LENGTH = 200
@@ -91,7 +93,46 @@ class Metric(Base):
         # The same pattern as team names: the index decides a duplicate, so
         # two concurrent additions cannot both pass a read-then-write check.
         # PostgreSQL treats NULLs as distinct, so global metrics never meet here.
-        Index("uq_metrics_team_name_lower", "team_id", text("lower(name)"), unique=True),
+        # A project's or product's metric is unique within it instead, and may
+        # repeat a name the board uses.
+        Index(
+            "uq_metrics_team_name_lower",
+            "team_id",
+            text("lower(name)"),
+            unique=True,
+            postgresql_where=text("project_id IS NULL AND product_id IS NULL"),
+        ),
+        Index(
+            "uq_metrics_project_name_lower",
+            "project_id",
+            text("lower(name)"),
+            unique=True,
+            postgresql_where=text("project_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_metrics_product_name_lower",
+            "product_id",
+            text("lower(name)"),
+            unique=True,
+            postgresql_where=text("product_id IS NOT NULL"),
+        ),
+        Index("ix_metrics_project_id", "project_id"),
+        Index("ix_metrics_product_id", "product_id"),
+        # Composite, so the database keeps a metric on a project or product of
+        # its own team; a global metric (no team) can belong to none.
+        ForeignKeyConstraint(
+            ["project_id", "team_id"],
+            ["projects.id", "projects.team_id"],
+            ondelete="CASCADE",
+            name="fk_metrics_project_team",
+        ),
+        ForeignKeyConstraint(
+            ["product_id", "team_id"],
+            ["products.id", "products.team_id"],
+            ondelete="CASCADE",
+            name="fk_metrics_product_team",
+        ),
+        CheckConstraint("num_nonnulls(project_id, product_id) <= 1", name="ck_metrics_one_parent"),
         Index(
             "uq_metrics_global_name_lower",
             text("lower(name)"),
@@ -106,9 +147,12 @@ class Metric(Base):
         # retires a definition, so there is one place each kind is retired.
         CheckConstraint("team_id IS NULL OR NOT retired", name="ck_metrics_global_only_retired"),
         # Only a board's own metric is derived: a global one would need
-        # sources relative to whichever board records it.
+        # sources relative to whichever board records it. A project's or
+        # product's metric is never derived either, though it may be a source.
         CheckConstraint(
-            "derivation_kind IS NULL OR team_id IS NOT NULL", name="ck_metrics_derivation_own"
+            "derivation_kind IS NULL"
+            " OR (team_id IS NOT NULL AND project_id IS NULL AND product_id IS NULL)",
+            name="ck_metrics_derivation_own",
         ),
     )
 
@@ -116,6 +160,10 @@ class Metric(Base):
     team_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=True
     )
+    #: The project or the product of the team this metric belongs to, or
+    #: neither. At most one, and never changed once added.
+    project_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    product_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     name: Mapped[str] = mapped_column(String(METRIC_NAME_MAX_LENGTH), nullable=False)
     unit: Mapped[str] = mapped_column(String(METRIC_UNIT_MAX_LENGTH), nullable=False, default="")
     decimals: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
@@ -136,6 +184,15 @@ class Metric(Base):
     # load them first.
     placements: Mapped[list[BoardMetric]] = relationship(
         back_populates="metric", cascade="all, delete-orphan", passive_deletes=True
+    )
+    # Joined, so labelling a metric and deciding whether its project leaves
+    # it retired cost no statement of their own. View-only: a metric's
+    # project or product is set by its column and never moves.
+    project: Mapped[Project | None] = relationship(
+        primaryjoin="foreign(Metric.project_id) == Project.id", viewonly=True, lazy="joined"
+    )
+    product: Mapped[Product | None] = relationship(
+        primaryjoin="foreign(Metric.product_id) == Product.id", viewonly=True, lazy="joined"
     )
     #: The sources of this metric's derivation, in order. Loaded only when
     #: read; the board and the settings list load them for every metric at once.
@@ -326,9 +383,29 @@ class BoardMetric(Base):
         return self.metric.scope
 
     @property
+    def project(self) -> Project | None:
+        return self.metric.project
+
+    @property
+    def product(self) -> Product | None:
+        return self.metric.product
+
+    @property
     def retired(self) -> bool:
-        """Retired on this board, or for a global metric, in the catalogue."""
-        return self.retired_on_board or self.metric.retired
+        """Retired on this board, for a global metric in the catalogue, or by its parent.
+
+        A metric of an inactive project or product is retired while it stays
+        inactive, without touching `retired_on_board`: reactivating then
+        restores what the placement says. The Python twin of
+        `app.services.metrics.active_placement()`.
+        """
+        metric = self.metric
+        return (
+            self.retired_on_board
+            or metric.retired
+            or (metric.project is not None and not metric.project.active)
+            or (metric.product is not None and not metric.product.active)
+        )
 
     @property
     def retired_in_catalogue(self) -> bool:

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import exists, func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, noload
 
 from app.core.exceptions import (
     DuplicateMetricNameError,
@@ -80,6 +80,9 @@ def list_global_metrics(session: Session, today: datetime.date) -> list[GlobalMe
         select(Metric, func.count(BoardMetric.team_id))
         .outerjoin(BoardMetric, BoardMetric.metric_id == Metric.id)
         .where(Metric.team_id.is_(None))
+        # A global metric belongs to no project or product, and their joins
+        # would not survive the grouping.
+        .options(noload(Metric.project), noload(Metric.product))
         .group_by(Metric.id)
         .order_by(func.lower(Metric.name))
     ).all()
