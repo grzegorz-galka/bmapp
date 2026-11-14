@@ -7,7 +7,7 @@ Defines what a team measures on its board: its metrics, the thresholds that say 
 
 ### Requirement: Define a metric on a board
 
-The system SHALL allow a metric to be added to a board with a name, a unit, 0–6 decimals to show, a direction (`higher_is_better`, `lower_is_better` or `within_band`), an optional group of that board and an optional owner. The metric SHALL be placed last in its group, or last among the ungrouped metrics when no group is named. The name SHALL be trimmed, at most 200 characters and unique on the board regardless of case, among the board's own metrics and the global metrics it includes. The unit SHALL be at most 20 characters and MAY be empty. An owner SHALL be a team member when named.
+The system SHALL allow a metric to be added to a board with a name, a unit, 0–6 decimals to show, a direction (`higher_is_better`, `lower_is_better` or `within_band`), an optional group of that board and an optional owner. The metric SHALL be placed last in its group, or last among the ungrouped metrics when no group is named. The name SHALL be trimmed, at most 200 characters and unique on the board regardless of case, among the board's own metrics that belong to no project or product and the global metrics it includes. A project's or product's metric is named under the `projects-and-products` capability instead. The unit SHALL be at most 20 characters and MAY be empty. An owner SHALL be a team member when named.
 
 #### Scenario: A metric is added
 
@@ -33,6 +33,11 @@ The system SHALL allow a metric to be added to a board with a name, a unit, 0–
 
 - **WHEN** a metric is added, or a board's own metric renamed, with the name of a global metric the board includes, in any letter case
 - **THEN** it is rejected against `name` with `metric_name.duplicate`
+
+#### Scenario: A project's metric does not take the board's name
+
+- **WHEN** a board has a metric "Budget consumed" of one of its projects, and a metric named "Budget consumed" is added to the board belonging to no project
+- **THEN** it is added
 
 #### Scenario: Two boards use the same metric name
 
@@ -248,7 +253,7 @@ The system SHALL compute a value's status when it is read. The status is `no_dat
 
 ### Requirement: Copy a metric from another board
 
-The system SHALL allow a board's own metric, of any board, to be copied onto a board as a new metric of that board's own, optionally under a new name and into a group of the target board, placed last there or last among the ungrouped metrics. The copy SHALL take the source's unit, decimals, direction and every threshold version with its target value, tolerances or boundaries, and SHALL NOT take its group, its owner, whether it is hidden, or its values. A global metric SHALL NOT be copied: that is rejected with `metric_copy.source_global`.
+The system SHALL allow a board's own metric, of any board, to be copied onto a board as a new metric of that board's own, optionally under a new name and into a group of the target board, placed last there or last among the ungrouped metrics. The copy SHALL take the source's unit, decimals, direction and every threshold version with its target value, tolerances or boundaries, and SHALL NOT take its group, its owner, whether it is hidden, or its values. A global metric SHALL NOT be copied: that is rejected with `metric_copy.source_global`. A project's or product's metric SHALL NOT be copied: that is rejected with `metric_copy.source_project` or `metric_copy.source_product`.
 
 #### Scenario: A metric is copied with its thresholds
 
@@ -295,11 +300,15 @@ The system SHALL allow a board's own metric, of any board, to be copied onto a b
 - **WHEN** a leader copies a global metric
 - **THEN** it is rejected against `source_metric_id` with `metric_copy.source_global` and HTTP 409, and nothing is added
 
+#### Scenario: A project's or product's metric is not copied
+
+- **WHEN** a leader copies a metric of a project, or of a product, of any team
+- **THEN** it is rejected against `source_metric_id` with `metric_copy.source_project` or `metric_copy.source_product` respectively and HTTP 409, and nothing is added
+
 #### Scenario: The source does not exist
 
 - **WHEN** a leader copies a metric identifier that matches no metric
 - **THEN** it is rejected with `metric.not_found` and HTTP 404
-
 
 ### Requirement: The metric settings page
 
