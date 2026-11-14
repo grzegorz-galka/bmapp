@@ -121,13 +121,17 @@ more join to label a metric.
 
 ### 3. Name uniqueness by partial indexes
 
-`uq_metrics_team_name_lower` is replaced by three partial unique indexes:
+`uq_metrics_team_name_lower` becomes one of three partial unique indexes:
 
 ```
-(team_id,    lower(name)) WHERE project_id IS NULL AND product_id IS NULL
-(project_id, lower(name)) WHERE project_id IS NOT NULL
-(product_id, lower(name)) WHERE product_id IS NOT NULL
+uq_metrics_team_name_lower     (team_id,    lower(name)) WHERE project_id IS NULL AND product_id IS NULL
+uq_metrics_project_name_lower  (project_id, lower(name)) WHERE project_id IS NOT NULL
+uq_metrics_product_name_lower  (product_id, lower(name)) WHERE product_id IS NOT NULL
 ```
+
+The board's index keeps its name and is only narrowed. The service maps a
+unique violation to `metric_name.duplicate` by index name, so keeping it
+leaves that mapping as it was; the two new names map to the same error.
 
 The service's clash check against included global metrics applies only to a
 metric with no project or product. Including a global metric whose name a
@@ -148,6 +152,13 @@ Two shared definitions in `app/services/metrics.py`:
 
 All five readers listed under Context switch to `active_placement()`, and so
 does the value-recording check (`metric.retired`).
+
+A metric's `retired` read therefore says nothing about why. Where that
+matters, the interface tells from `project.active` and `product.active`:
+the settings page marks a metric of an inactive project or product with a
+note and offers no "Bring back", because the placement's switch is not what
+retired it. A global metric retired in the catalogue is handled the same
+way.
 
 **Alternative: copy the status onto the placements** when a project is
 deactivated, by setting `retired_on_board`. That is cheaper to read, but
@@ -171,16 +182,25 @@ project. The spec requires the hand-retired one to stay retired.
     `derivation.product_metric`.
   - Copying one is refused with `metric_copy.source_project` or
     `metric_copy.source_product`.
-- **Reads.** Every metric read, as listed, on the board, in a trend, and as
-  a derivation source, carries:
+- **Reads.** Every read that names a metric carries:
   - `project`: `{id, code, name, active}` or null;
   - `product`: `{id, name, active}` or null.
+
+  That covers the metric as listed, on the board and in a trend. It also
+  covers a metric named inside another read: a derivation's source
+  (`NamedMetricRead`), a derived value's source (`DerivedSource`) and a
+  completeness entry for a missing metric (`MissingMetric`). Without the
+  last two, the recording view and the readiness panel could not label
+  "Customer portal · NPS". The fields are required and nullable, so a reader
+  that forgets them fails to type-check.
 
   The interface builds the label "PRJ-042 · Budget consumed" from these with
   one helper, `metricLabel()`, used by every view the spec lists.
 
 Everything else stays on the existing endpoints and is gated by the same
-`can_configure_board` check: thresholds, layout, hide, retire and delete.
+`may_configure_the_board` check (`app/services/authz.py`): thresholds,
+layout, hide, retire and delete. The projects and products routers use it
+too, through `require_board_configurer`.
 
 ### 6. Projects and products API, and pages
 
@@ -193,9 +213,14 @@ DELETE /teams/{team_id}/projects/{project_id}    204, or 409 has_values / deriva
 ...the same five for /products, with owner_email and jira_url
 ```
 
-- **Read shape.** A read returns the manager or owner as `{email,
-  display_name}`. A project's read also carries `past_end`, computed from
-  `today()` in `app/core/time.py`.
+- **Read shape.** A read returns the manager or owner as `{id, email,
+  display_name}`. The `id` is the employee's, so the interface can tell
+  whether the person is a member without matching emails. A project's read
+  also carries `past_end`. It is computed by a pure
+  `past_end(active, end_date, today)` from `today()` in
+  `app/services/meetings.py`, the same organization-clock date that
+  "editable" and "overdue" use. `app/core/time.py` holds the zone, not the
+  date.
 - **Writes.** They name the person by email, and
   `get_or_create_employee` records them.
 - **Delete order.** The service checks for values first, then for any of
@@ -273,8 +298,13 @@ statuses for duplicates follow the existing `metric_name.duplicate`.
 ## Migration Plan
 
 - `0014_add_projects_and_products.py` creates both tables, adds the two
-  columns, foreign keys and indexes, swaps the name index, and replaces
-  `ck_metrics_derivation_own`.
+  columns, foreign keys and indexes, narrows the name index, and replaces
+  `ck_metrics_derivation_own`. It revises `0013`, the weighted-mean
+  derivation, which reached `main` first. The two touch no common
+  constraint.
+- A database migrated by an early build of this branch, where projects
+  were `0013`, is moved onto this numbering without losing data: stamp
+  `0012`, upgrade to `0013`, stamp `0014`.
 - No data moves. Existing metrics have no project or product, so the swapped
   index admits exactly what the old one did.
 - Rollback is the downgrade, subject to the risk above.

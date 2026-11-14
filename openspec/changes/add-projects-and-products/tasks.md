@@ -38,7 +38,7 @@ requirement go into that requirement's existing file.
     refusal comes in 5.2).
 
   Add the routers `app/api/projects.py` and `app/api/products.py`, gated by
-  `can_configure_board` for writes.
+  `may_configure_the_board` (via `require_board_configurer`) for writes.
   - Verify with `tests/unit/test_an_active_project_past_its_end_date_is_flagged.py`:
     `test_an_active_project_past_its_end`, `test_a_project_ending_today`,
     `test_an_inactive_project_is_never_flagged`.
