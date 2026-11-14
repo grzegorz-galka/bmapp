@@ -88,6 +88,8 @@ function metric(overrides: Partial<Metric> = {}): Metric {
     retired_in_catalogue: false,
     hidden: false,
     derivation: null,
+    project: null,
+    product: null,
     threshold: THRESHOLD,
     ...overrides,
   };
@@ -1575,8 +1577,16 @@ describe('a metric’s derivation on the settings page', () => {
             derivation: {
               kind: 'mean',
               sources: [
-                { team: platform, metric: { id: BPW.id, name: BPW.name }, weight: null },
-                { team: platform, metric: { id: CKBIR.id, name: CKBIR.name }, weight: null },
+                {
+                  team: platform,
+                  metric: { id: BPW.id, name: BPW.name, project: null, product: null },
+                  weight: null,
+                },
+                {
+                  team: platform,
+                  metric: { id: CKBIR.id, name: CKBIR.name, project: null, product: null },
+                  weight: null,
+                },
               ],
             },
           },
@@ -1634,7 +1644,13 @@ describe('a metric’s derivation on the settings page', () => {
       ...metric({ id: 'metric-ckip', name: 'OTIF E: CKI-P', unit: '%', group: null }),
       derivation: {
         kind: 'mean',
-        sources: [{ team: ckip, metric: { id: OTIF_ETAP.id, name: 'OTIF-Etap' }, weight: null }],
+        sources: [
+          {
+            team: ckip,
+            metric: { id: OTIF_ETAP.id, name: 'OTIF-Etap', project: null, product: null },
+            weight: null,
+          },
+        ],
       },
     };
     serveDerivation((_url, init) => {
@@ -1688,8 +1704,16 @@ describe('a metric’s derivation on the settings page', () => {
         derivation: {
           kind: 'mean',
           sources: [
-            { team: platform, metric: { id: BPW.id, name: BPW.name }, weight: null },
-            { team: ckip, metric: { id: OTIF_ETAP.id, name: 'OTIF-Etap' }, weight: null },
+            {
+              team: platform,
+              metric: { id: BPW.id, name: BPW.name, project: null, product: null },
+              weight: null,
+            },
+            {
+              team: ckip,
+              metric: { id: OTIF_ETAP.id, name: 'OTIF-Etap', project: null, product: null },
+              weight: null,
+            },
           ],
         },
       },
@@ -1719,8 +1743,16 @@ describe('a metric’s derivation on the settings page', () => {
         derivation: {
           kind: 'mean',
           sources: [
-            { team: platform, metric: { id: BPW.id, name: BPW.name }, weight: null },
-            { team: platform, metric: { id: CKBIR.id, name: CKBIR.name }, weight: null },
+            {
+              team: platform,
+              metric: { id: BPW.id, name: BPW.name, project: null, product: null },
+              weight: null,
+            },
+            {
+              team: platform,
+              metric: { id: CKBIR.id, name: CKBIR.name, project: null, product: null },
+              weight: null,
+            },
           ],
         },
       },
@@ -1728,7 +1760,13 @@ describe('a metric’s derivation on the settings page', () => {
         ...metric({ id: 'metric-delta', name: 'Zatrudnienie delta', group: null }),
         derivation: {
           kind: 'delta',
-          sources: [{ team: ckip, metric: { id: OTIF_ETAP.id, name: 'OTIF-Etap' }, weight: null }],
+          sources: [
+            {
+              team: ckip,
+              metric: { id: OTIF_ETAP.id, name: 'OTIF-Etap', project: null, product: null },
+              weight: null,
+            },
+          ],
         },
       },
     ];
@@ -1748,8 +1786,16 @@ describe('a metric’s derivation on the settings page', () => {
         derivation: {
           kind: 'sum',
           sources: [
-            { team: platform, metric: { id: BPW.id, name: BPW.name }, weight: null },
-            { team: platform, metric: { id: CKBIR.id, name: CKBIR.name }, weight: null },
+            {
+              team: platform,
+              metric: { id: BPW.id, name: BPW.name, project: null, product: null },
+              weight: null,
+            },
+            {
+              team: platform,
+              metric: { id: CKBIR.id, name: CKBIR.name, project: null, product: null },
+              weight: null,
+            },
           ],
         },
       },
@@ -1831,8 +1877,14 @@ describe('a metric’s derivation on the settings page', () => {
 
   /* A weighted mean's weights: the scenarios added by refine-derived-metric-recording. */
   describe('the settings page edits a derivation', () => {
-    const bpw = { team: platform, metric: { id: BPW.id, name: BPW.name } };
-    const ckbir = { team: platform, metric: { id: CKBIR.id, name: CKBIR.name } };
+    const bpw = {
+      team: platform,
+      metric: { id: BPW.id, name: BPW.name, project: null, product: null },
+    };
+    const ckbir = {
+      team: platform,
+      metric: { id: CKBIR.id, name: CKBIR.name, project: null, product: null },
+    };
 
     /** "OTIF E" derived from BPW and CKBiR as `kind`, with `weights` when there are any. */
     function otifAs(kind: Derivation['kind'], weights: [string, string] | null = null): Metric {
@@ -2002,5 +2054,63 @@ describe('a metric’s derivation on the settings page', () => {
       // The metric is unchanged: the row still reads as the weighted mean it was.
       expect(rowOf('OTIF E')).toHaveTextContent('Średnia ważona z 2 wskaźników');
     });
+  });
+
+  it("no derivation is offered for a project's metric", async () => {
+    // Scenario: No derivation is offered for a project's metric (derived-metrics).
+    metrics = [
+      metric({
+        id: 'metric-budget',
+        name: 'Budget consumed',
+        hidden: true,
+        project: { id: 'prj-1', code: 'PRJ-042', name: 'Billing rewrite', active: true },
+      }),
+    ];
+    serveDerivation(() => undefined);
+    const user = userEvent.setup();
+    await renderSettings();
+
+    // Labelled with its project among the board's metrics, and marked hidden.
+    const row = rowOf('PRJ-042 · Budget consumed');
+    expect(row).toHaveTextContent(en.metrics.hiddenMark);
+    await user.click(screen.getByRole('button', { name: 'Edit: PRJ-042 · Budget consumed' }));
+    expect(within(row).getByLabelText(en.metrics.nameLabel)).toHaveValue('Budget consumed');
+    expect(screen.queryByLabelText(en.metrics.derivationKindLabel)).not.toBeInTheDocument();
+  });
+
+  it('the settings page offers no bring-back while the project is inactive', async () => {
+    // Scenario: The settings page offers no bring-back while the project is inactive.
+    metrics = [
+      metric({
+        id: 'metric-budget',
+        name: 'Budget consumed',
+        retired: true,
+        project: { id: 'prj-1', code: 'PRJ-042', name: 'Billing rewrite', active: false },
+      }),
+      metric({
+        id: 'metric-nps',
+        name: 'NPS',
+        retired: true,
+        position: 1,
+        product: { id: 'prd-1', name: 'Customer portal', active: false },
+      }),
+      metric({ id: 'metric-old', name: 'Old', retired: true, position: 2 }),
+    ];
+    await renderSettings();
+
+    const project = rowOf('PRJ-042 · Budget consumed');
+    expect(project).toHaveTextContent(en.metrics.retired);
+    expect(project).toHaveTextContent(en.metrics.retiredWithProject);
+    expect(
+      within(project).queryByRole('button', { name: 'Bring back: PRJ-042 · Budget consumed' }),
+    ).not.toBeInTheDocument();
+
+    const product = rowOf('Customer portal · NPS');
+    expect(product).toHaveTextContent(en.metrics.retiredWithProduct);
+    expect(
+      within(product).queryByRole('button', { name: 'Bring back: Customer portal · NPS' }),
+    ).not.toBeInTheDocument();
+
+    expect(within(rowOf('Old')).getByRole('button', { name: 'Bring back: Old' })).toBeEnabled();
   });
 });

@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type HTMLAttributes, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
+import { metricLabel } from '../../api/metricLabel';
 import type { Metric, MetricCreate } from '../../api/metrics';
 import type { Member } from '../../api/teams';
 import { describeFailure } from '../../i18n/apiErrors';
@@ -31,6 +32,9 @@ import meetingStyles from '../meetings/meetings.module.css';
 
 type Panel = 'none' | 'edit' | 'threshold' | 'history';
 
+/** What a threshold's dialog and history need of a metric. */
+type ThresholdSubject = Pick<Metric, 'id' | 'name' | 'unit' | 'decimals' | 'direction'>;
+
 /**
  * One metric on the settings page, with what may be done to it. `arrange`
  * holds the controls that move it in the board's layout, and `rowProps` what
@@ -60,10 +64,21 @@ export function MetricRow({
   const [derivation, setDerivation] = useState<DerivationDraft>(() =>
     toDerivationDraft(metric.derivation, format),
   );
-  const name = metric.name;
+  // Among the board's metrics, a project's or product's is named after it.
+  const name = metricLabel(metric);
   // A global metric's definition and thresholds are the catalogue's: the
   // board places it, retires it here or removes it, and nothing else.
   const global = metric.scope === 'global';
+  // A project's or product's metric is never derived (derived-metrics).
+  const derivable = !global && !metric.project && !metric.product;
+  // Retired because its project or product is inactive: the placement's own
+  // switch is not what retired it, so it is not offered.
+  const retiredWith =
+    metric.project?.active === false
+      ? 'project'
+      : metric.product?.active === false
+        ? 'product'
+        : null;
 
   function open(next: Panel) {
     changeMetric.reset();
@@ -143,6 +158,15 @@ export function MetricRow({
           {metric.retired_in_catalogue && (
             <span className={teamStyles.itemMeta}>{t('metrics.retiredInCatalogue')}</span>
           )}
+          {retiredWith && (
+            <span className={teamStyles.itemMeta}>
+              {t(
+                retiredWith === 'project'
+                  ? 'metrics.retiredWithProject'
+                  : 'metrics.retiredWithProduct',
+              )}
+            </span>
+          )}
           {global && (
             <span className={teamStyles.itemMeta}>
               {t('metrics.globalNote')} <Link to="/global-metrics">{t('nav.globalMetrics')}</Link>
@@ -204,8 +228,9 @@ export function MetricRow({
         {mayConfigure && (
           <span className={styles.actionsEnd}>
             {arrange}
-            {/* The board's switch cannot undo the catalogue's retirement. */}
-            {metric.retired_in_catalogue ? (
+            {/* The board's switch cannot undo the catalogue's retirement, nor
+                that of an inactive project or product: reactivating it does. */}
+            {metric.retired_in_catalogue || retiredWith ? (
               <span className={styles.steadyWidth} />
             ) : (
               <button
@@ -256,8 +281,9 @@ export function MetricRow({
             directionFixed
             definition={!global}
             // A global metric is never derived: its definition is the catalogue's.
+            // Nor is a project's or product's metric.
             derivation={
-              global
+              !derivable
                 ? undefined
                 : { teamId, metricId: metric.id, value: derivation, onChange: setDerivation }
             }
@@ -284,13 +310,13 @@ function toDraft(metric: Metric): MetricCreate {
 }
 
 /** A threshold version recorded on this board. */
-function BoardThresholdDialog({
+export function BoardThresholdDialog({
   teamId,
   metric,
   onClose,
 }: {
   teamId: string;
-  metric: Metric;
+  metric: ThresholdSubject;
   onClose: () => void;
 }) {
   const addThreshold = useAddThreshold(teamId);
@@ -308,7 +334,13 @@ function BoardThresholdDialog({
 }
 
 /** Every version of a metric's threshold, as the board reads it. */
-function BoardThresholdHistory({ teamId, metric }: { teamId: string; metric: Metric }) {
+export function BoardThresholdHistory({
+  teamId,
+  metric,
+}: {
+  teamId: string;
+  metric: ThresholdSubject;
+}) {
   const history = useThresholds(teamId, metric.id);
   return <ThresholdHistory metric={metric} history={history} />;
 }

@@ -362,9 +362,11 @@ describe('the recording view', () => {
           {
             metric_id: 'a',
             name: 'NPS',
+            project: null,
+            product: null,
             owner: { id: 'emp-bartek', email: MEMBER, display_name: MEMBER_NAME },
           },
-          { metric_id: 'b', name: 'OTIF', owner: null },
+          { metric_id: 'b', name: 'OTIF', project: null, product: null, owner: null },
         ],
         owing: 2,
       },
@@ -673,7 +675,7 @@ describe('derive in the recording view', () => {
       kind: 'mean',
       sources: UNITS.map((unit) => ({
         team: PLATFORM,
-        metric: { id: `metric-${unit}`, name: `OTIF E: ${unit}` },
+        metric: { id: `metric-${unit}`, name: `OTIF E: ${unit}`, project: null, product: null },
         weight: null,
       })),
     };
@@ -685,7 +687,7 @@ describe('derive in the recording view', () => {
       kind: 'mean',
       sources: UNITS.map((unit, index) => ({
         team: PLATFORM,
-        metric: { id: `metric-${unit}`, name: `OTIF E: ${unit}` },
+        metric: { id: `metric-${unit}`, name: `OTIF E: ${unit}`, project: null, product: null },
         meeting_id: 'm-2026-10-14',
         date: '2026-10-14',
         value: NUMBERS[index]!,
@@ -746,7 +748,7 @@ describe('derive in the recording view', () => {
     const WEIGHTS = ['3', '1', '1'];
     const sources = UNITS.slice(0, 3).map((unit, index) => ({
       team: PLATFORM,
-      metric: { id: `metric-${unit}`, name: `OTIF E: ${unit}` },
+      metric: { id: `metric-${unit}`, name: `OTIF E: ${unit}`, project: null, product: null },
       weight: WEIGHTS[index]!,
     }));
     fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
@@ -816,8 +818,16 @@ describe('derive in the recording view', () => {
         otif({
           kind: 'mean',
           sources: [
-            { team: CKIP, metric: { id: 'metric-otif-etap', name: 'OTIF-Etap' }, weight: null },
-            { team: PLATFORM, metric: { id: 'metric-bpw', name: 'OTIF E: BPW' }, weight: null },
+            {
+              team: CKIP,
+              metric: { id: 'metric-otif-etap', name: 'OTIF-Etap', project: null, product: null },
+              weight: null,
+            },
+            {
+              team: PLATFORM,
+              metric: { id: 'metric-bpw', name: 'OTIF E: BPW', project: null, product: null },
+              weight: null,
+            },
           ],
         }),
       ],
@@ -859,7 +869,7 @@ describe('derive in the recording view', () => {
           sources: [
             {
               team: PLATFORM,
-              metric: { id: 'metric-staff', name: 'Zatrudnienie' },
+              metric: { id: 'metric-staff', name: 'Zatrudnienie', project: null, product: null },
               weight: null,
             },
           ],
@@ -873,7 +883,7 @@ describe('derive in the recording view', () => {
         sources: [
           {
             team: PLATFORM,
-            metric: { id: 'metric-staff', name: 'Zatrudnienie' },
+            metric: { id: 'metric-staff', name: 'Zatrudnienie', project: null, product: null },
             meeting_id: 'm-2026-10-14',
             date: '2026-10-14',
             value: '391',

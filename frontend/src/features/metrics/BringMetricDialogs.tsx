@@ -53,7 +53,10 @@ export function CopyMetricDialog({
   useEffect(() => first.current?.focus(), []);
 
   // A global metric is not copied: it is included, so it is never offered here.
-  const candidates = (sourceMetrics.data ?? []).filter((metric) => metric.scope === 'board');
+  // A global metric is included, never copied; a project's or product's is never copied.
+  const candidates = (sourceMetrics.data ?? []).filter(
+    (metric) => metric.scope === 'board' && !metric.project && !metric.product,
+  );
   const otherTeams = (teams.data ?? []).filter((team) => team.id !== teamId);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {

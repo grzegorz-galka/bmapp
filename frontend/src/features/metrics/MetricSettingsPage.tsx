@@ -159,27 +159,40 @@ function AddMetric({
   );
 }
 
-function CreateMetricDialog({
+/** The project or product a new metric belongs to, if any; at most one is set. */
+export type MetricParentWrite = Pick<MetricCreate, 'project_id' | 'product_id'>;
+
+/**
+ * The dialog that types a new metric in. On the settings page it adds one of
+ * the board's own; given a `parent`, it adds the metric to that project or
+ * product, where it arrives hidden on the board unless the form shows it and
+ * is never derived.
+ */
+export function CreateMetricDialog({
   teamId,
   members,
   groups,
   onClose,
+  parent,
 }: {
   teamId: string;
   members: Member[];
   groups: MetricGroup[];
   onClose: () => void;
+  parent?: MetricParentWrite;
 }) {
   const { t } = useTranslation();
   const format = useFormat();
   const addMetric = useAddMetric(teamId);
-  const [draft, setDraft] = useState<MetricCreate>(BLANK_METRIC);
+  const [draft, setDraft] = useState<MetricCreate>(() =>
+    parent ? { ...BLANK_METRIC, ...parent, hidden: true } : BLANK_METRIC,
+  );
   const [derivation, setDerivation] = useState<DerivationDraft>(NO_DERIVATION);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     // Sent only when there is one: a metric is typed in unless it says otherwise.
-    const derived = toDerivationWrite(derivation, format);
+    const derived = parent ? null : toDerivationWrite(derivation, format);
     // A rejection keeps the dialog open with what was typed.
     addMetric.mutate(derived ? { ...draft, derivation: derived } : draft, { onSuccess: onClose });
   }
@@ -205,7 +218,8 @@ function CreateMetricDialog({
           submitLabel={addMetric.isPending ? t('metrics.adding') : t('metrics.add')}
           pending={addMetric.isPending}
           offerHidden
-          derivation={{ teamId, value: derivation, onChange: setDerivation }}
+          // A project's or product's metric is never derived.
+          derivation={parent ? undefined : { teamId, value: derivation, onChange: setDerivation }}
         />
       </section>
     </Modal>

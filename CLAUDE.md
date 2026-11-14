@@ -43,7 +43,9 @@ board. BMAPP provides that board online and lets a team:
 | Team              | name, team leader, members (many), board definition                                |
 | Board definition  | name, metric groups (many, ordered), metrics (many) each placed in at most one group with position, owner and whether it is hidden on the board; custom targets (optional), schedule |
 | Meeting           | team, date and time, the metric values recorded at it                              |
-| Metric            | board (none if global), name, unit, decimals, direction, derivation (optional: kind and ordered sources), thresholds (many), values (many) |
+| Project           | team (exactly one), code (unique company-wide), name, project manager (an employee, by email), start and end date, active or inactive |
+| Product           | team (exactly one), name (unique in the team), product owner (an employee, by email), Jira board link (optional), active or inactive |
+| Metric            | board (none if global), project or product (optional, at most one, of the board's team), name, unit, decimals, direction, derivation (optional: kind and ordered sources), thresholds (many), values (many) |
 | Threshold         | metric, effective from, target value, green and amber tolerances (or boundaries when the target value is 0), reason, who recorded it |
 | Metric value      | metric, meeting, the number recorded, comment, colour set by hand (optional)       |
 | Pulse answer      | meeting, respondent (a member), rating 1–5, what helped, what hurt, what could be better |
@@ -68,6 +70,9 @@ Glossary (use these exact terms in code, UI and tests):
 - **Threshold** (*próg*) — one version of what green and amber mean for a metric, from an effective date on, with a reason. Versions are append-only and may be back-dated; a value is judged against the version in force on its meeting's date. A version carries a **target value** and green and amber **tolerances** (*tolerancja*) in per cent of it; only the worse side counts (falling short, going over, or either way for a band). A target value of 0 takes absolute boundaries instead. Versions recorded before target values existed have none and are read as boundaries. `bounds_of` resolves a version into boundaries; `status_of` judges against them.
 - **Target value** (*wartość docelowa*) — the number a metric aims at from a threshold version's effective date, e.g. 72.3 for utilisation. Code `target_value`. Not a **Target**.
 - **Derived metric** (*wskaźnik wyliczany*) — a board's own metric whose number "Derive" in the recording view works out from other metrics in the same ISO week, on the same team or others: a `mean`, a `sum`, a `weighted_mean` (each source with a weight above 0, the weights need not add up to 1), or a `delta` (the change since the source team's previous meeting, never reaching further back). The result is saved as an ordinary value of the meeting, a snapshot; it is never computed when read. Global metrics are never derived but may be sources.
+- **Project** (*Projekt*) — a piece of work a team follows at its board meetings: a code unique company-wide ("PRJ-042"), a name, a **project manager**, a start and an end date, and a status, **active** or **inactive**, set by hand only; the end date is information, and an active project past it is flagged, never closed. It belongs to exactly one team, whose leader, deputies and administrators manage it. A project's metric is a board's own metric of that team that belongs to the project: its name is unique within the project, it is labelled "PRJ-042 · Budget consumed" among the board's other metrics, it is added hidden on the board, it is **never derived** (though it may be a source) and never copied, and it is **retired** while its project is inactive. Deleted only while none of its metrics has a value.
+- **Product** (*Produkt*) — something a team looks after: a name unique within the team, a **product owner**, an optional link to its Jira board (only followed, never read), and an active or inactive status set by hand. Its metrics follow the project's rules, labelled with the product's name ("Customer portal · NPS").
+- **Project manager** (*Kierownik projektu*) / **Product owner** (*Właściciel produktu*) — the employee named by email as managing a project or owning a product. Recorded as an employee on being named, but need not be a team member, and being named gives no permission. Owns a new metric of it by default when a member of the team.
 - **Metric value** — one number, recorded at one meeting, for one metric. Its date is the meeting's date; it has none of its own. It may carry a comment and a **colour set by hand**, which needs the comment.
 - **Status** — green, amber, red, no data or no threshold. Computed when read by `status_of`, never stored; boundaries count as the better zone.
 - **Target** — a declaration in prose, *not* a numeric range: what the company or the team is aiming at. Company-wide targets appear on every board; a team may add **custom targets**. A colour never comes from a target — only from the metric's threshold, whose number is a **target value**, a different thing.
@@ -365,6 +370,25 @@ the stage on and asks before closing, and `/teams/:teamId?view=archived` lists
 the closed ones. Problems, tasks and archiving are one capability because they
 share one lifecycle. Deleting a meeting leaves its items recording no meeting.
 
+`projects-and-products` is implemented: a team follows projects and products
+(`projects`, `products`; API `/teams/:teamId/projects` and `/products`),
+managed by its leader, deputies and administrators on the list page at
+`/teams/:teamId/projects-and-products`, linked from the board's team
+navigation, with a page each at `/teams/:teamId/projects/:projectId` and
+`/teams/:teamId/products/:productId` that shows the metrics by their bare names
+with latest value and trend. A project's or product's metric is a board's own
+metric with `metrics.project_id` or `product_id` (a composite foreign key keeps
+it on the same team); it arrives hidden, is never derived or copied, and is
+labelled everywhere else by `metricLabel()` ("PRJ-042 · Budget consumed").
+**Inactive means retired**: whether a placement is active is decided by one SQL
+predicate, `active_placement()` in `app/services/metrics.py`, and its Python
+twin `BoardMetric.retired`, which both count an inactive project or product.
+Every reader - the board, `owing_by_meeting`, derivation sources, the
+dashboard counts and the recording check - uses them; nothing is written to the
+placement, so reactivating restores a metric unless it was retired by hand.
+`past_end` on a project read flags an active project past its end date; it
+never closes one.
+
 Everything else in the domain model above — targets — is agreed but
 not built. It is a capability of its own;
 propose it through `/opsx:propose` rather than adding it inline.
@@ -390,7 +414,7 @@ propose it through `/opsx:propose` rather than adding it inline.
 │   ├── src/
 │   │   ├── api/          # typed fetch wrappers; client.ts is the shared one
 │   │   ├── components/   # the app shell: header, nav, language, theme
-│   │   ├── features/     # dashboard, teams, board (problems, tasks), meetings, metrics, auth
+│   │   ├── features/     # dashboard, teams, board (problems, tasks), meetings, metrics, projectsAndProducts, auth
 │   │   ├── i18n/         # catalogues, detection, Intl formatting
 │   │   ├── styles/       # theme.css: the palettes and the design tokens
 │   │   ├── theme/        # theme resolution, persistence and provider

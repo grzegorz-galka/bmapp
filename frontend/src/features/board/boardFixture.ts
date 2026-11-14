@@ -90,6 +90,8 @@ export function definition(overrides: Partial<MetricDefinition> = {}): MetricDef
     retired_in_catalogue: false,
     hidden: false,
     derivation: null,
+    project: null,
+    product: null,
     ...overrides,
   };
 }

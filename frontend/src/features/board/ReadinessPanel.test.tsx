@@ -45,6 +45,8 @@ function missingMetric(id: string, name: string, owner: string | null): MissingM
   return {
     metric_id: id,
     name,
+    project: null,
+    product: null,
     owner: owner
       ? {
           id: `emp-${id}`,
@@ -187,6 +189,31 @@ describe('the readiness panel', () => {
       panel.compareDocumentPosition(screen.getByRole('heading', { name: 'Revenue' })) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it('the readiness panel names the product', async () => {
+    // Scenario: The readiness panel names the product (projects-and-products).
+    const user = userEvent.setup();
+    fixtures.boards['m-2026-10-14'] = board('2026-10-14', {
+      completeness: {
+        recorded: 4,
+        total: 5,
+        missing: [
+          {
+            ...missingMetric('nps', 'NPS', LEADER),
+            product: { id: 'prod-1', name: 'Customer portal', active: true },
+          },
+        ],
+        owing: 1,
+      },
+    });
+    await renderBoard();
+    const panel = await expandedPanel(user);
+
+    const metrics = within(section(panel, en.readiness.metricsHeading)).getAllByRole('listitem');
+    expect(metrics.map((item) => item.textContent)).toEqual([
+      `Customer portal · NPS – ${LEADER_NAME}`,
+    ]);
   });
 
   it('A complete meeting says so', async () => {

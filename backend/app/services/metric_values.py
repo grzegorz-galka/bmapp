@@ -51,10 +51,13 @@ from app.schemas.metric import (
     DerivedValue,
     MeetingBoard,
     MetricDefinitionRead,
+    MetricProductRead,
+    MetricProjectRead,
     MetricTrend,
     MetricValueRead,
     MetricValueWrite,
     MissingMetric,
+    NamedMetricRead,
     NamedRead,
     OwnerRead,
     SparklinePoint,
@@ -66,6 +69,7 @@ from app.services.meetings import get_meeting
 from app.services.metric_status import bounds_of, status_of, threshold_in_force
 from app.services.metrics import (
     BOARD_ORDER,
+    active_placement,
     get_board_metric,
     read_threshold,
     versions_by_metric,
@@ -214,11 +218,7 @@ def build_board(
             .join(Placement.metric)
             .outerjoin(Placement.group)
             .options(contains_eager(Placement.metric), contains_eager(Placement.group))
-            .where(
-                Placement.team_id == team_id,
-                Placement.retired_on_board.is_(False),
-                Metric.retired.is_(False),
-            )
+            .where(Placement.team_id == team_id, active_placement())
             .order_by(*BOARD_ORDER)
         )
     )
@@ -242,7 +242,13 @@ def build_board(
         change_4 = _change(number, number_4)
         if number is None:
             missing.append(
-                MissingMetric(metric_id=metric.id, name=metric.name, owner=_owner(placement))
+                MissingMetric(
+                    metric_id=metric.id,
+                    name=metric.name,
+                    owner=_owner(placement),
+                    project=_project(metric),
+                    product=_product(metric),
+                )
             )
         tiles.append(
             BoardMetric(
@@ -283,8 +289,9 @@ class _Source:
     """One source of a derivation as deriving reads it."""
 
     team: NamedRead
-    metric: NamedRead
-    #: Retired on its board or in the catalogue: it gives no number.
+    metric: NamedMetricRead
+    #: Not active on its board - retired there or in the catalogue, or of an
+    #: inactive project or product: it gives no number.
     retired: bool
     #: A weighted mean's weight for this source; none for every other kind.
     weight: Decimal | None
@@ -365,17 +372,12 @@ def derive_value(
 
 
 def _derivation_sources(session: Session, metric_id: uuid.UUID) -> list[_Source]:
-    """A derived metric's sources in order, named, and whether each is retired. One statement."""
+    """A derived metric's sources in order, named, and whether each is retired. One statement.
+
+    Each metric comes with its project or product, joined, to label it.
+    """
     rows = session.execute(
-        select(
-            Team.id,
-            Team.name,
-            Metric.id,
-            Metric.name,
-            Metric.retired,
-            Placement.retired_on_board,
-            MetricDerivationSource.weight,
-        )
+        select(Team.id, Team.name, Metric, active_placement(), MetricDerivationSource.weight)
         .select_from(MetricDerivationSource)
         .join(Team, Team.id == MetricDerivationSource.source_team_id)
         .join(Metric, Metric.id == MetricDerivationSource.source_metric_id)
@@ -389,14 +391,16 @@ def _derivation_sources(session: Session, metric_id: uuid.UUID) -> list[_Source]
         .where(MetricDerivationSource.metric_id == metric_id)
         .order_by(MetricDerivationSource.position)
     ).tuples()
+    # With no placement the predicate is not true either: a missing
+    # placement reads as no number rather than losing the source.
     return [
         _Source(
             team=NamedRead(id=team, name=team_name),
-            metric=NamedRead(id=metric, name=metric_name),
-            retired=in_catalogue or on_board is not False,
+            metric=named_metric(metric),
+            retired=active is not True,
             weight=weight,
         )
-        for team, team_name, metric, metric_name, in_catalogue, on_board, weight in rows
+        for team, team_name, metric, active, weight in rows
     ]
 
 
@@ -457,8 +461,7 @@ def owing_by_meeting(session: Session, meeting_ids: Sequence[uuid.UUID]) -> dict
         .where(
             Meeting.id.in_(meeting_ids),
             Placement.owner_employee_id.is_not(None),
-            Placement.retired_on_board.is_(False),
-            Metric.retired.is_(False),
+            active_placement(),
             ~exists().where(
                 MetricValue.meeting_id == Meeting.id,
                 MetricValue.metric_id == Placement.metric_id,
@@ -619,3 +622,18 @@ def _improvement(direction: Direction, change: Decimal | None) -> bool | None:
 
 def _owner(placement: Placement) -> OwnerRead | None:
     return OwnerRead.model_validate(placement.owner) if placement.owner else None
+
+
+def _project(metric: Metric) -> MetricProjectRead | None:
+    """The project a metric belongs to, to label it among the board's metrics."""
+    return MetricProjectRead.model_validate(metric.project) if metric.project else None
+
+
+def _product(metric: Metric) -> MetricProductRead | None:
+    """The product a metric belongs to, to label it among the board's metrics."""
+    return MetricProductRead.model_validate(metric.product) if metric.product else None
+
+
+def named_metric(metric: Metric) -> NamedMetricRead:
+    """A metric named in a derivation, labelled with its project or product."""
+    return NamedMetricRead.model_validate(metric)

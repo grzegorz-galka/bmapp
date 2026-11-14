@@ -10,6 +10,8 @@ from app.core.metric_enums import Direction
 from app.models import BoardMetric, Metric
 from tests.integration.meetings_api import error_of
 from tests.integration.metrics_api import add_group, add_metric, metrics_of, placement
+from tests.integration.project_metrics_api import add_metric_of
+from tests.integration.projects_api import add_project
 from tests.integration.teams_api import add, member_id, register
 
 MEMBER = "member@example.com"
@@ -133,6 +135,22 @@ def test_name_of_an_included_global_metric(client: TestClient, session: Session)
     assert sorted(m["name"] for m in metrics_of(client, team["id"])) == ["Availability", "Revenue"]
     # A board that does not include it may use the name for a metric of its own.
     add_metric(client, other["id"], "Availability")
+
+
+def test_a_projects_metric_does_not_take_the_boards_name(client: TestClient) -> None:
+    """Scenario: A project's metric does not take the board's name."""
+    team = register(client)
+    project = add_project(client, team["id"])
+    add_metric_of(client, team["id"], "Budget consumed", project_id=project["id"])
+
+    response = client.post(
+        f"/teams/{team['id']}/metrics",
+        json={"name": "Budget consumed", "direction": "lower_is_better"},
+    )
+
+    assert response.status_code == 201, response.json()
+    assert response.json()["project"] is None
+    assert [m["name"] for m in metrics_of(client, team["id"])] == ["Budget consumed"] * 2
 
 
 def test_two_boards_use_the_same_metric_name(client: TestClient) -> None:

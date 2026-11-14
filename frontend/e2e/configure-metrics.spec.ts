@@ -293,3 +293,62 @@ test('a leader derives a metric as the mean of two, one from another team', asyn
   await page.reload();
   await expect(row).toContainText('Mean of 2 metrics');
 });
+
+test("another team's derived sum takes a project's metric as a source", async ({
+  page,
+  request,
+}) => {
+  const suffix = uniqueSuffix();
+  const leader = `e2e.lead.${suffix}@example.com`;
+  const projectLeader = `e2e.other.${suffix}@example.com`;
+  const projectTeamName = `E2E Project team ${suffix}`;
+  const code = `PRJ-${suffix}`;
+  const today = organizationToday();
+  const admin = await apiAs(request, ADMIN_EMAIL);
+  const team = await admin.registerTeam(`E2E Portfolio ${suffix}`, leader);
+  const projectTeam = await admin.registerTeam(projectTeamName, projectLeader);
+  const project = await admin.addProject(projectTeam.id, {
+    code,
+    name: 'Billing rewrite',
+    manager_email: projectLeader,
+    start_date: addDays(today, -30),
+    end_date: addDays(today, 60),
+  });
+  await admin.addMetric(projectTeam.id, {
+    name: 'Scope change',
+    unit: '%',
+    decimals: 1,
+    direction: 'lower_is_better',
+    project_id: project.id,
+  });
+  await admin.addMetric(team.id, {
+    name: 'Portfolio scope change',
+    unit: '%',
+    decimals: 1,
+    direction: 'lower_is_better',
+  });
+
+  await signInAs(page, leader);
+  await page.goto(`/teams/${team.id}/metrics`);
+  const edit = page.getByRole('button', { name: 'Edit: Portfolio scope change', exact: true });
+  const row = page.getByRole('listitem').filter({ has: edit });
+  await edit.click();
+  await row.getByLabel(en.metrics.derivationKindLabel).selectOption({ label: en.metrics.kind_sum });
+
+  // The project's metric is offered under its label, the project first.
+  await row.getByRole('button', { name: en.metrics.addSource }).click();
+  await row.getByLabel('Source 1: team').selectOption({ label: projectTeamName });
+  await row.getByLabel('Source 1: metric').selectOption({ label: `${code} · Scope change` });
+  await row.getByRole('button', { name: en.metrics.save, exact: true }).click();
+  await expect(row.getByLabel(en.metrics.derivationKindLabel)).toBeHidden();
+
+  await expect(row).toContainText('Sum of 1 metric');
+  await row.getByText('Sum of 1 metric').click();
+  await expect(row.getByRole('listitem')).toHaveText([
+    `${code} · Scope change (${projectTeamName})`,
+  ]);
+
+  // The derivation was saved, not only shown.
+  await page.reload();
+  await expect(row).toContainText('Sum of 1 metric');
+});

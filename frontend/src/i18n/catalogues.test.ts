@@ -11,12 +11,13 @@ import { en } from './en';
 import { pl } from './pl';
 import { SUPPORTED_LANGUAGES } from './languages';
 
-type Catalogue = Record<string, Record<string, string>>;
+/** A catalogue section, whose entries are strings or, a level deeper, sections. */
+interface Catalogue {
+  [key: string]: string | Catalogue;
+}
 
 function flatKeys(catalogue: Catalogue): string[] {
-  return Object.entries(catalogue)
-    .flatMap(([section, entries]) => Object.keys(entries).map((key) => `${section}.${key}`))
-    .sort();
+  return Object.keys(flatValues(catalogue)).sort();
 }
 
 function missingFrom(from: string[], against: string[]): string[] {
@@ -70,10 +71,13 @@ describe('the catalogues', () => {
   });
 });
 
-function flatValues(catalogue: Catalogue): Record<string, string> {
+/** Every string of a catalogue under its dotted key, however deeply it is nested. */
+function flatValues(catalogue: Catalogue, prefix = ''): Record<string, string> {
   return Object.fromEntries(
-    Object.entries(catalogue).flatMap(([section, entries]) =>
-      Object.entries(entries).map(([key, value]) => [`${section}.${key}`, value]),
+    Object.entries(catalogue).flatMap(([key, value]) =>
+      typeof value === 'string'
+        ? [[`${prefix}${key}`, value]]
+        : Object.entries(flatValues(value, `${prefix}${key}.`)),
     ),
   );
 }

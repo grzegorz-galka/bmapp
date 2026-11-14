@@ -22,6 +22,14 @@ from app.models.metric import (
     MetricValue,
     MetricValueCorrection,
 )
+from app.models.project import (
+    PRODUCT_JIRA_URL_MAX_LENGTH,
+    PRODUCT_NAME_MAX_LENGTH,
+    PROJECT_CODE_MAX_LENGTH,
+    PROJECT_NAME_MAX_LENGTH,
+    Product,
+    Project,
+)
 from app.models.pulse import (
     PULSE_RATING_MAX,
     PULSE_RATING_MIN,
@@ -39,6 +47,10 @@ __all__ = [
     "METRIC_NAME_MAX_LENGTH",
     "METRIC_UNIT_MAX_LENGTH",
     "PERSON_NAME_MAX_LENGTH",
+    "PRODUCT_JIRA_URL_MAX_LENGTH",
+    "PRODUCT_NAME_MAX_LENGTH",
+    "PROJECT_CODE_MAX_LENGTH",
+    "PROJECT_NAME_MAX_LENGTH",
     "PULSE_RATING_MAX",
     "PULSE_RATING_MIN",
     "PULSE_TEXT_MAX_LENGTH",
@@ -55,6 +67,8 @@ __all__ = [
     "MetricValue",
     "MetricValueCorrection",
     "Problem",
+    "Product",
+    "Project",
     "PulseAnswer",
     "Task",
     "Team",

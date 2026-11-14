@@ -64,6 +64,7 @@ from app.services import names
 from app.services.item_lifecycle import is_overdue
 from app.services.meetings import propose_next, to_instant, to_wall_clock
 from app.services.metric_values import editable_meetings, owing_by_meeting
+from app.services.metrics import active_placement
 
 
 def _initials(words: Sequence[str], fallback: str) -> str:
@@ -293,11 +294,7 @@ def _active_metrics(session: Session, team_ids: Sequence[uuid.UUID]) -> dict[uui
     rows = session.execute(
         select(Placement.team_id, func.count())
         .join(Metric, Metric.id == Placement.metric_id)
-        .where(
-            Placement.team_id.in_(team_ids),
-            Placement.retired_on_board.is_(False),
-            Metric.retired.is_(False),
-        )
+        .where(Placement.team_id.in_(team_ids), active_placement())
         .group_by(Placement.team_id)
     )
     return {team_id: count for team_id, count in rows.tuples()}
@@ -323,8 +320,7 @@ def _recorded(session: Session, meeting_ids: Sequence[uuid.UUID]) -> dict[uuid.U
         .where(
             MetricValue.meeting_id.in_(meeting_ids),
             MetricValue.value.is_not(None),
-            Placement.retired_on_board.is_(False),
-            Metric.retired.is_(False),
+            active_placement(),
         )
         .group_by(MetricValue.meeting_id)
     )

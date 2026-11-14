@@ -108,10 +108,41 @@ export interface DerivationWrite {
   sources: DerivationSourceWrite[];
 }
 
+/**
+ * The project a metric belongs to, as every metric read carries it: enough to
+ * label the metric "PRJ-042 · Budget consumed" and to tell whether the
+ * project, and so the metric, is inactive.
+ */
+export interface MetricProject {
+  id: string;
+  code: string;
+  name: string;
+  active: boolean;
+}
+
+/** The product a metric belongs to, as every metric read carries it. */
+export interface MetricProduct {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+/** Whom a metric belongs to besides its board: a project, a product, or neither. */
+export interface MetricParent {
+  project: MetricProject | null;
+  product: MetricProduct | null;
+}
+
+/** A metric named in a derivation: its identifier, its own name, and its project or product. */
+export interface NamedMetric extends MetricParent {
+  id: string;
+  name: string;
+}
+
 /** One source as read, in order, with its team's and metric's names. */
 export interface DerivationSource {
   team: { id: string; name: string };
-  metric: { id: string; name: string };
+  metric: NamedMetric;
   /** A canonical decimal on a `weighted_mean`'s source, null on any other kind. */
   weight: string | null;
 }
@@ -121,7 +152,7 @@ export interface Derivation {
   sources: DerivationSource[];
 }
 
-export interface MetricDefinition {
+export interface MetricDefinition extends MetricParent {
   id: string;
   /** The board being read, for a global metric as for an own one. */
   team_id: string;
@@ -157,13 +188,20 @@ export interface MetricCreate {
   /** Placed last in this group, or last among the ungrouped when null. */
   group_id: string | null;
   owner_employee_id: string | null;
-  /** Hidden on the board as it arrives; shown when left out. */
+  /**
+   * Hidden on the board as it arrives. Left out, a project's or product's
+   * metric is hidden and any other is shown.
+   */
   hidden?: boolean;
   /**
    * None when left out. On a change: left out leaves it alone, null removes
-   * it, a derivation replaces it.
+   * it, a derivation replaces it. Never given to a project's or product's metric.
    */
   derivation?: DerivationWrite | null;
+  /** The team's project the metric belongs to; at most one of this and `product_id`. */
+  project_id?: string | null;
+  /** The team's product the metric belongs to. */
+  product_id?: string | null;
 }
 
 /** A global metric placed on a board. Its definition comes from the catalogue. */
@@ -188,10 +226,13 @@ export interface MetricCopy {
 }
 
 /**
- * A partial change: a key left out is left alone. The direction cannot change.
+ * A partial change: a key left out is left alone. The direction cannot change,
+ * nor the project or product a metric belongs to.
  * A new `group_id` puts the metric last in that group; `null` ungroups it.
  */
-export type MetricChange = Partial<Omit<MetricCreate, 'direction'>> & { retired?: boolean };
+export type MetricChange = Partial<
+  Omit<MetricCreate, 'direction' | 'project_id' | 'product_id'>
+> & { retired?: boolean };
 
 /**
  * A threshold version. A target value other than 0 takes `green_pct` and
@@ -261,7 +302,7 @@ export interface BoardMetric {
   sparkline: SparklinePoint[];
 }
 
-export interface MissingMetric {
+export interface MissingMetric extends MetricParent {
   metric_id: string;
   name: string;
   owner: Employee | null;
@@ -285,7 +326,7 @@ export interface DerivedReading {
 /** A source as deriving read it: where, and the number found, and for a delta the one before. */
 export interface DerivedSource extends DerivedReading {
   team: { id: string; name: string };
-  metric: { id: string; name: string };
+  metric: NamedMetric;
   previous: DerivedReading | null;
   /** The source's weight on a `weighted_mean`, null on any other kind. */
   weight: string | null;

@@ -9,6 +9,8 @@ from app.api.metric_groups import router as metric_groups_router
 from app.api.metric_values import router as metric_values_router
 from app.api.metrics import router as metrics_router
 from app.api.problems import router as problems_router
+from app.api.products import router as products_router
+from app.api.projects import router as projects_router
 from app.api.pulse import router as pulse_router
 from app.api.tasks import router as tasks_router
 from app.api.teams import router as teams_router
@@ -23,6 +25,8 @@ __all__ = [
     "metric_values_router",
     "metrics_router",
     "problems_router",
+    "products_router",
+    "projects_router",
     "pulse_router",
     "tasks_router",
     "teams_router",

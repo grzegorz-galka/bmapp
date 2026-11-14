@@ -50,6 +50,8 @@ export async function apiAs(request: APIRequestContext, email: string) {
         comment: null,
         reason,
       }),
+    addProject: (teamId: string, project: Record<string, unknown>) =>
+      call<{ id: string; code: string }>('post', `/teams/${teamId}/projects`, project),
     raiseTask: (teamId: string, task: Record<string, unknown>) =>
       call<{ id: string }>('post', `/teams/${teamId}/tasks`, task),
     /** The signed-in member's own pulse answer; texts left out are blank. */

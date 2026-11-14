@@ -9,6 +9,7 @@
  */
 import { useState, type DragEvent, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { metricLabel } from '../../api/metricLabel';
 import type { Metric, MetricGroup, MetricLayout } from '../../api/metrics';
 import type { Member } from '../../api/teams';
 import { describeFailure, describeFieldFailure, describeOtherFailure } from '../../i18n/apiErrors';
@@ -86,12 +87,13 @@ export function ArrangedMetrics({
       });
     }
     const place = locate(next, move.id);
+    const moved = byId.get(move.id);
     const siblings =
       move.to === null
         ? next.ungrouped
         : (next.groups.find((group) => group.id === move.to)?.metric_ids ?? []);
     return t('metrics.metricMoved', {
-      name: byId.get(move.id)?.name ?? '',
+      name: moved ? metricLabel(moved) : '',
       group: containerName(move.to),
       position: (place?.index ?? 0) + 1,
       count: siblings.length,
@@ -308,7 +310,7 @@ function MetricMoves({
   onMove: (move: Move) => void;
 }) {
   const { t } = useTranslation();
-  const name = metric.name;
+  const name = metricLabel(metric);
   const move = (to: Container, before: string | null) =>
     onMove({ kind: 'metric', id: metric.id, to, before });
   const elsewhere = [

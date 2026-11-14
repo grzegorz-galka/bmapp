@@ -17,6 +17,7 @@ export const SCREENS = [
   'teamMetrics',
   'board',
   'meetings',
+  'projectsAndProducts',
 ] as const;
 
 export type Screen = (typeof SCREENS)[number];

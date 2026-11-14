@@ -17,6 +17,8 @@ from app.api import (
     metric_values_router,
     metrics_router,
     problems_router,
+    products_router,
+    projects_router,
     pulse_router,
     tasks_router,
     teams_router,
@@ -77,6 +79,8 @@ app.include_router(metric_values_router)
 app.include_router(pulse_router)
 app.include_router(problems_router)
 app.include_router(tasks_router)
+app.include_router(projects_router)
+app.include_router(products_router)
 
 
 def _error_body(error: DomainError) -> dict[str, list[dict[str, str | None]]]:

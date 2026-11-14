@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import type { Meeting } from '../../api/meetings';
+import { metricLabel } from '../../api/metricLabel';
 import type { BoardMetric, MeetingBoard, MetricDefinition } from '../../api/metrics';
 import { describeFailure, isNotFound } from '../../i18n/apiErrors';
 import { useFormat } from '../../i18n/format';
 import { BackLink } from '../../components/BackLink';
-import { CalendarIcon, SettingsIcon } from '../../components/icons';
+import { CalendarIcon, FolderIcon, SettingsIcon } from '../../components/icons';
 import { useHere } from '../../components/origin';
 import { useAuth } from '../auth/AuthProvider';
 import { useIsAdmin } from '../auth/useCurrentUser';
@@ -151,7 +152,7 @@ export function BoardPage() {
   // Read from the board's own list, so a team that has opened no meeting can link one too.
   const linkable = (boardMetrics.data ?? [])
     .filter((metric) => !metric.retired)
-    .map((metric) => ({ id: metric.id, name: metric.name }));
+    .map((metric) => ({ id: metric.id, name: metricLabel(metric) }));
 
   const lists = (
     <ItemLists
@@ -217,6 +218,10 @@ export function BoardPage() {
           <Link className={controls.link} to={`${teamPath}/metrics`} state={here}>
             <SettingsIcon />
             {t('board.settingsLink')}
+          </Link>
+          <Link className={controls.link} to={`${teamPath}/projects-and-products`} state={here}>
+            <FolderIcon />
+            {t('projectsAndProducts.list.heading')}
           </Link>
         </nav>
       </header>
@@ -525,12 +530,13 @@ function Tile({
   const format = useFormat();
   const { metric } = entry;
   const show = (value: string | null) => format.metricValue(value, metric.decimals, metric.unit);
+  const label = metricLabel(metric);
 
   return (
     <li className={styles.tile} data-status={entry.status}>
       <div className={styles.tileHead}>
         <div className={styles.tileTitle}>
-          <h3 className={styles.tileName}>{metric.name}</h3>
+          <h3 className={styles.tileName}>{label}</h3>
           {metric.scope === 'global' && <GlobalMark />}
         </div>
         <TileBadge entry={entry} />
@@ -551,11 +557,11 @@ function Tile({
         />
       </p>
       {entry.comment && <p className={styles.tileComment}>{entry.comment}</p>}
-      <Sparkline name={metric.name} points={entry.sparkline} />
+      <Sparkline name={label} points={entry.sparkline} />
       <button
         type="button"
         className={controls.button}
-        aria-label={t('board.detailsLabel', { name: metric.name })}
+        aria-label={t('board.detailsLabel', { name: label })}
         onClick={() => onDetail(metric)}
       >
         {t('board.details')}

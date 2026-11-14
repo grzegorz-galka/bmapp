@@ -145,7 +145,11 @@ class DerivationWrite(BaseModel):
 
 
 class MetricCreate(_MetricFields):
-    """A request to add a metric to a board, last in its group or among the ungrouped."""
+    """A request to add a metric to a board, last in its group or among the ungrouped.
+
+    With `project_id` or `product_id`, the metric belongs to that project or
+    product of the team, and is still one of the board's own metrics.
+    """
 
     name: str
     unit: str = ""
@@ -154,9 +158,30 @@ class MetricCreate(_MetricFields):
     group_id: uuid.UUID | None = None
     owner_employee_id: uuid.UUID | None = None
     #: Hidden on the board from the start: recorded and counted, with no tile.
-    hidden: bool = False
+    #: Left out, a project's or product's metric is hidden and any other shown.
+    hidden: bool | None = None
     #: How the number is worked out, or none: it is typed in.
     derivation: DerivationWrite | None = None
+    #: Declared before `project_id`, so that its validator sees both.
+    product_id: uuid.UUID | None = None
+    project_id: uuid.UUID | None = None
+
+    @field_validator("project_id")
+    @classmethod
+    def not_with_a_product(cls, value: uuid.UUID | None, info: ValidationInfo) -> uuid.UUID | None:
+        if value is not None and info.data.get("product_id") is not None:
+            raise PydanticCustomError(
+                "metric.project_and_product",
+                "A metric belongs to a project or a product, not both.",
+            )
+        return value
+
+    @property
+    def hidden_on_arrival(self) -> bool:
+        """Whether the metric arrives hidden: as asked, else hidden only with a parent."""
+        if self.hidden is not None:
+            return self.hidden
+        return self.project_id is not None or self.product_id is not None
 
 
 class MetricChange(_MetricFields):
@@ -513,13 +538,47 @@ class NamedRead(BaseModel):
     name: str
 
 
+class MetricProjectRead(BaseModel):
+    """The project a metric belongs to: enough to label it and to tell it is inactive."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    code: str
+    name: str
+    active: bool
+
+
+class MetricProductRead(BaseModel):
+    """The product a metric belongs to: enough to label it and to tell it is inactive."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    active: bool
+
+
+class _MetricParentRead(BaseModel):
+    """The project or product a metric belongs to besides its board, or neither."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    project: MetricProjectRead | None
+    product: MetricProductRead | None
+
+
+class NamedMetricRead(NamedRead, _MetricParentRead):
+    """A metric named in a derivation, with its project or product to label it."""
+
+
 class DerivationSourceRead(BaseModel):
     """One source of a derivation as read: the team whose board it is on, and the metric."""
 
     model_config = ConfigDict(from_attributes=True)
 
     team: NamedRead
-    metric: NamedRead
+    metric: NamedMetricRead
     #: A weighted mean's weight for this source; none for every other kind.
     weight: ExactDecimal | None = None
 
@@ -533,12 +592,13 @@ class DerivationRead(BaseModel):
     sources: list[DerivationSourceRead]
 
 
-class MetricDefinitionRead(BaseModel):
+class MetricDefinitionRead(_MetricParentRead):
     """A metric as one board has it, without any threshold.
 
     Read from the metric's placement on that board: `team_id` is the board
     read, for a global metric too, and `retired` says whether that board
-    shows it - retired there, or retired in the catalogue.
+    shows it - retired there, retired in the catalogue, or belonging to an
+    inactive project or product.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -601,7 +661,7 @@ class DerivedSource(DerivedReading):
     """One source as a derived number used it: where it was read, and its number."""
 
     team: NamedRead
-    metric: NamedRead
+    metric: NamedMetricRead
     #: For a delta, the number at the source team's previous meeting; else none.
     previous: DerivedReading | None
     #: For a weighted mean, the weight this source's number was given; else none.
@@ -666,8 +726,8 @@ class BoardMetric(BaseModel):
     sparkline: list[SparklinePoint]
 
 
-class MissingMetric(BaseModel):
-    """An active metric with no number yet at a meeting."""
+class MissingMetric(_MetricParentRead):
+    """An active metric with no number yet at a meeting, labelled with its project or product."""
 
     metric_id: uuid.UUID
     name: str

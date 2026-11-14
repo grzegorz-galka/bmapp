@@ -1,0 +1,79 @@
+/*
+ * The projects and products page: two lists of the shape the members page
+ * uses (teams.module.css), each under its own heading and add action.
+ * Buttons come from styles/controls.module.css.
+ */
+
+.section {
+  margin-bottom: var(--sp-6);
+}
+
+.sectionHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-4);
+  margin-bottom: var(--sp-3);
+}
+
+.sectionHeading {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 600;
+}
+
+.empty {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.marks {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-left: var(--sp-2);
+  vertical-align: middle;
+}
+
+.mark {
+  display: inline-block;
+  padding: 1px var(--sp-2);
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-pill);
+  color: var(--ink-2);
+  font: 500 var(--fs-2xs) var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pastEnd {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.code {
+  font-family: var(--font-mono);
+}
+
+.dialogBody {
+  padding: var(--sp-5);
+}
+
+.dialogHeading {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
