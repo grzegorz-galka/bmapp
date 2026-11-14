@@ -8,7 +8,7 @@ Records who belongs to which team and who leads it. An employee is a person iden
 
 The system SHALL identify an employee by email address. An email SHALL be stored with leading and trailing whitespace removed and in lower case, and two emails SHALL denote the same employee when they are equal after that normalisation. An email SHALL be at most 254 characters once trimmed, SHALL contain exactly one `@` with at least one character before it, SHALL have a domain after it that contains a `.` that is neither its first nor its last character, and SHALL contain no whitespace.
 
-An employee SHALL be recorded the first time their email is assigned to a team, either as a new team's leader or as an added member, and SHALL be reused on every later assignment. An employee SHALL NOT be deleted when they leave a team or belong to no team. Each employee SHALL be assigned an identifier that is unique and stable for the life of the record.
+An employee SHALL be recorded the first time their email is assigned to a team, either as a new team's leader or as an added member, or is named as a project's manager or a product's owner, and SHALL be reused on every later assignment or naming. Being named as a manager or owner SHALL NOT make the employee a member of any team. An employee SHALL NOT be deleted when they leave a team or belong to no team. Each employee SHALL be assigned an identifier that is unique and stable for the life of the record.
 
 The rejection codes are `employee_email.blank` for an email that is empty or whitespace, `employee_email.too_long` for one over the maximum length, and `employee_email.invalid` for one that breaks any other rule above. The offending field is whichever field carried the email.
 
@@ -36,6 +36,11 @@ The rejection codes are `employee_email.blank` for an email that is empty or whi
 
 - **WHEN** an email with no `@`, more than one `@`, nothing before the `@`, no `.` inside the domain, or whitespace inside it is submitted for assignment
 - **THEN** the submission is rejected with the code `employee_email.invalid` and nothing is recorded
+
+#### Scenario: A project manager is recorded on being named
+
+- **WHEN** `ewa@example.com`, never recorded, is named the manager of a project, and is later added to a team as `Ewa@Example.com`
+- **THEN** the employee is recorded when named, belongs to no team until added, and is added under the same identifier
 
 #### Scenario: Leaving a team does not delete the employee
 
